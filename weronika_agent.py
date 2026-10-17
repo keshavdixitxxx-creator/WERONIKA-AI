@@ -967,8 +967,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _html(self) -> None:
         for candidate in (
-            os.path.join(HERE, "weronika.html"),
             os.path.join(HERE, "public", "weronika.html"),
+            os.path.join(HERE, "weronika.html"),
             os.path.join(HERE, "..", "public", "weronika.html"),
         ):
             if os.path.exists(candidate):
@@ -1467,7 +1467,7 @@ class Handler(BaseHTTPRequestHandler):
         name = self.path.split("?", 1)[0].lstrip("/")
         if name not in {"weronika-commands.js", "weronika-workspace.js", "technical-viewer.js", "technical-models.js"}:
             return False
-        for base in (HERE, os.path.join(HERE, "public"), os.path.join(HERE, "..", "public")):
+        for base in (os.path.join(HERE, "public"), HERE, os.path.join(HERE, "..", "public")):
             path = os.path.join(base, name)
             if os.path.isfile(path):
                 with open(path, "rb") as fh:
