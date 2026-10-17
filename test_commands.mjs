@@ -3,7 +3,7 @@ import {
   parseBlueprintCommand,
   sanitizeAddressName,
   DEFAULT_ADDRESS_NAME,
-} from "../public/weronika-commands.js";
+} from "./public/weronika-commands.js";
 
 const cases = [
   ["open blueprint of a car", "car", false],

@@ -5,6 +5,7 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import type {} from "nitro/vite";
 
 export default defineConfig({
   tanstackStart: {
@@ -13,6 +14,10 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    nitro: {
+      // This root-level file is from a different app layout; TanStack Start uses src/server.ts.
+      serverEntry: false,
+    },
     server: {
       host: "0.0.0.0",
       allowedHosts: true,

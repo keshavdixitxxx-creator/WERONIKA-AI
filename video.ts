@@ -29,9 +29,10 @@ export const Route = createFileRoute("/api/public/video")({
             response_format: { type: "video", resolution: "720p", duration: "6s" },
           }),
         });
-        const json = (await res.json().catch(() => null)) as
-          | { id?: string; message?: string }
-          | null;
+        const json = (await res.json().catch(() => null)) as {
+          id?: string;
+          message?: string;
+        } | null;
         if (!res.ok || !json?.id) {
           return Response.json(
             { error: json?.message ?? "Video generation failed" },
@@ -53,9 +54,11 @@ export const Route = createFileRoute("/api/public/video")({
         const jobRes = await fetch(`${GATEWAY}/videos/${id}`, {
           headers: { Authorization: `Bearer ${apiKey}` },
         });
-        const job = (await jobRes.json().catch(() => null)) as
-          | { status?: string; progress?: number; error?: { message?: string } }
-          | null;
+        const job = (await jobRes.json().catch(() => null)) as {
+          status?: string;
+          progress?: number;
+          error?: { message?: string };
+        } | null;
         if (!jobRes.ok || !job) {
           return Response.json({ error: "Could not check the video" }, { status: 502 });
         }
@@ -66,7 +69,10 @@ export const Route = createFileRoute("/api/public/video")({
           );
         }
         if (job.status !== "completed") {
-          return Response.json({ status: job.status ?? "in_progress", progress: job.progress ?? 0 });
+          return Response.json({
+            status: job.status ?? "in_progress",
+            progress: job.progress ?? 0,
+          });
         }
 
         const contentRes = await fetch(`${GATEWAY}/videos/${id}/content`, {
@@ -80,7 +86,10 @@ export const Route = createFileRoute("/api/public/video")({
         for (let i = 0; i < bytes.length; i += 0x8000) {
           binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         }
-        return Response.json({ status: "completed", video: `data:video/mp4;base64,${btoa(binary)}` });
+        return Response.json({
+          status: "completed",
+          video: `data:video/mp4;base64,${btoa(binary)}`,
+        });
       },
     },
   },

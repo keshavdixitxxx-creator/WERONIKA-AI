@@ -55,7 +55,8 @@ export async function relayJson(
       headers: { "Content-Type": last.headers.get("content-type") ?? "application/json" },
     });
   }
-  const message = lastError instanceof Error ? lastError.message : "Could not reach the online brain";
+  const message =
+    lastError instanceof Error ? lastError.message : "Could not reach the online brain";
   return Response.json({ error: message }, { status: 502 });
 }
 

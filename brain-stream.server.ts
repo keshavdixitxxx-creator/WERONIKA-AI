@@ -7,7 +7,8 @@ export const DEFAULT_ADDRESS_NAME = "Commander";
 
 const LANGS = new Set(["en", "hi", "es", "fr", "de", "pt", "ru", "ar", "ja", "ko", "zh"]);
 const TRANSIENT_STATUSES = new Set([408, 429, 502, 503, 504]);
-const SECRET_RE = /(?:sk-[A-Za-z0-9_-]{8,}|lovable_[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{8,})/gi;
+const SECRET_RE =
+  /(?:sk-[A-Za-z0-9_-]{8,}|lovable_[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{8,})/gi;
 
 export type HistoryItem = { role: "user" | "assistant"; content: string };
 
@@ -29,6 +30,7 @@ export function sanitizeHistory(raw: unknown): HistoryItem[] {
 export function sanitizeAddressName(raw: unknown): string {
   if (typeof raw !== "string") return DEFAULT_ADDRESS_NAME;
   const clean = raw
+    // eslint-disable-next-line no-control-regex -- Strip C0 control characters from display names.
     .replace(/[\u0000-\u001f]/g, "")
     .replace(/[<>{}]/g, "")
     .replace(/\s+/g, " ")
@@ -160,13 +162,20 @@ export async function readResponseDeltas(
         continue;
       }
       const doneText = event["text"];
-      if (!sawDelta && type === "response.output_text.done" && typeof doneText === "string" && doneText) {
+      if (
+        !sawDelta &&
+        type === "response.output_text.done" &&
+        typeof doneText === "string" &&
+        doneText
+      ) {
         sawDelta = true;
         onDelta(doneText);
         continue;
       }
       const choices = event["choices"];
-      const choice = Array.isArray(choices) ? (choices[0] as { delta?: { content?: string } } | undefined) : undefined;
+      const choice = Array.isArray(choices)
+        ? (choices[0] as { delta?: { content?: string } } | undefined)
+        : undefined;
       const chatPiece = choice?.delta?.content;
       if (typeof chatPiece === "string" && chatPiece) {
         sawDelta = true;

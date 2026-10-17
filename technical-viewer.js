@@ -105,7 +105,8 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
     const key = models[kind] ? kind : "machine";
     active = models[key];
     requestedLabel = label || active.title;
-    fallback = Boolean(isFallback) || key === "machine" && requestedLabel.toLowerCase() !== "machine";
+    fallback =
+      Boolean(isFallback) || (key === "machine" && requestedLabel.toLowerCase() !== "machine");
     for (const model of Object.values(models)) model.group.visible = model === active;
     root.visible = true;
     rig.rotation.set(0.08, 0.62, 0);

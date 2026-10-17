@@ -21,6 +21,9 @@ download/
 public/Weronika-AI.zip
 /Weronika-AI.zip
 
+# User-generated code workspace files stay local
+/workspace/weronika-site/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

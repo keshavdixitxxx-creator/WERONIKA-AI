@@ -123,7 +123,8 @@ async function completeWithGateway(
     } catch (error) {
       lastError = error;
       const statusCode = (error as { statusCode?: number }).statusCode;
-      if (statusCode === 401 || statusCode === 402 || statusCode === 403 || statusCode === 429) throw error;
+      if (statusCode === 401 || statusCode === 402 || statusCode === 403 || statusCode === 429)
+        throw error;
     }
   }
   throw lastError instanceof Error ? lastError : new Error("The AI brain failed to respond");
@@ -183,9 +184,13 @@ async function relayHosted(body: unknown, signal: AbortSignal) {
   }
   if (last) {
     const raw = await last.text();
-    return jsonError(raw || "Could not reach the online Lovable brain", last.status === 404 ? 502 : last.status);
+    return jsonError(
+      raw || "Could not reach the online Lovable brain",
+      last.status === 404 ? 502 : last.status,
+    );
   }
-  const messageText = lastError instanceof Error ? lastError.message : "Could not reach the online Lovable brain";
+  const messageText =
+    lastError instanceof Error ? lastError.message : "Could not reach the online Lovable brain";
   return jsonError(messageText, 502);
 }
 
@@ -225,9 +230,16 @@ export const Route = createFileRoute("/api/public/brain")({
           return streamTextReply(reply, CHAT_MODELS[0]);
         } catch (gatewayError) {
           const statusCode = (gatewayError as { statusCode?: number }).statusCode;
-          if (statusCode === 401 || statusCode === 402 || statusCode === 403 || statusCode === 429) {
+          if (
+            statusCode === 401 ||
+            statusCode === 402 ||
+            statusCode === 403 ||
+            statusCode === 429
+          ) {
             const messageText =
-              gatewayError instanceof Error ? gatewayError.message : "The AI brain failed to respond";
+              gatewayError instanceof Error
+                ? gatewayError.message
+                : "The AI brain failed to respond";
             return jsonError(messageText, statusCode);
           }
         }
@@ -241,7 +253,11 @@ export const Route = createFileRoute("/api/public/brain")({
           }
           if (!upstream.ok) {
             const raw = await upstream.text();
-            console.error("brain error", upstream.status, sanitizeGatewayMessage(raw, upstream.status));
+            console.error(
+              "brain error",
+              upstream.status,
+              sanitizeGatewayMessage(raw, upstream.status),
+            );
             return jsonError(raw || "The AI brain failed to respond", upstream.status);
           }
           if (!upstream.body) return jsonError("The brain returned an empty reply", 502);
@@ -262,7 +278,8 @@ export const Route = createFileRoute("/api/public/brain")({
                     send(sseEvent({ type: "error", error }));
                   },
                 );
-                if (!sent) send(sseEvent({ type: "error", error: "The brain returned an empty reply" }));
+                if (!sent)
+                  send(sseEvent({ type: "error", error: "The brain returned an empty reply" }));
                 send(sseEvent({ type: "done" }));
               } catch (error) {
                 const messageText =
@@ -286,7 +303,8 @@ export const Route = createFileRoute("/api/public/brain")({
             }),
           );
         } catch (error) {
-          const messageText = error instanceof Error ? error.message : "The AI brain failed to respond";
+          const messageText =
+            error instanceof Error ? error.message : "The AI brain failed to respond";
           console.error("brain error", 502, sanitizeGatewayMessage(messageText));
           return jsonError(messageText, 502);
         }

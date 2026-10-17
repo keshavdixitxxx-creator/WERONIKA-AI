@@ -3188,14 +3188,14 @@
       if (lower.includes('zoom') || lower.includes('reset') || lower.includes('camera') || lower.includes('gesture') || lower.includes('scroll') || lower.includes('back') || lower.includes('forward') || lower.includes('refresh')) return 'control';
       if (lower.includes('hello') || lower.includes('hi') || lower.includes('who are you') || lower.includes('your name')) return 'identity';
       if (lower.includes('joke') || lower.includes('tell me') || lower.includes('how are you') || lower.includes('time') || lower.includes('date')) return 'conversation';
-      
+
       // Detect question words for information seeking
-      if (lower.includes('how many') || lower.includes('how much') || lower.includes('who is') || lower.includes('what is') || 
+      if (lower.includes('how many') || lower.includes('how much') || lower.includes('who is') || lower.includes('what is') ||
           lower.includes('when did') || lower.includes('where is') || lower.includes('why is') || lower.includes('how do') ||
           lower.match(/^(what|who|when|where|how|why|which|whose)\s+/)) {
         return 'information';
       }
-      
+
       return 'general';
     }
 
@@ -3217,7 +3217,7 @@
       if (special !== null) return special;
 
 
-      
+
       // Real actions first (explicit commands only), then everything else goes
       // to the AI brain so she can genuinely converse on any topic.
       if (/^(web\s+)?search\s+(for\s+)?/i.test(message.trim())) {
@@ -3247,7 +3247,7 @@
       if (bestAnswer) {
         return `[${bestAnswer.source}] ${bestAnswer.answer}`;
       }
-      
+
       // If no instant answer is available, perform web search and show results
       setStatus("Searching the web for results...");
       return searchWeb(message);
@@ -3355,7 +3355,7 @@
       if (bestAnswer) {
         return `[${bestAnswer.source}] ${bestAnswer.answer}`;
       }
-      
+
       // If no instant answer is available, perform web search and show results
       setStatus("Searching the web for results...");
       return searchWeb(command);

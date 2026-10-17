@@ -62,10 +62,7 @@ export const Route = createFileRoute("/api/public/song")({
           });
           if (!audioRes.ok) {
             const text = await audioRes.text().catch(() => "");
-            return Response.json(
-              { error: text || "Singing failed" },
-              { status: audioRes.status },
-            );
+            return Response.json({ error: text || "Singing failed" }, { status: audioRes.status });
           }
           const bytes = new Uint8Array(await audioRes.arrayBuffer());
           let binary = "";

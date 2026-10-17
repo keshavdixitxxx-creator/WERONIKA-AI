@@ -16,7 +16,16 @@ const KNOWN_OBJECTS = [
     kind: "bike",
     label: "Motorcycle",
     hindi: "बाइक",
-    words: ["bike", "bicycle", "motorcycle", "motorbike", "scooter", "बाइक", "साइकिल", "मोटरसाइकिल"],
+    words: [
+      "bike",
+      "bicycle",
+      "motorcycle",
+      "motorbike",
+      "scooter",
+      "बाइक",
+      "साइकिल",
+      "मोटरसाइकिल",
+    ],
   },
   {
     kind: "armor",
@@ -213,7 +222,11 @@ export function parseExplodeCommand(text) {
     .replace(/\s+/g, " ")
     .trim();
   if (!folded) return null;
-  if (/\b(assemble|collapse|put (it|them|the parts) together|join (it|the parts)|restore parts)\b/.test(folded)) {
+  if (
+    /\b(assemble|collapse|put (it|them|the parts) together|join (it|the parts)|restore parts)\b/.test(
+      folded,
+    )
+  ) {
     return "assemble";
   }
   if (/(वापस जोड़|जोड़ दो|असेंबल)/.test(text)) return "assemble";
