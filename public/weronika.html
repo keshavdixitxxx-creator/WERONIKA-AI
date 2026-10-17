@@ -4183,11 +4183,31 @@
     }
 
 
+    function creatorIdentityReply(message) {
+      const text = String(message || "").trim();
+      const creatorQuestion =
+        /\bwho\s+(?:(?:has|did)\s+)?(?:mad(?:e)?|make|built|build|created?|developed?|designed?|programmed?|coded?)\s+(?:you|weronika|this\s+(?:assistant|ai|app))\b/i.test(text) ||
+        /\bwho\s+(?:is|was)\s+(?:your\s+)?(?:creator|maker|developer|designer|programmer)\b/i.test(text) ||
+        /\b(?:are|were)\s+you\s+(?:mad(?:e)?|built|created?|developed?|designed?|programmed?|coded?)\s+by\b/i.test(text) ||
+        /\b(?:google|gemini|openai)\s+(?:mad(?:e)?|built|created?|developed?)\s+you\b/i.test(text) ||
+        /\b(?:did|does)\s+(?:google|gemini|openai)\s+(?:make|build|create|develop)\s+you\b/i.test(text) ||
+        /\b(?:is|was)\s+(?:google|gemini|openai)\s+your\s+(?:creator|maker|developer)\b/i.test(text) ||
+        /\bwho\s+are\s+you\b|\bwhat(?:'s|\s+is)\s+your\s+name\b/i.test(text) ||
+        /(?:किसने|किसके\s+द्वारा).{0,35}(?:बनाया|बनाई|निर्मित|तैयार)|(?:आपको|तुम्हें|तुमको).{0,25}किसने.{0,20}(?:बनाया|बनाई)|Google.{0,25}(?:बनाया|बनाई)/i.test(text) ||
+        /\b(?:kisne|kis\s+ne)\b.{0,35}\b(?:banaya|banai|banayi)\b|\bgoogle\b.{0,25}\b(?:banaya|banai|banayi)\b/i.test(text);
+      if (!creatorQuestion) return null;
+      if (/[\u0900-\u097F]/.test(text)) return "मुझे Keshav Dixit Sir ने बनाया है—Google ने नहीं। मैं Weronika AI हूँ।";
+      if (/\b(?:kisne|kis\s+ne|banaya|banai|banayi|aapko|tumhe|tumko)\b/i.test(text)) {
+        return "Mujhe Keshav Dixit Sir ne banaya hai—Google ne nahi. Main Weronika AI hoon.";
+      }
+      return "I’m Weronika AI, built by Keshav Dixit Sir—not Google.";
+    }
+
     function detectUserIntent(message) {
       const lower = (message || '').toLowerCase();
+      if (creatorIdentityReply(message) || lower.includes('hello') || lower.includes('hi') || lower.includes('who are you') || lower.includes('your name')) return 'identity';
       if (lower.includes('open') || lower.includes('search') || lower.includes('google') || lower.includes('whatsapp') || lower.includes('youtube')) return 'navigation';
       if (lower.includes('zoom') || lower.includes('reset') || lower.includes('camera') || lower.includes('gesture') || lower.includes('scroll') || lower.includes('back') || lower.includes('forward') || lower.includes('refresh')) return 'control';
-      if (lower.includes('hello') || lower.includes('hi') || lower.includes('who are you') || lower.includes('your name')) return 'identity';
       if (lower.includes('joke') || lower.includes('tell me') || lower.includes('how are you') || lower.includes('time') || lower.includes('date')) return 'conversation';
 
       // Detect question words for information seeking
@@ -4204,7 +4224,7 @@
       const intent = detectUserIntent(message);
       if (intent === 'navigation') return 'I am interpreting this as a navigation request and can open sites or search the web for you.';
       if (intent === 'control') return 'I am recognizing this as a control request and can adjust the orb, camera, or gesture view.';
-      if (intent === 'identity') return 'I am recognizing a greeting or identity request. I am Weronika AI, your responsive orb assistant.';
+      if (intent === 'identity') return creatorIdentityReply(message) || 'I am Weronika AI, built by Keshav Dixit Sir—not Google.';
       if (intent === 'conversation') return 'I am interpreting this as a conversational request and can respond naturally with context-aware help.';
       if (intent === 'information') return 'I am searching for information to answer your question using multiple sources.';
       return 'I am using intent recognition to understand your goal and respond more naturally.';
@@ -4547,6 +4567,9 @@
       const lower = (message || '').toLowerCase();
       if (!lower) return "I'm listening.";
 
+      const identityReply = creatorIdentityReply(message);
+      if (identityReply) return identityReply;
+
       const privateRequest = detectPrivateAppRequest(message);
       if (privateRequest) return await answerPrivateAppRequest(privateRequest, languageOverride);
 
@@ -4596,6 +4619,8 @@
 
     async function parseVoiceCommand(command, languageOverride) {
       const lower = command.toLowerCase();
+      const identityReply = creatorIdentityReply(command);
+      if (identityReply) return identityReply;
       const special = await handleSpecialCommands(command, languageOverride);
       if (special !== null) return special;
 
