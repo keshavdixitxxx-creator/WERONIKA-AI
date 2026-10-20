@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "npm run test:js && npm run test:py",
+    "test:js": "node scripts/run-tests.mjs",
+    "test:py": "python -m unittest discover -s weronika-py/tests -p \"test_*.py\"",
+    "sync:standalone": "node scripts/sync-standalone.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
