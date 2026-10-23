@@ -145,10 +145,41 @@ class LocalAppBrowser:
             except Exception:
                 self._context = None
                 self._pages.clear()
+        # Same-browser CDP mode: if user started Chrome with --remote-debugging-port=9222, connect to it
+        cdp_endpoint = (__import__("os").environ.get("WERONIKA_CDP_ENDPOINT") or __import__("os").environ.get("WERONIKA_SAME_BROWSER_ENDPOINT") or "")
+        same_browser = __import__("os").environ.get("WERONIKA_SAME_BROWSER") in ("1","true","yes") or bool(cdp_endpoint)
+        if same_browser:
+            try:
+                from playwright.sync_api import sync_playwright  # noqa: PLC0415
+                import requests as _req
+                ep = cdp_endpoint or "http://127.0.0.1:9222"
+                try:
+                    # quick probe
+                    _req.get(ep + "/json/version", timeout=1.5)
+                except Exception:
+                    pass
+                self._playwright = sync_playwright().start()
+                # try CDP
+                try:
+                    browser = self._playwright.chromium.connect_over_cdp(ep)
+                    self._context = browser.contexts[0] if browser.contexts else browser.new_context(viewport={"width": 1440, "height": 960})
+                    self._context.set_default_timeout(8_000)
+                    self._context.set_default_navigation_timeout(60_000)
+                    return self._context
+                except Exception as _cdp_err:
+                    try:
+                        self._playwright.stop()
+                    except Exception:
+                        pass
+                    self._playwright = None
+                    # fall through to persistent profile fallback; frontend same-tab also works
+                    print(f"[weronika] CDP connect failed ({_cdp_err}), using fallback profile. For same-browser direct control, start Chrome with --remote-debugging-port=9222")
+            except Exception:
+                pass
         try:
             from playwright.sync_api import sync_playwright  # noqa: PLC0415
         except Exception as exc:  # noqa: BLE001
-            raise AppAutomationError("Signed-in app automation needs Playwright. Run start.bat again so it can install Playwright and Chromium.") from exc
+            raise AppAutomationError("Signed-in app automation needs Playwright. Install it with: pip install playwright && python -m playwright install chromium. Or use same-browser mode: just keep your normal Chrome open — Weronika will open new tabs there (no separate install needed).") from exc
         os.makedirs(self.profile_dir, exist_ok=True)
         self._playwright = sync_playwright().start()
         try:

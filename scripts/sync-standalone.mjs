@@ -21,6 +21,10 @@ const STATIC_FILES = [
   "weronika-media-intent.js",
   "technical-models.js",
   "technical-viewer.js",
+  "weronika-google.js",
+  "weronika-memory.js",
+  "weronika-same-browser.js",
+  "weronika-automation.js",
   "favicon.ico",
   "robots.txt",
 ];

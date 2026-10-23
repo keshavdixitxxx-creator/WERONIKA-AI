@@ -848,12 +848,47 @@
         </div>
       </div>
 
+      
+      <div class="settings-section" id="googlePanel">
+        <div class="settings-section-title">Google · Gmail + Calendar + Drive</div>
+        <div class="settings-status" id="googleStatus">Checking Google connection…</div>
+        <div class="settings-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button type="button" class="hud-btn settings-mini-btn" id="googleConnectBtn">CONNECT GOOGLE</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="googleDisconnectBtn">DISCONNECT</button>
+        </div>
+        <div style="margin-top:10px;border-top:1px solid rgba(255,170,48,.15);padding-top:10px">
+          <label class="settings-label" for="googleClientId">Google OAuth Client ID</label>
+          <input id="googleClientId" class="settings-input" placeholder="xxx.apps.googleusercontent.com" autocomplete="off">
+          <label class="settings-label" for="googleClientSecret">Client Secret</label>
+          <input id="googleClientSecret" class="settings-input" type="password" placeholder="GOCSPX-..." autocomplete="off">
+          <label class="settings-label" for="googleRedirectUri">Redirect URI (optional)</label>
+          <input id="googleRedirectUri" class="settings-input" placeholder="http://127.0.0.1:8765/api/google/callback" autocomplete="off">
+          <button type="button" class="hud-btn settings-mini-btn" id="googleSaveConfigBtn" style="margin-top:6px">SAVE GOOGLE CONFIG</button>
+          <div class="settings-hint" style="margin-top:6px">Create in Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID (Web app). Add redirect: http://127.0.0.1:8765/api/google/callback — enable Gmail, Calendar, Drive APIs. Paste ID/Secret here, save, then Connect.</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+          <button type="button" class="hud-btn settings-mini-btn" id="googleGmailTest">✉️ CHECK GMAIL</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="googleCalPlan">📅 PLAN MY DAY</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="googleCalRecognize">👤 RECOGNIZE ME</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="googleDriveList">📁 DRIVE FILES</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="googleDriveOrganize">🗂️ ORGANIZE DRIVE</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="googleDriveStorage">💾 STORAGE</button>
+        </div>
+        <div class="settings-hint">Weronika reads/writes via official Google APIs after you connect. Day planner uses Calendar, Drive organizer groups by type and moves files, Gmail lets you list/read/send with confirmation. Your chat history persists across shutdowns.</div>
+      </div>
+
+      <div class="settings-section" id="sameBrowserPanel">
+        <div class="settings-section-title">Same-browser automation</div>
+        <div class="settings-status" id="sameBrowserStatus">Same-browser mode: automation runs in the tab where Weronika is open — no separate Chrome test browser. For full tab control, run Chrome with --remote-debugging-port=9222.</div>
+        <div class="settings-hint">Try: “open telegram and send message to boss that I am on leave today and send him”, “open youtube and play Barsaat”, “play Sahiba on Spotify”, “play a video of Techno Gamer playing GTA 5 and comment that it is great”. Instagram/WhatsApp/Telegram work for any contact. Private reading uses Ollama when available.</div>
+      </div>
+
       <div class="settings-section">
         <div class="settings-section-title">Data</div>
         <button type="button" class="hud-btn settings-mini-btn" id="clearChatBtn" style="width:100%;">CLEAR CHAT HISTORY</button>
       </div>
 
-      <div class="settings-hint">For signed-in apps, Weronika opens a separate local Chromium profile; sign in there yourself (no app API or OAuth). Try “read my Gmail inbox”, “summarize my WhatsApp messages”, “play [title] on Spotify”, or “check my Google Calendar”. For pasted private text, prefix it with “Private:”. Private app text never falls back to cloud AI. Sending, event saves, and call answering need a final confirmation.</div>
+      <div class="settings-hint">For signed-in apps, Weronika works in your current browser profile (same-browser). For full tab control, start Chrome with --remote-debugging-port=9222. Fallback still works with a local Chromium profile. Try “read my Gmail inbox”, “summarize my WhatsApp messages”, “play [title] on Spotify”, or “check my Google Calendar”. For pasted private text, prefix it with “Private:”. Private app text never falls back to cloud AI. Sending, event saves, and call answering need a final confirmation.</div>
     </div>
   </div>
 
@@ -5458,7 +5493,7 @@
         const privateBrain = data.ollama ? "local Ollama ready" : "local Ollama offline; private content stays local";
         agentFeatureStatus.textContent = `Connected to this PC. Desktop actions: launch apps, type, move and click. Private brain: ${privateBrain}. Signed-in app browser: ${apps.state || browser.state || "unknown"}. Upgrades: ${upgrades.state || "available"}; desktop WhatsApp calls: ${calls.state || "unknown"}; Telegram/WhatsApp Web calls use the local browser.`;
       } catch (error) {
-        agentFeatureStatus.textContent = "Local PC agent offline. Start it on this PC (Windows: run start.bat) and open the local Weronika app at http://127.0.0.1:8765/. The hosted preview cannot control your PC.";
+        agentFeatureStatus.textContent = "Local PC agent offline. Start it on this PC (run: python start.py or python weronika_agent.py) and open the local Weronika app at http://127.0.0.1:8765/. The hosted preview cannot control your PC.";
       }
     }
 
@@ -5533,5 +5568,53 @@
     setInterval(refreshAgentFeatures, 15000);
   </script>
 
+
+
+  <script type="module">
+    import { setupGooglePanel } from "./weronika-google.js";
+    import { setupMemory } from "./weronika-memory.js";
+    import { setupSameBrowser } from "./weronika-same-browser.js";
+    import { setupAutomation } from "./weronika-automation.js";
+    // Wire helpers lazily after main script defines its globals
+    const tryWire = () => {
+      const chatLog = document.getElementById('chatLog');
+      if (!chatLog) { setTimeout(tryWire, 500); return; }
+      // helpers expected by modules
+      const helpers = {
+        showError: (msg) => { const el=document.getElementById('hudError'); if(el){el.textContent=msg; el.style.opacity=1; setTimeout(()=>el.style.opacity=0, 4000);} else alert(msg); },
+        showBanner: (msg) => {
+          let b=document.getElementById('answerBanner');
+          if(!b){ b=document.createElement('div'); b.id='answerBanner'; b.className='answer-banner'; document.body.appendChild(b); }
+          b.innerHTML = '<div class="answer-banner-title">WERONIKA</div>' + String(msg).replace(/</g,'&lt;').replace(/\n/g,'<br>');
+          b.classList.add('visible'); b.style.pointerEvents='auto';
+          setTimeout(()=>{ b.classList.remove('visible'); }, 7000);
+          try { const chatLog=document.getElementById('chatLog'); if(chatLog){ const d=document.createElement('div'); d.className='chat-message assistant'; d.textContent=String(msg).slice(0,800); chatLog.appendChild(d); chatLog.scrollTop=chatLog.scrollHeight; } } catch {}
+        },
+        speak: (msg) => { try { if (window.speechSynthesis) { const u=new SpeechSynthesisUtterance(msg.slice(0,400)); speechSynthesis.speak(u); } } catch {} },
+        logVoice: (msg)=>{ const v=document.getElementById('voiceLog'); if(v) v.textContent=msg; },
+        getConversation: ()=>{ try { return JSON.parse(localStorage.getItem('weronika.conversationHistory.v2')||'[]'); } catch { return window.conversationHistory||[]; } },
+        setConversation: (h)=>{ try{ localStorage.setItem('weronika.conversationHistory.v2', JSON.stringify(h.slice(-40))); if(window.conversationHistory) window.conversationHistory=h; } catch {} },
+        getAddressName: ()=>{ try { return localStorage.getItem('weronika_address_name')||'Commander'; } catch { return 'Commander'; } },
+        callBrain: (msg)=> fetch('/api/public/brain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})})
+      };
+      try { setupMemory(helpers); } catch(e){ console.warn('memory setup failed',e); }
+      try { setupGooglePanel(helpers); } catch(e){ console.warn('google setup failed',e); }
+      try { setupSameBrowser(helpers); } catch(e){ console.warn('same-browser setup failed',e); }
+      try { setupAutomation(helpers); } catch(e){ console.warn('automation setup failed',e); }
+      // Hook conversationHistory global to persist
+      try {
+        let _hist = helpers.getConversation();
+        Object.defineProperty(window, 'conversationHistory', {
+          get(){ return _hist; },
+          set(v){ _hist = v; try{ localStorage.setItem('weronika.conversationHistory.v2', JSON.stringify((v||[]).slice(-40))); /* also sync to disk */ fetch('/api/memory/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({history: v})}).catch(()=>fetch('/api/weronika-agent/api/memory/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({history:v})}).catch(()=>{})); } catch{} }
+        });
+        // initial load
+        fetch('/api/memory/history').then(r=>r.json()).then(d=>{ if(d && Array.isArray(d.history) && d.history.length){ _hist=d.history; try{ localStorage.setItem('weronika.conversationHistory.v2', JSON.stringify(_hist.slice(-40))); }catch{}} }).catch(()=>{});
+        // also check alternate path
+        fetch('/api/weronika-agent/api/memory/history').then(r=>r.json()).then(d=>{ if(d && Array.isArray(d.history) && d.history.length && !_hist.length){ _hist=d.history; } }).catch(()=>{});
+      } catch {}
+    };
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', tryWire); else tryWire();
+  </script>
 
 </body></html>

@@ -1,7 +1,7 @@
 """
 Weronika local agent — high-tech brain + Windows 11 control, on localhost.
 
-Run this on your Windows 11 PC (double-click start.bat). It exposes a tiny
+Run this on your machine (python weronika_agent.py or double-click start.py). It exposes a tiny
 HTTP server on http://127.0.0.1:8765 that weronika.html talks to:
 
   GET  /health          -> which brain is available (ollama / cloud)
@@ -66,6 +66,12 @@ from weronika_upgrade import (  # noqa: E402
     list_proposals,
     reject_proposal,
 )
+from weronika_memory import (  # noqa: E402
+    load_history, save_history, append_turn, clear_history, merge_frontend_history, get_day_context
+)
+from weronika_google import status as google_status, get_auth_url, handle_callback, disconnect as google_disconnect, generic_action as google_action, save_oauth_config  # noqa: E402
+from weronika_intent import detect_universal_automation, classify_with_brain  # noqa: E402
+from weronika_same_browser import get_browser_context_config, use_cdp, frontend_automation_spec  # noqa: E402
 
 PORT = 8765
 # Every module weronika.html imports at load time. A missing entry here breaks
@@ -78,6 +84,10 @@ STATIC_MODULES = frozenset(
         "weronika-local-prompts.js",
         "weronika-media-intent.js",
         "weronika-workspace.js",
+        "weronika-google.js",
+        "weronika-memory.js",
+        "weronika-same-browser.js",
+        "weronika-automation.js",
     }
 )
 
@@ -1408,6 +1418,59 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json(APP_BROWSER.perform("status", {}))
             return
+        if self.path.startswith("/api/google/status") or self.path.startswith("/api/google/auth") or self.path.startswith("/api/google/callback"):
+            parsed = urlsplit(self.path)
+            qs = parse_qs(parsed.query)
+            if parsed.path == "/api/google/status":
+                self._json(google_status())
+                return
+            if parsed.path == "/api/google/auth":
+                svc = qs.get("service",["all"])[0]
+                self._json(get_auth_url(svc))
+                return
+            if parsed.path == "/api/google/callback":
+                code = qs.get("code",[""])[0]
+                redir = qs.get("redirect_uri",[""])[0] or None
+                result = handle_callback(code, redir)
+                if result.get("ok"):
+                    html = f"<html><body style='font-family:system-ui;padding:40px'><h2>{result.get('message','Connected')}</h2><p>You can close this tab and return to Weronika at <a href='http://127.0.0.1:8765/'>http://127.0.0.1:8765/</a>.</p><script>setTimeout(()=>window.close(), 2500)</script></body></html>"
+                    body = html.encode()
+                    self.send_response(200)
+                    self._cors()
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self._json(result, 400)
+                return
+        if self.path.startswith("/api/memory/"):
+            parsed = urlsplit(self.path)
+            if parsed.path == "/api/memory/history":
+                hist = load_history(40)
+                ctx = get_day_context()
+                self._json({"ok": True, "history": hist, "context": ctx, "count": len(hist)})
+                return
+            if parsed.path == "/api/memory/clear":
+                clear_history()
+                self._json({"ok": True, "message": "History cleared"})
+                return
+            if parsed.path == "/api/context/whoami":
+                try:
+                    from weronika_google import calendar_recognize as _rec
+                    rec = _rec()
+                except Exception as e:
+                    rec = {"ok": False, "error": str(e)}
+                ctx = get_day_context()
+                self._json({"ok": True, "recognition": rec, "context": ctx})
+                return
+            if parsed.path == "/api/same-browser/status":
+                self._json({"ok": True, **get_browser_context_config()})
+                return
+        if self.path.startswith("/api/google/"):
+            # generic fallback info
+            self._json({"ok": False, "error": "Use POST /api/google/action with {service,action,params} or GET /api/google/status"}, 400)
+            return
         if self.path.startswith("/health"):
             calls = call_feature_status()
             app_browser = APP_BROWSER.perform("status", {})
@@ -1444,6 +1507,9 @@ class Handler(BaseHTTPRequestHandler):
                         "state": "available" if app_browser.get("playwright_installed") else "permission-required",
                         "note": "Gmail, Outlook, Instagram, Telegram, WhatsApp, calendars, Spotify, and YouTube use local browser UI automation. Private text stays on this PC.",
                     },
+                    "google": {"state": "available" if google_status().get("has_client_config") else "setup-needed", "note": "Connect Gmail/Calendar/Drive via settings or POST /api/google/config. Then GET /api/google/auth"},
+                    "memory": {"state": "available", "note": "Chat persists to weronika-py/memory/conversation.json and resumes after shutdown."},
+                    "same_browser": {"state": "available", "note": get_browser_context_config().get("message")},
                     "power_commands": {
                         "state": "available" if CONFIG.get("allow_power_commands", True) else "disabled",
                         "note": "Destructive shell commands still wait for confirm. Power commands follow allow_power_commands.",
@@ -1585,6 +1651,151 @@ class Handler(BaseHTTPRequestHandler):
             if payload is not None:
                 self._workspace_rename(payload)
             return
+        if self.path.startswith("/api/memory/"):
+            parsed = urlsplit(self.path).path
+            if parsed == "/api/memory/history":
+                d = self._read()
+                hist = d.get("history")
+                if isinstance(hist, list):
+                    merge_frontend_history(hist)
+                    # also optionally append last turn if provided
+                    if d.get("role") and d.get("content"):
+                        append_turn(d.get("role"), d.get("content"))
+                    self._json({"ok": True, "history": load_history(40)})
+                else:
+                    self._json({"ok": True, "history": load_history(40)})
+                return
+            if parsed == "/api/memory/append":
+                d = self._read()
+                role = d.get("role")
+                content = d.get("content","")
+                if role in ("user","assistant"):
+                    append_turn(role, content)
+                self._json({"ok": True, "history": load_history(40)})
+                return
+            if parsed == "/api/memory/clear":
+                clear_history()
+                self._json({"ok": True})
+                return
+        if self.path.startswith("/api/google/"):
+            parsed = urlsplit(self.path).path
+            if parsed == "/api/google/config":
+                d = self._read()
+                cid = d.get("client_id") or d.get("google_client_id") or ""
+                csec = d.get("client_secret") or d.get("google_client_secret") or ""
+                redir = d.get("redirect_uri")
+                if not cid or not csec:
+                    self._json({"ok": False, "error": "client_id and client_secret required"}, 400)
+                    return
+                save_oauth_config(cid, csec, redir)
+                self._json({"ok": True, "message": "Google OAuth config saved. Now GET /api/google/auth?service=all to connect."})
+                return
+            if parsed == "/api/google/disconnect":
+                self._json(google_disconnect())
+                return
+            if parsed == "/api/google/callback":
+                d = self._read()
+                self._json(handle_callback(d.get("code",""), d.get("redirect_uri")))
+                return
+            if parsed == "/api/google/auth":
+                d = self._read()
+                self._json(get_auth_url(d.get("service","all"), d.get("state")))
+                return
+            if parsed in ("/api/google/action", "/api/google/gmail", "/api/google/calendar", "/api/google/drive"):
+                d = self._read()
+                svc = d.get("service") or d.get("app") or ""
+                act = d.get("action") or d.get("op") or "list"
+                params = d.get("params") or d.get("payload") or d
+                # normalize service names
+                alias = {"gmail":"gmail","drive":"drive","calendar":"calendar","google_drive":"drive","google_calendar":"calendar","gdrive":"drive","gcal":"calendar"}
+                svc = alias.get(svc.lower(), svc.lower())
+                if not svc and parsed != "/api/google/action":
+                    # infer from path
+                    if "gmail" in parsed: svc="gmail"
+                    elif "calendar" in parsed: svc="calendar"
+                    elif "drive" in parsed: svc="drive"
+                result = google_action(svc, act, params)
+                self._json(result)
+                return
+            # generic
+            d = self._read()
+            svc = d.get("service") or ""
+            act = d.get("action") or "list"
+            self._json(google_action(svc, act, d.get("params") or d))
+            return
+        if self.path.startswith("/api/automation/"):
+            parsed = urlsplit(self.path).path
+            if parsed == "/api/automation/universal":
+                d = self._read()
+                text_in = d.get("message") or d.get("text") or d.get("instruction") or ""
+                if not text_in:
+                    self._json({"ok": False, "error": "message required"}, 400)
+                    return
+                intent = detect_universal_automation(text_in)
+                if intent is None:
+                    # try LLM fallback if available
+                    try:
+                        intent = classify_with_brain(text_in, lambda msgs: complete(msgs))
+                    except Exception:
+                        intent = None
+                if not intent:
+                    self._json({"ok": False, "error": "Could not understand automation request. Try: open telegram and send message to boss that ...", "hint": "Also supports: play sahiba on spotify, play barsaat on youtube, comment great on techno gamer gta 5, plan my day, organize drive"})
+                    return
+                app = intent.get("app")
+                action = intent.get("action")
+                payload = intent.get("payload", {})
+                # Dispatch: google vs app browser vs same-browser media
+                if app in ("gmail","drive","calendar","google_drive","google_calendar"):
+                    svc = {"google_drive":"drive","google_calendar":"calendar"}.get(app, app)
+                    res = google_action(svc, action, payload)
+                    self._json({"ok": res.get("ok", True), "intent": intent, "result": res})
+                    return
+                if app in ("spotify","youtube") and action in ("play","play_and_comment","comment"):
+                    # Try same-browser first, then app browser
+                    try:
+                        if use_cdp():
+                            # still use app browser if available but prefer frontend spec
+                            spec = frontend_automation_spec(intent)
+                            self._json({"ok": True, "intent": intent, "mode": "same-browser-frontend", "spec": spec, "message": f"Opening {app} for: {payload.get('query','')}. If Chrome debugging is enabled, Weronika will drive your current browser. Otherwise your Weronika tab will open it."})
+                            return
+                        # fallback to app browser
+                        browser_res = APP_BROWSER.perform(action if action!="play_and_comment" else "play", payload)
+                        self._json({"ok": browser_res.get("ok", False), "intent": intent, "result": browser_res, "mode": "app-browser"})
+                        return
+                    except Exception as e:
+                        spec = frontend_automation_spec(intent)
+                        self._json({"ok": True, "intent": intent, "mode": "frontend-fallback", "spec": spec, "error": str(e)})
+                        return
+                # messaging apps
+                if app in ("telegram","whatsapp","instagram"):
+                    # app browser handles read/prepare_send etc.
+                    try:
+                        browser_res = APP_BROWSER.perform(action, payload)
+                        # If it's a universal automation that wants frontend same-browser, also return spec
+                        spec = frontend_automation_spec(intent)
+                        self._json({"ok": browser_res.get("ok", False), "intent": intent, "result": browser_res, "spec": spec, "mode": "app-browser+frontend"})
+                        return
+                    except Exception as e:
+                        spec = frontend_automation_spec(intent)
+                        self._json({"ok": True, "intent": intent, "spec": spec, "mode": "frontend", "error": str(e)})
+                        return
+                # generic open
+                self._json({"ok": True, "intent": intent, "mode": "generic", "spec": frontend_automation_spec(intent)})
+                return
+            if parsed == "/api/automation/same-browser":
+                self._json({"ok": True, **get_browser_context_config()})
+                return
+        if self.path.startswith("/api/intent/parse"):
+            d = self._read()
+            txt = d.get("text") or d.get("message") or ""
+            intent = detect_universal_automation(txt)
+            if intent is None:
+                try:
+                    intent = classify_with_brain(txt, lambda msgs: complete(msgs))
+                except Exception:
+                    pass
+            self._json({"ok": True, "intent": intent, "input": txt})
+            return
         if self.path.startswith("/api/shell"):
             d = self._read()
             self._json(run_shell(d.get("command", ""), d.get("cwd"), bool(d.get("confirm"))))
@@ -1715,6 +1926,10 @@ class Handler(BaseHTTPRequestHandler):
         lang = data.get("lang") or "en"
         address = data.get("addressName") or "Commander"
         ASSISTANT.set_identity(address, lang)
+        try:
+            append_turn("user", message)
+        except Exception:
+            pass
         messages = [
             {"role": "system", "content": build_system(lang, address)},
             *history,
@@ -1787,6 +2002,64 @@ class Handler(BaseHTTPRequestHandler):
                 emit({"t": "error", "v": "Say something first."})
                 return
 
+            # Universal automation: try to detect telegram/whatsapp/instagram/youtube/spotify/gmail/calendar/drive intents
+            try:
+                uni = detect_universal_automation(message)
+                if uni is None and len(message.split()) > 5:
+                    # try LLM only for longer messages to avoid extra latency
+                    try:
+                        uni = classify_with_brain(message, lambda msgs: complete(msgs))
+                    except Exception:
+                        uni = None
+                if uni:
+                    app = uni.get("app")
+                    if app in ("telegram","whatsapp","instagram","youtube","spotify","gmail","drive","calendar","google_drive","google_calendar","google_calendar"):
+                        # quick direct execution for well-formed intents, else just hint
+                        payload = uni.get("payload", {})
+                        action = uni.get("action","")
+                        if app in ("gmail","drive","calendar","google_drive","google_calendar"):
+                            svc = {"google_drive":"drive","google_calendar":"calendar","drive":"drive","calendar":"calendar"}.get(app, app)
+                            try:
+                                gres = google_action(svc, action, payload)
+                                reply = gres.get("plan") or gres.get("recognition") or gres.get("message") or f"Did {svc} {action}: {gres}"
+                                if not gres.get("ok"):
+                                    # if needs auth, give auth url
+                                    if gres.get("requires_auth"):
+                                        auth = gres.get("auth",{})
+                                        reply = f"Please connect Google first: {auth.get('auth_url','Open Weronika settings > Google Connect')} — then try again."
+                                emit({"t": "d", "v": reply})
+                                try: append_turn("assistant", reply)
+                                except: pass
+                                emit({"t": "end"})
+                                return
+                            except Exception as e:
+                                emit({"t": "d", "v": f"Automation hint: {uni} — error {e}"})
+                                emit({"t": "end"})
+                                return
+                        elif app in ("telegram","whatsapp","instagram","youtube","spotify"):
+                            spec = frontend_automation_spec(uni)
+                            hint = f"Opening {app} for: {payload.get('query') or payload.get('message') or payload.get('target') or payload.get('comment') or message[:60]}. "
+                            if app in ("youtube","spotify"):
+                                hint += f"Your Weronika tab will open {spec.get('url')} and drive it. For seamless in-browser playback, use Chrome with --remote-debugging-port=9222."
+                            else:
+                                hint += f"Check the new tab at {spec.get('url')}. Sign in once if needed."
+                            # also try app browser if available for read/send
+                            if app in ("telegram","whatsapp","instagram") and action in ("read","prepare_send","open"):
+                                try:
+                                    bres = APP_BROWSER.perform(action, payload)
+                                    if bres.get("ok"):
+                                        hint += f" Local app browser: {bres.get('message') or bres.get('content','')[:200]}"
+                                except Exception:
+                                    pass
+                            emit({"t": "action", "action": "automation", "spec": spec, "intent": uni})
+                            emit({"t": "d", "v": hint})
+                            try: append_turn("assistant", hint)
+                            except: pass
+                            emit({"t": "end"})
+                            return
+            except Exception as ie:
+                print(f"[weronika] universal intent check skipped: {ie}")
+
             intent = keyword_intent(message)
             if intent is None and len(message.split()) <= 14:
                 intent = model_intent(message)
@@ -1805,6 +2078,7 @@ class Handler(BaseHTTPRequestHandler):
             lang = (data.get("lang") or "en")
             address = data.get("addressName") or "Commander"
             ASSISTANT.set_identity(address, lang)
+            # history persistence is already handled via universal block; just prepare messages
             messages = [{"role": "system", "content": build_system(lang, address)}, *history,
                         {"role": "user", "content": message}]
             got = False
@@ -1862,7 +2136,9 @@ def main() -> None:
     print(f" listening on http://127.0.0.1:{PORT}")
     print(f" ollama: {'yes' if ollama_ready() else 'no'}   private app content: local only, no hosted fallback")
     print(" media generation: prompt-only (no external media API)")
-    print(" automation: local signed-in app browser, desktop, files, and workspace")
+    print(" google: Gmail + Calendar + Drive (connect via http://127.0.0.1:8765/settings or /api/google/status)")
+    print(" automation: same-browser (CDP) + local Chromium fallback, desktop, files, workspace")
+    print(" memory: persistent chat — shutdown now resumes where you left off")
     print(" upgrade proposals: available (nothing is written until you approve)")
     print(f" whatsapp calls: {calls['state']} — {calls['reason']}")
     print(" power commands: "
