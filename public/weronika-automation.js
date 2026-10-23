@@ -33,11 +33,11 @@ export function setupAutomation({ getConversation, showBanner, showError, speak,
     // Quick heuristics to avoid calling backend for plain chat
     const low = trimmed.toLowerCase();
     const automationHints = [
-      'telegram','whatsapp','whats app','instagram','insta','youtube','yt','spotify','gmail','google calendar','gcal','drive',
-      'plan my day','plan today','organize drive','organise drive','recognize me','who am i',
+      'telegram','whatsapp','whats app','instagram','insta','youtube','yt','spotify','gmail','google calendar','gcal','drive','inbox','mail','email',
+      'plan my day','plan today','organize drive','organise drive','recognize me','who am i','check my inbox','check inbox','read my mail',
       'play the','play a','play sahiba','play barsaat','barsaat','believer','beliver','techno gamer','gta 5',
       'make a comment','comment there','open telegram','open whatsapp','send message to','message to boss','on leave',
-      'send him','dm ','tell him','tell her'
+      'send him','dm ','tell him','tell her','open youtube','play song','open spotify'
     ];
     const looksLikeAutomation = automationHints.some(k=> low.includes(k)) || /\b(open|play|send|message|dm|comment|watch|organize|plan|recognize)\b/.test(low);
     if (!looksLikeAutomation && trimmed.split(/\s+/).length < 4) return false;
@@ -50,7 +50,7 @@ export function setupAutomation({ getConversation, showBanner, showError, speak,
     const intent = result.intent;
     const spec = result.spec;
     const mode = result.mode;
-    let banner = result.message || '';
+    let banner = result.message || result.result?.message || '';
     if (!banner) {
       if (intent) {
         const p = intent.payload||{};
@@ -60,6 +60,8 @@ export function setupAutomation({ getConversation, showBanner, showError, speak,
         banner = `Automation: ${JSON.stringify(result).slice(0,400)}`;
       }
     }
+    // If native app check available, hint
+    if (result.native_installed) banner += " (desktop app installed — I’ll prefer it, otherwise web tab)";
     // Show and speak
     showBanner(banner);
     // If spec needs new tab, open it
