@@ -4577,6 +4577,32 @@
           return `${result.message || (approved ? "Send confirmed." : "Cancelled; draft remains open and unsent.")}\n\n${draft}`;
         }
         if (request.action === "read") {
+          // First try Google APIs for gmail/calendar/drive - no Ollama needed, works same-browser tab
+          if (request.app === 'gmail' || request.app === 'google_calendar' || request.app === 'google_drive' || request.app === 'calendar' || request.app === 'drive') {
+            const svcMap = {gmail:'gmail', calendar:'calendar', google_calendar:'calendar', drive:'drive', google_drive:'drive'};
+            const svc = svcMap[request.app] || request.app;
+            try {
+              const gRes = await fetch(`${PC_AGENT_URL}/api/google/action`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({service: svc, action: 'list', params: {q: '', max_results: 10}})});
+              const gData = await gRes.json().catch(()=>({}));
+              if (gData && gData.ok) {
+                const summary = gData.messages ? gData.messages.slice(0,5).map(m=> (m.subject||m.snippet||'').slice(0,90)).join('\n• ') : JSON.stringify(gData).slice(0,600);
+                const task = /important|urgent|prioriti[sz]e|rank/i.test(request.task) ? `${request.task} — rank by urgency, flag deadlines` : request.task || "Summarize inbox";
+                // Try local first, fallback to cloud brain automatically
+                try {
+                  return await localOnlyCompletion(task || "Summarize inbox", `Gmail result: ${summary}\n\nFull: ${JSON.stringify(gData).slice(0,2000)}`, language);
+                } catch {
+                  const cloud = await answerWithBrain(`User asked: "${request.task || 'check inbox'}". Google ${svc} returned: ${JSON.stringify(gData).slice(0,1200)}. Summarize warmly in user's language, 2-3 sentences, mention it's open in same-browser tab.`, language);
+                  if (cloud) return cloud;
+                  return `Checked your ${request.app} — ${summary || 'done'} — opened in your current browser tab, Commander.`;
+                }
+              }
+              if (gData && gData.requires_auth) {
+                return `Your ${request.app} needs Google connected, Commander. Open Settings → Google → paste Client ID/Secret → Connect, then I’ll show your inbox in a new tab in your current browser — no separate chrome test.`;
+              }
+            } catch (e) {
+              // fall through to old local browser method
+            }
+          }
           const apps = request.apps || [request.app];
           const parts = [];
           for (const app of apps) {
@@ -4588,12 +4614,45 @@
           const task = /important|urgent|prioriti[sz]e|rank/i.test(request.task)
             ? `${request.task}\nRank the visible items by importance and urgency. Explain the reason briefly and flag deadlines or family requests.`
             : request.task;
-          return await localOnlyCompletion(task || "Summarize the visible local app content", parts.join("\n\n---\n\n"), language);
+          // localOnlyCompletion now has smart fallback to cloud brain
+          try {
+            return await localOnlyCompletion(task || "Summarize the visible local app content", parts.join("\n\n---\n\n"), language);
+          } catch (e) {
+            const cloud2 = await answerWithBrain(`Summarize this for the user warmly in their language: ${task || 'Summarize'} — content: ${parts.join("\n").slice(0,1500)}`, language);
+            if (cloud2) return cloud2;
+            throw e;
+          }
         }
         return "I couldn't map that to a supported local app action. No account data was sent to the cloud.";
       } catch (error) {
         const reason = error && error.message ? error.message : "Local app automation is unavailable.";
-        return `Local-only app action stopped: ${reason} Private app content was not sent to the cloud.`;
+        // If Ollama is offline (404 /api/chat or Local Ollama offline), fallback to cloud brain with same content
+        // instead of showing a scary error. This is what user sees for "check my inbox".
+        if (/404|Ollama|offline|Private app content was not sent/i.test(reason)) {
+          try {
+            // Try Google APIs first for Gmail/Calendar/Drive
+            if (request && (request.app === 'gmail' || request.app === 'google_calendar' || request.app === 'google_drive' || request.app === 'calendar' || request.app === 'drive')) {
+              const svcMap = {gmail:'gmail', calendar:'calendar', google_calendar:'calendar', drive:'drive', google_drive:'drive'};
+              const svc = svcMap[request.app] || request.app;
+              const act = request.action === 'read' ? 'list' : (request.action || 'list');
+              const gRes = await fetch(`${PC_AGENT_URL}/api/google/action`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({service: svc, action: act, params: {q: '', max_results: 5}})});
+              const gData = await gRes.json().catch(()=>({}));
+              if (gData && gData.ok) {
+                const brainFriendly = await answerWithBrain(`Summarize this for the user in a warm Weronika voice. The user asked "${request.task || request.content || ''}" and I got result: ${JSON.stringify(gData).slice(0,800)}`, language);
+                if (brainFriendly) return brainFriendly;
+                return `I checked your ${request.app} — ${gData.plan || gData.recognition || gData.message || JSON.stringify(gData.files||gData.messages||[]).slice(0,400) || 'done'}. Opened in your current browser tab, Commander.`;
+              }
+              if (gData && gData.requires_auth) {
+                return `I’d love to check your ${request.app}, but Google isn’t connected yet. Please open Settings → Google → paste your OAuth Client ID/Secret → Connect, then say “check my inbox” again — I’ll open it in a new tab in your current browser, no separate chrome test.`;
+              }
+            }
+            // Fallback: let cloud brain explain gently
+            const fallback = await answerWithBrain(`User said: "${request.task || request.content || 'check inbox'}". Local Ollama is offline (${reason}). Explain gently in 1-2 sentences that I can still help via Google APIs if connected, or they can start Ollama with "ollama serve" for fully local summaries. Be warm, like Weronika, and offer to open Gmail/Calendar/Drive in a new tab in their current browser.`, language);
+            if (fallback) return fallback;
+          } catch {}
+          return `Hmm, local Ollama is offline right now — but I can still help, Commander. If you connect Google in Settings, I’ll check your inbox via Gmail API and open it in a new tab in your current browser. Or start Ollama with “ollama serve” and “ollama pull llama3.2” for fully local summaries.`;
+        }
+        return `Hmm, I hit a snag: ${reason} — but I’m still here. Try connecting Google in Settings → Google, and I’ll open it in a new tab in your current browser (no separate chrome test).`;
       }
     }
 

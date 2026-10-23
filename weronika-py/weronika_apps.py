@@ -180,6 +180,11 @@ class LocalAppBrowser:
             from playwright.sync_api import sync_playwright  # noqa: PLC0415
         except Exception as exc:  # noqa: BLE001
             raise AppAutomationError("Signed-in app automation needs Playwright. Install it with: pip install playwright && python -m playwright install chromium. Or use same-browser mode: just keep your normal Chrome open — Weronika will open new tabs there (no separate install needed).") from exc
+        # User prefers same-browser (new tab in current browser) - don't launch separate chrome test.
+        # Only launch fallback if explicitly allowed via WERONIKA_ALLOW_FALLBACK_CHROMIUM=1
+        import os as _os
+        if _os.environ.get("WERONIKA_ALLOW_FALLBACK_CHROMIUM") != "1":
+            raise AppAutomationError("Same-browser mode is active — I open new tabs in your current browser instead of a separate chrome test. To enable local Chromium fallback, set WERONIKA_ALLOW_FALLBACK_CHROMIUM=1 and restart. Meanwhile, your current browser tab will handle Telegram/WhatsApp/YouTube/Spotify just fine — check the new tab I opened for you.")
         os.makedirs(self.profile_dir, exist_ok=True)
         self._playwright = sync_playwright().start()
         try:

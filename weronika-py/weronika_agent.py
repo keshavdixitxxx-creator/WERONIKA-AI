@@ -807,6 +807,114 @@ def local_private_completion(task: str, content: str, lang: str = "en") -> str:
     return answer
 
 
+def private_completion_smart(task: str, content: str, lang: str = "en", allow_cloud_fallback: bool = True) -> tuple[str, str]:
+    """Try Ollama first; if offline, optionally fall back to cloud brain with a privacy note.
+    Returns (answer, provider). Provider is 'local-ollama' or 'cloud'."""
+    # try local
+    if ollama_ready():
+        try:
+            return local_private_completion(task, content, lang), "local-ollama"
+        except Exception:
+            pass
+    if not allow_cloud_fallback:
+        raise RuntimeError("Local Ollama is offline. Private content was not sent to the cloud. Start Ollama with 'ollama serve' and 'ollama pull llama3.2', then retry — Weronika will keep it local.")
+    # fallback to cloud with truncated content & disclaimer
+    language = str(lang or "en").split("-")[0][:8] or "en"
+    # keep content limited to avoid token blow-up
+    snippet = str(content or "")[:6000]
+    # use Weronika's cloud brain to summarize
+    brain_messages = [
+        {"role": "system", "content": build_system(lang, _address_name(None)) + f" You are summarizing private app content for the user in language {language}. Be warm, concise, and don't invent details. Mention you used the cloud because local Ollama is offline."},
+        {"role": "user", "content": f"Task: {task}\n\nContent (first 6000 chars):\n{snippet}"}
+    ]
+    try:
+        ans = complete(brain_messages)
+        if ans:
+            return ans.strip() + " — I used the cloud brain because Ollama is offline on this PC. Start Ollama for fully local private summaries.", "cloud"
+    except Exception as e:
+        raise RuntimeError(f"Both local and cloud brain failed: {e}") from e
+    raise RuntimeError("Could not summarize even via cloud brain.")
+
+
+def _is_app_installed_native(app: str) -> bool:
+    """Check if a platform's desktop app is installed on the OS.
+    If not, Weronika will open the web version in same-browser tab."""
+    name = (app or "").strip().lower()
+    candidates = {
+        "telegram": ["Telegram", "Telegram.exe"],
+        "whatsapp": ["WhatsApp", "WhatsApp.exe"],
+        "spotify": ["Spotify", "Spotify.exe"],
+        "instagram": [],  # no real desktop app
+        "youtube": [],     # always web
+        "gmail": [],       # always web/google api
+        "google_drive": [],
+        "google_calendar": [],
+    }
+    wants = candidates.get(name, [name])
+    if not wants:  # web-only
+        return False
+    for c in wants:
+        try:
+            import shutil
+            if shutil.which(c):
+                return True
+            # Windows common paths
+            for base in [os.environ.get("ProgramFiles","C:\\Program Files"), os.environ.get("ProgramFiles(x86)","C:\\Program Files (x86)"), os.environ.get("LOCALAPPDATA",""), os.environ.get("APPDATA","")]:
+                if not base or not os.path.exists(base):
+                    continue
+                for sub in [c, os.path.join(name, c), os.path.join(name.capitalize(), c)]:
+                    p = os.path.join(base, sub)
+                    if os.path.exists(p):
+                        return True
+                # Telegram specific
+                if name == "telegram":
+                    for tp in [os.path.join(os.environ.get("APPDATA",""), "Telegram Desktop", "Telegram.exe"), os.path.join(os.environ.get("LOCALAPPDATA",""), "Telegram Desktop", "Telegram.exe")]:
+                        if tp and os.path.exists(tp):
+                            return True
+        except Exception:
+            continue
+    return False
+
+
+def _brain_phrase_for_automation(user_message: str, intent: dict | None, result: dict | str, success: bool, lang: str | None, address: str | None) -> str:
+    """Ask Weronika's cloud brain to phrase an automation result in her warm voice."""
+    try:
+        lang_code = (lang or "en").split("-")[0][:8]
+        intent_str = str(intent)[:600] if intent else "no intent"
+        result_str = str(result)[:900] if result else ""
+        # quick deterministic fallback if brain not reachable
+        hint = ""
+        if intent and intent.get("app"):
+            app = intent["app"]
+            payload = intent.get("payload",{})
+            target = payload.get("target") or payload.get("query") or payload.get("message") or ""
+            if success:
+                if app == "youtube" and payload.get("query"):
+                    hint = f"Done — I opened YouTube for “{payload['query']}” in a new tab in your browser. If Spotify is installed I can also play it there, otherwise it’s YouTube web, Commander. Enjoy!"
+                elif app == "spotify" and payload.get("query"):
+                    hint = f"Playing “{payload['query']}” on Spotify in a new tab — check it, Commander. If the Spotify app is installed I’ll prefer it next time, otherwise it’s the web player."
+                elif app in ("telegram","whatsapp","instagram"):
+                    hint = f"Opened {app} for {target or 'you'} in a new tab in your browser — sign in once if needed, then confirm to send. All in your current profile, no separate chrome test."
+                elif app == "gmail":
+                    hint = f"Checked your Gmail — {result_str[:220] if result_str else 'done'} — all in your current browser tab."
+                elif app in ("drive","google_drive"):
+                    hint = f"Drive action done — {result_str[:220]} — check your new tab."
+                else:
+                    hint = f"Did {app}: {target or result_str[:200]} — opened in your current browser, Commander."
+            else:
+                hint = f"I tried but couldn’t open {app or 'that'} — {result_str[:200]}. Want me to try the web version?"
+        # Try cloud brain for nicer phrasing
+        sys = build_system(lang_code, address) + " You are Weronika, responding after an automation attempt. Be warm, speak in the user's language (detect from user message), 1-3 sentences, confirm what you opened/did, mention it's in the same browser (no separate chrome test). If failed, explain gently."
+        usr = f"User said: {user_message}\nIntent: {intent_str}\nAutomation result: {result_str}\nSuccess: {success}\nReply in a friendly Weronika voice, 1-3 sentences, and end with a gentle follow-up if natural."
+        brain = complete([{"role":"system","content": sys}, {"role":"user","content": usr}]).strip()
+        if brain and len(brain) > 10:
+            return brain
+        return hint or ("Done, Commander — opened in your browser!" if success else "Hmm, that didn’t open — want me to try again?")
+    except Exception as e:
+        print(f"[weronika] brain phrase fallback: {e}")
+        return hint if 'hint' in locals() else ("I opened it in your browser, Commander!" if success else "I couldn’t open it — check if the site needs sign-in.")
+
+
 # --------------------------------------------------------------------------
 # Intent detection (any language)
 # --------------------------------------------------------------------------
@@ -1748,37 +1856,45 @@ class Handler(BaseHTTPRequestHandler):
                 if app in ("gmail","drive","calendar","google_drive","google_calendar"):
                     svc = {"google_drive":"drive","google_calendar":"calendar"}.get(app, app)
                     res = google_action(svc, action, payload)
-                    self._json({"ok": res.get("ok", True), "intent": intent, "result": res})
+                    # Phrase via Weronika brain (cloud) for natural reply
+                    if res.get("ok"):
+                        detail = res.get("plan") or res.get("recognition") or res.get("message") or f"Done {svc} {action}"
+                        # include sample items for brain context
+                        if res.get("messages"):
+                            detail += " | " + ", ".join([m.get("subject") or m.get("snippet","")[:60] for m in res["messages"][:4]])
+                        if res.get("files"):
+                            detail += " | Files: " + ", ".join([f.get("name","") for f in res["files"][:4]])
+                        brain = _brain_phrase_for_automation(text_in, intent, detail, True, None, None)
+                        self._json({"ok": True, "intent": intent, "result": res, "message": brain, "spec": frontend_automation_spec(intent)})
+                    else:
+                        if res.get("requires_auth"):
+                            brain = _brain_phrase_for_automation(text_in, intent, f"Google {svc} not connected", False, None, None) + " — open Settings → Google → paste Client ID/Secret → Connect, then try again in same browser tab."
+                            self._json({"ok": False, "intent": intent, "result": res, "message": brain, "spec": frontend_automation_spec(intent), "requires_auth": True})
+                        else:
+                            brain = _brain_phrase_for_automation(text_in, intent, res.get("error") or str(res), False, None, None)
+                            self._json({"ok": False, "intent": intent, "result": res, "message": brain})
                     return
                 if app in ("spotify","youtube") and action in ("play","play_and_comment","comment"):
-                    # Try same-browser first, then app browser
-                    try:
-                        if use_cdp():
-                            # still use app browser if available but prefer frontend spec
-                            spec = frontend_automation_spec(intent)
-                            self._json({"ok": True, "intent": intent, "mode": "same-browser-frontend", "spec": spec, "message": f"Opening {app} for: {payload.get('query','')}. If Chrome debugging is enabled, Weronika will drive your current browser. Otherwise your Weronika tab will open it."})
-                            return
-                        # fallback to app browser
-                        browser_res = APP_BROWSER.perform(action if action!="play_and_comment" else "play", payload)
-                        self._json({"ok": browser_res.get("ok", False), "intent": intent, "result": browser_res, "mode": "app-browser"})
-                        return
-                    except Exception as e:
-                        spec = frontend_automation_spec(intent)
-                        self._json({"ok": True, "intent": intent, "mode": "frontend-fallback", "spec": spec, "error": str(e)})
-                        return
-                # messaging apps
+                    spec = frontend_automation_spec(intent)
+                    # check native app installed for spotify
+                    native = _is_app_installed_native(app) if app == "spotify" else False
+                    # Brain phrase
+                    brain = _brain_phrase_for_automation(text_in, intent, f"Playing {payload.get('query','')} on {app}", True, None, None)
+                    if native:
+                        brain += " I’ll try the desktop app first; if it’s not there it’s the web player in a new tab in your current browser."
+                    self._json({"ok": True, "intent": intent, "mode": "same-browser", "spec": spec, "message": brain, "native_installed": native})
+                    return
+                # messaging apps — same-browser new tab, no separate chrome test
                 if app in ("telegram","whatsapp","instagram"):
-                    # app browser handles read/prepare_send etc.
-                    try:
-                        browser_res = APP_BROWSER.perform(action, payload)
-                        # If it's a universal automation that wants frontend same-browser, also return spec
-                        spec = frontend_automation_spec(intent)
-                        self._json({"ok": browser_res.get("ok", False), "intent": intent, "result": browser_res, "spec": spec, "mode": "app-browser+frontend"})
-                        return
-                    except Exception as e:
-                        spec = frontend_automation_spec(intent)
-                        self._json({"ok": True, "intent": intent, "spec": spec, "mode": "frontend", "error": str(e)})
-                        return
+                    spec = frontend_automation_spec(intent)
+                    native = _is_app_installed_native(app)
+                    # Brain-style reply
+                    brain = _brain_phrase_for_automation(text_in, intent, f"Opening {app} for {payload.get('target') or payload.get('message') or ''}", True, None, None)
+                    if native:
+                        brain += f" Your desktop {app} app is installed, so I’ll launch it; otherwise it’s the web version in a new tab in your current browser."
+                    # Do NOT use separate chromium fallback; frontend will open new tab
+                    self._json({"ok": True, "intent": intent, "result": {"message": brain}, "spec": spec, "mode": "same-browser", "message": brain, "native_installed": native})
+                    return
                 # generic open
                 self._json({"ok": True, "intent": intent, "mode": "generic", "spec": frontend_automation_spec(intent)})
                 return
@@ -2021,39 +2137,68 @@ class Handler(BaseHTTPRequestHandler):
                             svc = {"google_drive":"drive","google_calendar":"calendar","drive":"drive","calendar":"calendar"}.get(app, app)
                             try:
                                 gres = google_action(svc, action, payload)
-                                reply = gres.get("plan") or gres.get("recognition") or gres.get("message") or f"Did {svc} {action}: {gres}"
+                                # Build brain-style reply
                                 if not gres.get("ok"):
-                                    # if needs auth, give auth url
                                     if gres.get("requires_auth"):
                                         auth = gres.get("auth",{})
-                                        reply = f"Please connect Google first: {auth.get('auth_url','Open Weronika settings > Google Connect')} — then try again."
+                                        raw = f"Google {svc} needs connecting. Auth: {auth.get('auth_url','Open Weronika Settings → Google → Connect')}"
+                                        # Brain phrase: make it warm
+                                        reply = _brain_phrase_for_automation(message, uni, raw, success=False, lang=data.get("lang"), address=data.get("addressName"))
+                                        reply += " (Settings → Google → paste Client ID/Secret → Connect, then say “check my inbox” again.)"
+                                    else:
+                                        err = gres.get("error") or str(gres)
+                                        # If it's just empty inbox etc, phrase nicely
+                                        reply = _brain_phrase_for_automation(message, uni, err, success=False, lang=data.get("lang"), address=data.get("addressName"))
+                                else:
+                                    # Success: show plan/recognition/message nicely via brain
+                                    result_text = gres.get("plan") or gres.get("recognition") or gres.get("message") or f"Did {svc} {action}"
+                                    # Include snippet of messages/files if present
+                                    if gres.get("messages"):
+                                        msgs = gres["messages"][:5]
+                                        result_text += " — " + "; ".join([m.get("subject") or m.get("snippet","")[:80] for m in msgs])
+                                    if gres.get("files"):
+                                        files = gres["files"][:5]
+                                        result_text += " — " + ", ".join([f.get("name","") for f in files])
+                                    reply = _brain_phrase_for_automation(message, uni, result_text, success=True, lang=data.get("lang"), address=data.get("addressName"))
+                                    # Append details for UI
+                                    if gres.get("plan"):
+                                        reply = reply + "\n\n" + gres.get("plan","")[:800]
+                                    elif gres.get("recognition"):
+                                        reply = reply + "\n\n" + gres.get("recognition","")[:800]
                                 emit({"t": "d", "v": reply})
                                 try: append_turn("assistant", reply)
                                 except: pass
                                 emit({"t": "end"})
                                 return
                             except Exception as e:
-                                emit({"t": "d", "v": f"Automation hint: {uni} — error {e}"})
+                                # Brain fallback error
+                                fallback = _brain_phrase_for_automation(message, uni, str(e), success=False, lang=data.get("lang"), address=data.get("addressName"))
+                                emit({"t": "d", "v": fallback})
                                 emit({"t": "end"})
                                 return
                         elif app in ("telegram","whatsapp","instagram","youtube","spotify"):
+                            # Decide native vs web: if user said platform and native app exists, prefer native launch; else web same-browser tab
+                            native = _is_app_installed_native(app)
                             spec = frontend_automation_spec(uni)
-                            hint = f"Opening {app} for: {payload.get('query') or payload.get('message') or payload.get('target') or payload.get('comment') or message[:60]}. "
-                            if app in ("youtube","spotify"):
-                                hint += f"Your Weronika tab will open {spec.get('url')} and drive it. For seamless in-browser playback, use Chrome with --remote-debugging-port=9222."
-                            else:
-                                hint += f"Check the new tab at {spec.get('url')}. Sign in once if needed."
-                            # also try app browser if available for read/send
-                            if app in ("telegram","whatsapp","instagram") and action in ("read","prepare_send","open"):
+                            tried_native = False
+                            native_result = None
+                            if native:
                                 try:
-                                    bres = APP_BROWSER.perform(action, payload)
-                                    if bres.get("ok"):
-                                        hint += f" Local app browser: {bres.get('message') or bres.get('content','')[:200]}"
+                                    # try native launch first; app names map to do_action open_app
+                                    native_result = do_action("open_app", {"app": app, "say": f"Opening {app}"})
+                                    tried_native = True
                                 except Exception:
-                                    pass
-                            emit({"t": "action", "action": "automation", "spec": spec, "intent": uni})
-                            emit({"t": "d", "v": hint})
-                            try: append_turn("assistant", hint)
+                                    tried_native = False
+                            # If native failed or not installed, use same-browser web tab
+                            hint_source = native_result if (tried_native and native_result) else None
+                            # Generate Weronika brain-style reply (cloud brain)
+                            brain_text = _brain_phrase_for_automation(message, uni, hint_source or spec, success=bool(spec.get("url")), lang=data.get("lang"), address=data.get("addressName"))
+                            # If native was tried, combine; else hint about new tab
+                            if not native or not tried_native:
+                                brain_text += f" Opened {spec.get('url')} in a new tab in your current browser — no separate chrome test, Commander."
+                            emit({"t": "action", "action": "automation", "spec": spec, "intent": uni, "native_tried": tried_native})
+                            emit({"t": "d", "v": brain_text})
+                            try: append_turn("assistant", brain_text)
                             except: pass
                             emit({"t": "end"})
                             return
@@ -2137,7 +2282,7 @@ def main() -> None:
     print(f" ollama: {'yes' if ollama_ready() else 'no'}   private app content: local only, no hosted fallback")
     print(" media generation: prompt-only (no external media API)")
     print(" google: Gmail + Calendar + Drive (connect via http://127.0.0.1:8765/settings or /api/google/status)")
-    print(" automation: same-browser (CDP) + local Chromium fallback, desktop, files, workspace")
+    print(" automation: same-browser (new tab in current browser, no chrome test) + optional local fallback if WERONIKA_ALLOW_FALLBACK_CHROMIUM=1")
     print(" memory: persistent chat — shutdown now resumes where you left off")
     print(" upgrade proposals: available (nothing is written until you approve)")
     print(f" whatsapp calls: {calls['state']} — {calls['reason']}")
