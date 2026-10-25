@@ -16,7 +16,9 @@ This is still UI automation, not a supported platform integration. Social networ
 
 ## Run locally
 
-Python 3.10+ is required. From this folder:
+Python 3.10+ is required. On Windows, install Python first and enable **Add Python to PATH**, then double-click `start.bat`. The first run creates `.venv`, installs the requirements and Playwright Chromium, and opens the local web UI. Later runs skip installation and just start Weronika. Keep the command window open while using the app; press Ctrl+C there to stop it. If setup was interrupted or you want to reinstall dependencies, delete the `.venv` folder and run `start.bat` again.
+
+On macOS/Linux, or when starting manually, run from this folder:
 
 ```sh
 python -m venv .venv
