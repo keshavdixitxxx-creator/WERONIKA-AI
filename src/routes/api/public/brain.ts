@@ -6,6 +6,7 @@ import { HOSTED_ORIGINS } from "@/lib/relay.server";
 import {
   BRAIN_MODEL,
   RESPONSES_URL,
+  buildAutomationPlanInstructions,
   buildInstructions,
   buildMediaIntentInstructions,
   buildResponsesBody,
@@ -27,13 +28,13 @@ type BrainInput = {
   history: HistoryItem[];
   lang: string;
   addressName: string;
-  task?: "media-intent";
+  task?: "media-intent" | "automation-plan";
 };
 
 function instructionsFor(input: Pick<BrainInput, "lang" | "addressName" | "task">) {
-  return input.task === "media-intent"
-    ? buildMediaIntentInstructions()
-    : buildInstructions(input.lang, input.addressName);
+  if (input.task === "media-intent") return buildMediaIntentInstructions();
+  if (input.task === "automation-plan") return buildAutomationPlanInstructions();
+  return buildInstructions(input.lang, input.addressName);
 }
 
 async function sleep(ms: number) {
@@ -229,7 +230,9 @@ export const Route = createFileRoute("/api/public/brain")({
         const history = sanitizeHistory(body.history);
         const lang = sanitizeLang(body.lang, message);
         const addressName = sanitizeAddressName(body.addressName);
-        const task = body.task === "media-intent" ? "media-intent" : undefined;
+        const task = body.task === "media-intent" || body.task === "automation-plan"
+          ? body.task
+          : undefined;
         const input: BrainInput = {
           message,
           history,

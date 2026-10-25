@@ -12,11 +12,12 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from .intents import parse_message_request
+from .models import Platform
 from .service import create_messaging_service
 from .workflow import MessagingError
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-WEB_ROOT = PACKAGE_ROOT / "web"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WEB_ROOT = REPO_ROOT / "public"
 MAX_REQUEST_BYTES = 16_384
 
 
@@ -91,7 +92,13 @@ def make_handler(service, adapters):
             if parsed.path == "/health":
                 self._send_json(200, {"ok": True, "mode": "local-only"})
                 return
-            relative = unquote(parsed.path).lstrip("/") or "index.html"
+            if parsed.path == "/api/automation/status":
+                self._send_json(200, {"connected": True, "worker": "weronika-py", "mode": "loopback-only"})
+                return
+            if parsed.path.startswith("/api/"):
+                self._send_json(404, {"error": "Unknown local API route."})
+                return
+            relative = unquote(parsed.path).lstrip("/") or "weronika.html"
             requested = (WEB_ROOT / relative).resolve()
             if not requested.is_relative_to(WEB_ROOT.resolve()) or not requested.is_file():
                 self.send_error(404)
@@ -112,6 +119,14 @@ def make_handler(service, adapters):
             try:
                 data = self._read_json()
                 path = urlparse(self.path).path
+                if path in {
+                    "/api/automation/prepare",
+                    "/api/automation/recipient",
+                    "/api/automation/confirm",
+                    "/api/automation/cancel",
+                }:
+                    self._automation_stream(path, data)
+                    return
                 if path == "/api/message":
                     result = self._prepare(data)
                 elif path == "/api/recipient":
@@ -131,6 +146,61 @@ def make_handler(service, adapters):
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})
+
+        def _automation_stream(self, path: str, data: dict[str, object]) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-cache")
+            self.send_header("Connection", "close")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.close_connection = True
+
+            def emit(event: dict[str, object]) -> None:
+                try:
+                    payload = json.dumps(event, ensure_ascii=False)
+                    self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    pass
+
+            def progress(message: str) -> None:
+                emit({"type": "progress", "message": message})
+
+            try:
+                if path == "/api/automation/prepare":
+                    plan = data.get("plan")
+                    if not isinstance(plan, dict) or plan.get("intent") != "message":
+                        raise ValueError("The cloud brain did not return an executable messaging plan.")
+                    platform_raw = plan.get("platform")
+                    if not isinstance(platform_raw, str):
+                        raise ValueError("The plan must name a supported messaging platform.")
+                    platform = Platform.parse(platform_raw)
+                    recipient = plan.get("recipient")
+                    message = plan.get("message")
+                    if not isinstance(recipient, str) or not isinstance(message, str):
+                        raise ValueError("The plan must include a recipient and exact message text.")
+                    progress("The local worker accepted the validated messaging plan.")
+                    result = service.prepare(platform, recipient, message, progress=progress)
+                elif path == "/api/automation/recipient":
+                    result = service.select_recipient(
+                        self._text(data, "draft_id"),
+                        self._text(data, "candidate_id"),
+                        progress=progress,
+                    )
+                elif path == "/api/automation/confirm":
+                    result = service.confirm_send(
+                        self._text(data, "draft_id"),
+                        self._text(data, "confirmation"),
+                        progress=progress,
+                    )
+                else:
+                    result = service.cancel(self._text(data, "draft_id"), progress=progress)
+                emit({"type": "result", "workflow": result.to_dict()})
+            except (ValueError, MessagingError) as exc:
+                emit({"type": "error", "message": str(exc)})
+            except Exception:
+                emit({"type": "error", "message": "The local automation worker encountered an unexpected error."})
 
         @staticmethod
         def _text(data: dict[str, object], key: str) -> str:

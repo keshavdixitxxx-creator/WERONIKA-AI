@@ -51,11 +51,14 @@ assert.ok(
 );
 
 const voiceStart = html.indexOf("    async function parseVoiceCommand(command, languageOverride)");
-const voiceIdentity = html.indexOf("creatorIdentityReply(text)", voiceStart);
-const voiceBrain = html.indexOf("answerWithBrain(text", voiceStart);
+const voiceEnd = html.indexOf("    function isWakeActivationPhrase", voiceStart);
+assert.ok(voiceStart >= 0 && voiceEnd > voiceStart, "voice parser exists");
+const voiceHandler = html.slice(voiceStart, voiceEnd);
+assert.match(voiceHandler, /generateChatReply\(text, languageOverride\)/);
+assert.doesNotMatch(voiceHandler, /answerWithBrain/);
 assert.ok(
-  voiceStart < voiceIdentity && voiceIdentity < voiceBrain,
-  "voice identity is handled before the hosted brain",
+  chatIdentity < chatBrain,
+  "voice delegates to the shared handler that handles identity before cloud calls",
 );
 
 console.log("creator identity checks passed");
