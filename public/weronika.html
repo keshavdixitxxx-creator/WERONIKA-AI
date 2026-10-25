@@ -726,7 +726,8 @@
   <div class="overlay-scanlines"></div>
   <div class="hud hud-title">WERONIKA AI</div>
   <div class="hud hud-features" id="featureStatus">
-    <div class="hud-feature">Cloud-brain conversation · text and voice</div>
+    <div class="hud-feature">Cloud brain · text and voice</div>
+    <div class="hud-feature">Local Python automation · <span id="automationHudStatus">checking</span></div>
     <div class="hud-feature">Replies in your language</div>
     </div>
   <div class="hud hud-hint" id="hudHint">
@@ -775,7 +776,8 @@
 
       <div class="settings-section">
         <div class="settings-section-title">AI Brain</div>
-        <div class="settings-status">Weronika answers text and voice through her hosted cloud brain. No PC, browser, account, or file automation is connected.</div>
+        <div class="settings-status">The hosted cloud brain understands requests and plans supported tasks. When this orb is opened with start.bat, the local Python worker performs supported messaging steps and reports progress here.</div>
+        <div class="settings-status" id="automationConnectionStatus">Checking for the local Python worker…</div>
       </div>
 
       <div class="settings-section">
@@ -2003,6 +2005,10 @@
     const chatLog = document.getElementById("chatLog");
     const chatInput = document.getElementById("chatInput");
     const sendChatBtn = document.getElementById("sendChatBtn");
+    const automationConnectionStatus = document.getElementById("automationConnectionStatus");
+    const automationHudStatus = document.getElementById("automationHudStatus");
+    let localAutomationConnected = false;
+    let pendingAutomation = null;
 
     // ---- Settings panel + AI Brain (built-in cloud brain) ----
     const settingsToggleBtn = document.getElementById("settingsToggleBtn");
@@ -2147,8 +2153,9 @@
       logVoice("Chat history cleared.");
     });
 
-    // Always try the app's same-origin route first. It owns the Lovable
-    // Gateway credentials; remote origins are last-resort fallbacks only.
+    // Prefer the app's same-origin cloud route when available. The loopback orb
+    // served by the Python worker has no cloud credentials, so it falls back to
+    // the hosted brain endpoints; local automation itself remains same-origin.
     const HOSTED_BRAINS = [
       "https://weronika-ai.lovable.app/api/public/brain",
       "https://project--9b370ba5-6b95-4715-86da-780c9e2c7e13-dev.lovable.app/api/public/brain",
@@ -2171,6 +2178,7 @@
         history: options.includeHistory === false ? [] : conversationHistory,
         lang: detectedLanguage,
         addressName: getAddressName(),
+        ...(options.task ? { task: options.task } : {}),
       };
     }
 
@@ -2341,7 +2349,30 @@
       return null;
     }
 
+    async function checkLocalAutomationWorker() {
+      const markOffline = () => {
+        localAutomationConnected = false;
+        if (automationConnectionStatus) automationConnectionStatus.textContent = "Worker offline. Open Weronika with start.bat to connect local automation.";
+        if (automationHudStatus) automationHudStatus.textContent = "offline";
+      };
+      try {
+        const response = await fetch("/api/automation/status", { cache: "no-store" });
+        if (!response.ok) return markOffline();
+        const status = await response.json();
+        localAutomationConnected = status.connected === true && status.worker === "weronika-py";
+        if (localAutomationConnected) {
+          if (automationConnectionStatus) automationConnectionStatus.textContent = "Connected to this device’s local Python worker.";
+          if (automationHudStatus) automationHudStatus.textContent = "connected";
+        } else {
+          markOffline();
+        }
+      } catch {
+        markOffline();
+      }
+    }
+
     initSettingsPanel();
+    void checkLocalAutomationWorker();
 
     const sceneApi = createOrbScene(orbRoot);
     window.__orbReady = true;
@@ -2815,12 +2846,198 @@
       return "I’m Weronika AI, built by Keshav Dixit Sir—not Google.";
     }
 
+    const AUTOMATION_MESSAGE_PATTERN = /\b(?:send|message|text|dm)\b/i;
+    const AUTOMATION_PLATFORM_PATTERN = /\b(?:whats\s?app|telegram|instagram|insta|facebook|messenger|twitter|x\.com)\b/i;
+    const AUTOMATION_TARGET_PATTERN = /\b(?:to|for|via|saying|that)\b|@[\w.]+/i;
+    const AUTOMATION_ACTION_PATTERN = /\b(?:post|open|click|search|find|download|upload|book|schedule|delete|install|automate|run)\b/i;
+    const AUTOMATION_CONFIRM_PATTERN = /^(?:confirm send|send it|send the message)[.! ]*$/i;
+    const AUTOMATION_CANCEL_PATTERN = /^cancel[.! ]*$/i;
+
+    function parseAutomationPlan(raw) {
+      const text = String(raw || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+      const first = text.indexOf("{");
+      const last = text.lastIndexOf("}");
+      if (first < 0 || last < first) throw new Error("The cloud brain returned an invalid automation plan. Nothing was run.");
+      try {
+        const plan = JSON.parse(text.slice(first, last + 1));
+        if (!plan || typeof plan !== "object" || Array.isArray(plan)) throw new Error("invalid plan");
+        return plan;
+      } catch { throw new Error("The cloud brain returned an invalid automation plan. Nothing was run."); }
+    }
+
+    async function postLocalAutomation(path, payload) {
+      let response;
+      try {
+        response = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          cache: "no-store",
+        });
+      } catch {
+        throw new Error("The local Python worker is not reachable. Open Weronika with start.bat on this device, then try again.");
+      }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "The local Python worker rejected the request. Nothing was sent.");
+      }
+      if (!response.body) throw new Error("The local worker returned no progress stream. Nothing was sent.");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() || "";
+        for (const block of blocks) {
+          const data = block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+          if (!data) continue;
+          let event;
+          try { event = JSON.parse(data); } catch { continue; }
+          if (event.type === "progress" && typeof event.message === "string") {
+            appendChat("system", `Local worker · ${event.message}`, { banner: false });
+          } else if (event.type === "error") {
+            throw new Error(event.message || "The local automation worker stopped safely.");
+          } else if (event.type === "result") {
+            result = event.workflow;
+          }
+        }
+      }
+      if (!result) throw new Error("The local worker stopped before returning a result. Check its window; do not retry a send until you inspect the chat.");
+      return result;
+    }
+
+    function rememberAutomationWorkflow(workflow) {
+      const stage = workflow && workflow.stage;
+      if (stage === "awaiting_recipient_choice" || stage === "awaiting_confirmation") {
+        pendingAutomation = {
+          draftId: workflow.draft_id,
+          stage,
+          candidates: Array.isArray(workflow.candidates) ? workflow.candidates : [],
+        };
+      } else {
+        pendingAutomation = null;
+      }
+      return workflow.prompt || workflow.result || "The local worker finished this step.";
+    }
+
+    async function postPendingAutomation(path, payload) {
+      try {
+        const workflow = await postLocalAutomation(path, payload);
+        return rememberAutomationWorkflow(workflow);
+      } catch (error) {
+        pendingAutomation = null;
+        throw error;
+      }
+    }
+
+    async function continuePendingAutomation(text) {
+      if (!pendingAutomation) return { handled: false };
+      if (AUTOMATION_CANCEL_PATTERN.test(text)) {
+        return {
+          handled: true,
+          reply: await postPendingAutomation("/api/automation/cancel", { draft_id: pendingAutomation.draftId }),
+        };
+      }
+      if (pendingAutomation.stage === "awaiting_recipient_choice") {
+        const match = String(text).trim().match(/^#?\s*(\d+)\s*$/);
+        let candidate = match ? pendingAutomation.candidates.find((item) => item.id === match[1]) : null;
+        if (!candidate) {
+          const normalized = String(text).trim().toLocaleLowerCase();
+          const matches = pendingAutomation.candidates.filter((item) => String(item.display_name || "").trim().toLocaleLowerCase() === normalized);
+          if (matches.length === 1) candidate = matches[0];
+        }
+        if (!candidate) return { handled: true, reply: "Please choose one of the numbered chats Weronika showed. Nothing has been opened or sent yet." };
+        const reply = await postPendingAutomation("/api/automation/recipient", {
+          draft_id: pendingAutomation.draftId,
+          candidate_id: candidate.id,
+        });
+        return { handled: true, reply };
+      }
+      if (pendingAutomation.stage === "awaiting_confirmation") {
+        if (AUTOMATION_CONFIRM_PATTERN.test(text)) {
+          const reply = await postPendingAutomation("/api/automation/confirm", {
+            draft_id: pendingAutomation.draftId,
+            confirmation: String(text).trim(),
+          });
+          return { handled: true, reply };
+        }
+        return { handled: true, reply: "There is still an unsent draft. Reply ‘confirm send’ to send the exact text shown, or ‘cancel’ before starting another task." };
+      }
+      pendingAutomation = null;
+      return { handled: false };
+    }
+
+    async function runAutomationPlan(message, languageOverride) {
+      appendChat("assistant", "I’m asking the cloud brain to break this into safe steps…", { banner: false });
+      const planningReply = await callBuiltinBrain(message, null, languageOverride, {
+        task: "automation-plan",
+        recordHistory: false,
+      });
+      if (planningReply && planningReply.error) return planningReply.error;
+
+      let plan;
+      try { plan = parseAutomationPlan(planningReply); }
+      catch (error) { return error.message; }
+      if (plan.intent === "chat") return await callBrain(message, null, languageOverride);
+      if (plan.intent === "needs_info") return String(plan.question || "What extra detail should I use?").slice(0, 500);
+      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. The local worker currently supports direct messages on WhatsApp, Telegram, Instagram, Facebook Messenger, and X.").slice(0, 700);
+      if (plan.intent !== "message" || typeof plan.platform !== "string" || typeof plan.recipient !== "string" || typeof plan.message !== "string" || !plan.recipient.trim() || !plan.message.trim()) {
+        return "I couldn’t validate a complete messaging plan. Please restate the platform, recipient, and exact message; nothing was sent.";
+      }
+      if (plan.recipient.length > 120 || plan.message.length > 2000) {
+        return "That recipient or message is too long for the local worker. Please shorten it; nothing was typed or sent.";
+      }
+
+      const acknowledgement = String(plan.acknowledgement || "I’m breaking this into steps and checking the local worker. Nothing will be sent without your confirmation.").trim().slice(0, 500);
+      if (/\b(?:already sent|message sent|delivered successfully|task completed)\b/i.test(acknowledgement)) {
+        appendChat("assistant", "I’ve made a step-by-step plan. The local worker is checking the request; nothing has been sent.", { banner: false });
+      } else if (acknowledgement) {
+        appendChat("assistant", acknowledgement, { banner: false });
+      }
+      const steps = Array.isArray(plan.steps) ? plan.steps.filter((step) => typeof step === "string").slice(0, 5) : [];
+      steps.forEach((step, index) => appendChat("system", `Cloud-brain plan ${index + 1}/${steps.length}: ${String(step).slice(0, 180)}`, { banner: false }));
+
+      await checkLocalAutomationWorker();
+      if (!localAutomationConnected) return "I have the plan, but the local Python worker is offline. Start this orb with start.bat on the same computer; no action was taken.";
+      try {
+        const workflow = await postLocalAutomation("/api/automation/prepare", {
+          plan: {
+            intent: "message",
+            platform: String(plan.platform),
+            recipient: plan.recipient,
+            message: plan.message,
+          },
+        });
+        return rememberAutomationWorkflow(workflow);
+      } catch (error) {
+        return error instanceof Error ? error.message : "The local worker stopped safely. Nothing was sent.";
+      }
+    }
+
+    function isAutomationRequest(text) {
+      const value = String(text || "");
+      const hasPlatform = AUTOMATION_PLATFORM_PATTERN.test(value);
+      if (AUTOMATION_MESSAGE_PATTERN.test(value) && (hasPlatform || AUTOMATION_TARGET_PATTERN.test(value))) return true;
+      return AUTOMATION_ACTION_PATTERN.test(value) && (hasPlatform || /\b(?:browser|website|app|file|folder|computer|account|screen|device)\b/i.test(value));
+    }
+
     async function generateChatReply(message, languageOverride) {
       const responseToken = assistantTurnToken;
       const text = String(message || "").trim();
       if (!text) return "I'm listening.";
+      try {
+        const pending = await continuePendingAutomation(text);
+        if (pending.handled) return pending.reply;
+      } catch (error) {
+        return error instanceof Error ? error.message : "The local worker stopped safely.";
+      }
       const identityReply = creatorIdentityReply(text);
       if (identityReply) return identityReply;
+      if (isAutomationRequest(text)) return await runAutomationPlan(text, languageOverride);
       const reply = await answerWithBrain(text, languageOverride);
       if (responseToken !== assistantTurnToken) return null;
       return reply || "I couldn't reach my cloud brain just now. Please try again in a moment.";
@@ -2829,9 +3046,7 @@
     async function parseVoiceCommand(command, languageOverride) {
       const text = String(command || "").trim();
       if (!text) return "I'm listening.";
-      const identityReply = creatorIdentityReply(text);
-      if (identityReply) return identityReply;
-      return await answerWithBrain(text, languageOverride)
+      return await generateChatReply(text, languageOverride)
         || "I couldn't reach my cloud brain just now. Please try again in a moment.";
     }
 
