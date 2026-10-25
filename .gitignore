@@ -21,18 +21,11 @@ __pycache__/
 .venv/
 venv/
 
-# Local agent state
-weronika-py/proposals/
-weronika-local/proposals/
-weronika-local/assistant_diagnostics.md
-
 # Downloads and packaged snapshots
 download/
 public/Weronika-AI.zip
 /Weronika-AI.zip
-/Weronika-AI-Local-Automation.zip
 /archive/*.zip
-!/archive/Weronika-AI-Local-Automation.zip
 
 # User-generated code workspace files stay local
 /workspace/weronika-site/

@@ -1,6 +1,0 @@
-{
-  "ollama_model": "llama3.2",
-  "cloud_model": "google/gemini-3.8-flash",
-  "hosted_brain": "https://weronika-ai.lovable.app",
-  "allow_power_commands": true
-}

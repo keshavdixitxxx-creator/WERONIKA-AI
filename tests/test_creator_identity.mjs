@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../public/weronika.html", import.meta.url), "utf8");
 const start = html.indexOf("    function creatorIdentityReply(message) {");
-const end = html.indexOf("\n    function detectUserIntent", start);
+const end = html.indexOf("\n    async function generateChatReply", start);
 assert.notEqual(start, -1, "creator identity helper exists");
 assert.notEqual(end, -1, "creator identity helper has a clear boundary");
 const creatorIdentityReply = new Function(
@@ -33,11 +33,7 @@ assert.equal(
   "Mujhe Keshav Dixit Sir ne banaya hai—Google ne nahi. Main Weronika AI hoon.",
 );
 assert.equal(creatorIdentityReply("Google is a search engine."), null);
-for (const promptFile of [
-  "src/lib/brain-stream.server.ts",
-  "weronika-py/weronika_agent.py",
-  "weronika-py/weronika_brain.py",
-]) {
+for (const promptFile of ["src/lib/brain-stream.server.ts"]) {
   const prompt = readFileSync(new URL(`../${promptFile}`, import.meta.url), "utf8");
   assert.match(
     prompt,
@@ -47,16 +43,16 @@ for (const promptFile of [
 }
 
 const chatStart = html.indexOf("    async function generateChatReply(message, languageOverride)");
-const chatIdentity = html.indexOf("creatorIdentityReply(message)", chatStart);
-const chatBrain = html.indexOf("answerWithBrain(message", chatStart);
+const chatIdentity = html.indexOf("creatorIdentityReply(text)", chatStart);
+const chatBrain = html.indexOf("answerWithBrain(text", chatStart);
 assert.ok(
   chatStart < chatIdentity && chatIdentity < chatBrain,
   "chat identity is handled before the hosted brain",
 );
 
 const voiceStart = html.indexOf("    async function parseVoiceCommand(command, languageOverride)");
-const voiceIdentity = html.indexOf("creatorIdentityReply(command)", voiceStart);
-const voiceBrain = html.indexOf("answerWithBrain(command", voiceStart);
+const voiceIdentity = html.indexOf("creatorIdentityReply(text)", voiceStart);
+const voiceBrain = html.indexOf("answerWithBrain(text", voiceStart);
 assert.ok(
   voiceStart < voiceIdentity && voiceIdentity < voiceBrain,
   "voice identity is handled before the hosted brain",
