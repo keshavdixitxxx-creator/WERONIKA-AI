@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import threading
+import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -157,14 +159,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run Weronika's local, confirmation-first messaging UI.")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--profile-dir", type=Path, default=None, help="Override the local persistent browser-profile directory.")
+    parser.add_argument("--open-browser", action="store_true", help="Open the local messaging page in the default browser.")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
 
     service, adapters = create_messaging_service(args.profile_dir)
     server = LocalServer(("127.0.0.1", args.port), make_handler(service, adapters))
-    print(f"Weronika local messaging is running at http://127.0.0.1:{args.port}/")
+    url = f"http://127.0.0.1:{args.port}/"
+    print(f"Weronika local messaging is running at {url}")
     print("It is loopback-only; browser sessions and message drafts stay on this device.")
+    if args.open_browser:
+        threading.Timer(0.8, webbrowser.open, args=(url,)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
