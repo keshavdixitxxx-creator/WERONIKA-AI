@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:;">
+  <title>Weronika · Local messaging</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">W</span><div><strong>WERONIKA</strong><span>LOCAL MESSAGING</span></div></div>
+      <span class="local-pill"><i></i> ON THIS DEVICE</span>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow">YOUR MESSAGES, YOUR APPROVAL</p>
+      <h1>Who should I message?</h1>
+      <p class="subhead">Tell Weronika what to send and where. She’ll find the chat, show you the exact text, and wait for your approval.</p>
+    </section>
+
+    <section class="composer-card" aria-label="New message request">
+      <label for="request">MESSAGE REQUEST</label>
+      <textarea id="request" rows="3" maxlength="2500" placeholder="Send a WhatsApp message to Boss saying I will be on leave tomorrow."></textarea>
+      <div class="composer-footer"><span>WhatsApp · Telegram · Instagram · Messenger · X</span><button id="prepare" class="primary" type="button">Prepare message <span aria-hidden="true">↗</span></button></div>
+    </section>
+
+    <section id="response" class="response" aria-live="polite" hidden>
+      <div class="response-head"><span class="response-icon" aria-hidden="true">✳</span><div><span class="eyebrow">WERONIKA</span><p id="response-title" class="response-title">Working on it…</p></div></div>
+      <div id="response-content" class="response-content"></div>
+      <div id="response-actions" class="response-actions"></div>
+    </section>
+
+    <aside class="safety-note"><span aria-hidden="true">◈</span><p><strong>Nothing sends without your approval.</strong> Weronika uses the visible app website in a separate browser profile. Sign in there yourself. She never asks for or stores your password.</p></aside>
+    <footer>LOCAL AUTOMATION · BROWSER UI ONLY · NO MESSAGES SENT ON PREPARE</footer>
+  </main>
+</body>
+</html>
