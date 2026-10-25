@@ -297,18 +297,13 @@
     .voice-wake-hint {
       display: none;
     }
-    #voiceLog,
-    #searchOutput {
+    #voiceLog {
       width: 100%;
       min-width: 0;
       max-width: none;
     }
     #voiceLog {
       max-height: 68px;
-      overflow: auto;
-    }
-    #searchOutput {
-      max-height: 92px;
       overflow: auto;
     }
     #voiceLog.sr-only {
@@ -321,9 +316,6 @@
       clip: rect(0, 0, 0, 0) !important;
       white-space: nowrap !important;
       border: 0 !important;
-    }
-    #searchOutput[hidden] {
-      display: none !important;
     }
     #chatLog {
       display: flex;
@@ -349,12 +341,6 @@
     .chat-message.user { border-color: rgba(255, 170, 48, .32); background: rgba(70, 38, 5, .48); }
     .chat-message.system { color: rgba(255, 216, 143, .72); }
     .chat-message-label { color: #ffbd50; font-weight: bold; }
-    .chat-inline-media { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
-    .chat-inline-media img, .chat-inline-media video { display: block; max-width: 100%; max-height: 180px; border-radius: 5px; background: #080b11; object-fit: contain; }
-    .chat-inline-media audio { width: 100%; max-width: 100%; height: 34px; }
-    .chat-inline-media-caption { color: #e0bc7e; font-size: 9px; }
-    .chat-inline-lyrics { max-height: 120px; overflow: auto; margin: 0; color: #ffe2b2; font: 9px/1.4 "Courier New", monospace; white-space: pre-wrap; }
-
     .hud-results {
       min-width: 208px;
       max-width: 360px;
@@ -740,13 +726,9 @@
   <div class="overlay-scanlines"></div>
   <div class="hud hud-title">WERONIKA AI</div>
   <div class="hud hud-features" id="featureStatus">
-    <div class="hud-feature">Built-in AI Brain · natural conversation in any language, no API key needed</div>
-    <div class="hud-feature">DuckDuckGo AI · instant factual answers on top of chat</div>
-    <div class="hud-feature">Voice Interaction · responds to spoken commands live</div>
-    <div class="hud-feature">Browser Control · open sites, navigate tabs, search web</div>
-    <div class="hud-feature">Code workspace · build webpages, write code in other languages, and manage project files</div>
-    <div class="hud-feature">Technical viewer · say “open blueprint of a car” · “Weronika, unlock yourself” returns here</div>
-  </div>
+    <div class="hud-feature">Cloud-brain conversation · text and voice</div>
+    <div class="hud-feature">Replies in your language</div>
+    </div>
   <div class="hud hud-hint" id="hudHint">
     <div><span class="key">DRAG</span> spin&nbsp;&nbsp;<span class="key">SCROLL</span> zoom</div>
     <div id="gestureHint"><span class="key">G</span> hand gestures&nbsp;&nbsp;<span class="key">R</span> reset&nbsp;&nbsp;<span class="key">+/−</span> zoom</div>
@@ -757,8 +739,6 @@
       <button type="button" class="hud-btn" id="wakeWordBtn" aria-pressed="false" title="Opt in to keep the microphone open for the Weronika wake word">WAKE WORD OFF</button>
       <div class="voice-wake-hint" id="wakeWordHint">One-turn voice closes the mic after you speak. Wake-word mode is optional and keeps it open.</div>
       <button type="button" class="hud-btn" id="gesturesBtn" aria-pressed="false">GESTURES OFF</button>
-      <button type="button" class="hud-btn" id="cursorGesturesBtn" aria-pressed="false" title="Allow the webcam hand pose to control the local PC cursor">PC CURSOR OFF</button>
-      <button type="button" class="hud-btn" id="codeWorkspaceBtn" title="Open the code editor and live preview">CODE WORKSPACE</button>
       <div class="hud-row zoom-control-row" aria-label="Orb view controls">
         <button type="button" class="hud-btn" id="zoomInBtn" aria-label="Zoom in">+</button>
         <button type="button" class="hud-btn" id="zoomOutBtn" aria-label="Zoom out">−</button>
@@ -773,7 +753,6 @@
   </div>
   <div class="hud hud-controls">
     <div class="hud-status sr-only" id="voiceLog" role="status" aria-live="polite"></div>
-    <div class="hud-results" id="searchOutput" hidden></div>
     <section class="chat-panel" id="chatPanel" aria-label="Chat with Weronika">
       <div class="chat-panel-heading">WERONIKA · CHAT</div>
       <div class="hud-status" id="chatLog" aria-live="polite"><div class="chat-message system" data-who="system">Chat: Weronika ready.</div></div>
@@ -796,13 +775,7 @@
 
       <div class="settings-section">
         <div class="settings-section-title">AI Brain</div>
-        <div class="settings-status">Ordinary chat uses the cloud brain. Signed-in app pages and private email/DM/calendar text stay on this PC and use local Ollama only. First use opens a separate browser profile for manual sign-in; sending, saving events, and answering calls require your confirmation.</div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-section-title">Local media workflows</div>
-        <div class="settings-status">No image, song, or video generation service is connected. Weronika prepares a copyable prompt for a locally installed generator; no media file is generated here.</div>
-        <div class="settings-hint">Use a local workflow such as ComfyUI / Forge for images, Wan / LTX for video, or ACE-Step / YuE2 for music. Weronika does not send these requests to a media-generation API.</div>
+        <div class="settings-status">Weronika answers text and voice through her hosted cloud brain. No PC, browser, account, or file automation is connected.</div>
       </div>
 
       <div class="settings-section">
@@ -836,59 +809,10 @@
       </div>
 
       <div class="settings-section">
-        <div class="settings-section-title">Local PC automation & upgrades</div>
-        <div class="settings-status" id="agentFeatureStatus">Checking for the local PC agent. Start the agent on this PC and open the local Weronika app at http://127.0.0.1:8765/ to enable desktop automation.</div>
-        <button type="button" class="hud-btn settings-mini-btn" id="checkPcAgentBtn">CHECK LOCAL AGENT</button>
-        <textarea id="upgradeGoal" class="settings-input address-input" rows="3" maxlength="400" placeholder="Optional goal, for example: note missing optional libraries"></textarea>
-        <button type="button" class="hud-btn settings-mini-btn" id="proposeUpgradeBtn">PROPOSE UPGRADE</button>
-        <pre id="upgradePreview" class="upgrade-preview"></pre>
-        <div class="settings-row">
-          <button type="button" class="hud-btn settings-mini-btn" id="approveUpgradeBtn" hidden>APPROVE</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="rejectUpgradeBtn" hidden>REJECT</button>
-        </div>
-      </div>
-
-      
-      <div class="settings-section" id="googlePanel">
-        <div class="settings-section-title">Google · Gmail + Calendar + Drive</div>
-        <div class="settings-status" id="googleStatus">Checking Google connection…</div>
-        <div class="settings-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-          <button type="button" class="hud-btn settings-mini-btn" id="googleConnectBtn">CONNECT GOOGLE</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="googleDisconnectBtn">DISCONNECT</button>
-        </div>
-        <div style="margin-top:10px;border-top:1px solid rgba(255,170,48,.15);padding-top:10px">
-          <label class="settings-label" for="googleClientId">Google OAuth Client ID</label>
-          <input id="googleClientId" class="settings-input" placeholder="xxx.apps.googleusercontent.com" autocomplete="off">
-          <label class="settings-label" for="googleClientSecret">Client Secret</label>
-          <input id="googleClientSecret" class="settings-input" type="password" placeholder="GOCSPX-..." autocomplete="off">
-          <label class="settings-label" for="googleRedirectUri">Redirect URI (optional)</label>
-          <input id="googleRedirectUri" class="settings-input" placeholder="http://127.0.0.1:8765/api/google/callback" autocomplete="off">
-          <button type="button" class="hud-btn settings-mini-btn" id="googleSaveConfigBtn" style="margin-top:6px">SAVE GOOGLE CONFIG</button>
-          <div class="settings-hint" style="margin-top:6px">Create in Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID (Web app). Add redirect: http://127.0.0.1:8765/api/google/callback — enable Gmail, Calendar, Drive APIs. Paste ID/Secret here, save, then Connect.</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-          <button type="button" class="hud-btn settings-mini-btn" id="googleGmailTest">✉️ CHECK GMAIL</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="googleCalPlan">📅 PLAN MY DAY</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="googleCalRecognize">👤 RECOGNIZE ME</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="googleDriveList">📁 DRIVE FILES</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="googleDriveOrganize">🗂️ ORGANIZE DRIVE</button>
-          <button type="button" class="hud-btn settings-mini-btn" id="googleDriveStorage">💾 STORAGE</button>
-        </div>
-        <div class="settings-hint">Weronika reads/writes via official Google APIs after you connect. Day planner uses Calendar, Drive organizer groups by type and moves files, Gmail lets you list/read/send with confirmation. Your chat history persists across shutdowns.</div>
-      </div>
-
-      <div class="settings-section" id="sameBrowserPanel">
-        <div class="settings-section-title">Same-browser automation</div>
-        <div class="settings-status" id="sameBrowserStatus">Same-browser mode: automation runs in the tab where Weronika is open — no separate Chrome test browser. For full tab control, run Chrome with --remote-debugging-port=9222.</div>
-        <div class="settings-hint">Try: “open telegram and send message to boss that I am on leave today and send him”, “open youtube and play Barsaat”, “play Sahiba on Spotify”, “play a video of Techno Gamer playing GTA 5 and comment that it is great”. Instagram/WhatsApp/Telegram work for any contact. Private reading uses Ollama when available.</div>
-      </div>
-
-      <div class="settings-section">
         <div class="settings-section-title">Data</div>
         <button type="button" class="hud-btn settings-mini-btn" id="clearChatBtn" style="width:100%;">CLEAR CHAT HISTORY</button>
       </div>
 
-      <div class="settings-hint">For signed-in apps, Weronika works in your current browser profile (same-browser). For full tab control, start Chrome with --remote-debugging-port=9222. Fallback still works with a local Chromium profile. Try “read my Gmail inbox”, “summarize my WhatsApp messages”, “play [title] on Spotify”, or “check my Google Calendar”. For pasted private text, prefix it with “Private:”. Private app text never falls back to cloud AI. Sending, event saves, and call answering need a final confirmation.</div>
     </div>
   </div>
 
@@ -1105,12 +1029,9 @@
       border-radius: 4px;
     }
 
-    .upgrade-preview.visible { display: block; }
-
     body.tech-mode .hud-features,
     body.tech-mode .hud-title,
-    body.tech-mode .hud-hint,
-    body.tech-mode #searchOutput {
+    body.tech-mode .hud-hint {
       display: none;
     }
 
@@ -1258,34 +1179,6 @@
       background: rgba(255, 178, 58, 0.8);
     }
 
-    .call-prompt {
-      position: fixed;
-      left: 50%;
-      top: 18px;
-      transform: translateX(-50%);
-      z-index: 70;
-      width: min(520px, 92vw);
-      padding: 14px 16px;
-      background: rgba(6, 14, 18, 0.92);
-      border: 1px solid rgba(255, 178, 58, 0.7);
-      box-shadow: 0 0 28px rgba(58, 215, 255, 0.2);
-      border-radius: 10px;
-      font-family: "Courier New", monospace;
-      color: #ffe2a8;
-    }
-
-    .call-prompt[hidden] { display: none; }
-
-    .call-prompt-kicker {
-      font-size: 10px;
-      letter-spacing: 0.28em;
-      color: #3ad7ff;
-      margin-bottom: 6px;
-    }
-
-    .call-prompt-actions { display: flex; gap: 8px; margin-top: 10px; }
-    .call-prompt-detail { margin-top: 8px; font-size: 10px; color: #9ee9ff; line-height: 1.4; }
-
     @media (max-width: 640px) {
       .settings-toggle-btn {
         top: 14px;
@@ -1317,592 +1210,9 @@
     <div id="techLabels"></div>
   </div>
 
-  <div class="call-prompt" id="callPrompt" hidden>
-    <div class="call-prompt-kicker">WHATSAPP CALL</div>
-    <div id="callPromptText"></div>
-    <div class="call-prompt-actions">
-      <button type="button" class="hud-btn" id="callApproveBtn">YES, PICK UP</button>
-      <button type="button" class="hud-btn" id="callDeclineBtn">NO</button>
-    </div>
-    <div class="call-prompt-detail" id="callPromptDetail"></div>
-  </div>
-
   <div class="answer-banner" id="answerBanner">
     <div class="answer-banner-title">WERONIKA</div>
     <div id="answerBannerText"></div>
-    <div id="answerBannerMedia" class="answer-banner-media" aria-label="Generated media result"></div>
-  </div>
-
-  <style>
-    #mediaStage {
-      position: fixed; right: 18px; bottom: 18px; width: min(340px, 46vw);
-      background: rgba(6, 12, 26, 0.82); border: 1px solid rgba(120, 200, 255, 0.35);
-      border-radius: 14px; padding: 10px; display: none; z-index: 60;
-      box-shadow: 0 0 28px rgba(60, 160, 255, 0.25); color: #cfe9ff;
-      font-family: inherit; font-size: 11px; backdrop-filter: blur(6px);
-    }
-    #mediaStage.visible { display: block; }
-    #mediaStage img, #mediaStage video { width: 100%; border-radius: 10px; display: block; }
-    #mediaStage audio { width: 100%; margin-top: 6px; }
-    #mediaStageHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; letter-spacing: 1px; }
-    #mediaStageClose { cursor: pointer; color: #ffd88f; }
-    #mediaStageBody pre { white-space: pre-wrap; margin: 6px 0 0; max-height: 130px; overflow: auto; }
-    #mediaStage.local-prompt-mode { width: min(620px, 88vw); max-height: 78vh; overflow: auto; }
-    #mediaStageBody .media-local-prompt { max-height: 58vh; padding: 12px; border: 1px solid rgba(120, 200, 255, .22); border-radius: 9px; background: rgba(0, 5, 16, .78); color: #dff2ff; font: 12px/1.55 "Courier New", monospace; overflow: auto; }
-    #mediaStageBody .media-local-copy { margin-top: 9px; min-height: 34px; }
-    #mediaStageBody .media-local-note { margin-top: 8px; font-size: 10px; line-height: 1.45; opacity: .78; }
-    #mediaStageBody .media-credit-note { margin-top: 8px; font-size: 9px; line-height: 1.4; opacity: 0.68; }
-    #mediaStageBody .media-fallback-note { margin-top: 8px; font-size: 10px; line-height: 1.45; color: #ffd88f; opacity: 0.9; }
-    #mediaStageBody .song-capability-note { margin-top: 8px; font-size: 9px; line-height: 1.4; color: #ffd88f; opacity: 0.78; }
-    @media (max-width: 560px) { #mediaStage, #mediaStage.local-prompt-mode { right: 10px; bottom: 10px; width: calc(100vw - 20px); } }
-  </style>
-  <div id="mediaStage">
-    <div id="mediaStageHead"><span id="mediaStageTitle">WERONIKA STUDIO</span><span id="mediaStageClose">✕</span></div>
-    <div id="mediaStageBody"></div>
-  </div>
-
-  <style>
-    #codeWorkspace {
-      position: fixed;
-      inset: 10px;
-      box-sizing: border-box;
-      overflow: hidden;
-      z-index: 140;
-      display: none;
-      padding: clamp(8px, 1.5vw, 18px);
-      background: rgba(1, 5, 14, .9);
-      backdrop-filter: blur(14px);
-      color: #dbeeff;
-      font-family: "Courier New", monospace;
-    }
-    #codeWorkspace.visible { display: flex; }
-    .code-workspace-shell {
-      display: flex;
-      flex-direction: column;
-      box-sizing: border-box;
-      flex: 1 1 auto;
-      min-width: 0;
-      min-height: 0;
-      width: 100%;
-      height: 100%;
-      border: 1px solid rgba(120, 200, 255, .48);
-      border-radius: 12px;
-      overflow: hidden;
-      background: linear-gradient(145deg, rgba(7, 17, 34, .98), rgba(4, 9, 20, .98));
-      box-shadow: 0 0 42px rgba(34, 132, 206, .24), inset 0 0 22px rgba(48, 144, 220, .06);
-    }
-    .workspace-confirm-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      display: grid;
-      place-items: center;
-      padding: 18px;
-      background: rgba(1, 5, 14, .72);
-      backdrop-filter: blur(4px);
-    }
-    .workspace-confirm-layer[hidden] { display: none !important; }
-    .workspace-confirm-card {
-      width: min(440px, 100%);
-      padding: 20px;
-      border: 1px solid rgba(120, 200, 255, .46);
-      border-radius: 10px;
-      color: #dbeeff;
-      background: linear-gradient(145deg, #0b1930, #07101d);
-      box-shadow: 0 20px 70px rgba(0, 0, 0, .55);
-    }
-    .workspace-confirm-card h2 { margin: 0 0 9px; color: #bceaff; font: 600 15px "Courier New", monospace; }
-    .workspace-confirm-card p { margin: 0; color: #a8bdd1; font: 12px/1.55 "Courier New", monospace; overflow-wrap: anywhere; }
-    .workspace-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-    .workspace-confirm-actions .hud-btn { min-width: auto; height: 32px; padding: 0 12px; font-size: 9px; }
-    #workspaceConfirmAccept { border-color: rgba(255, 136, 115, .55); color: #ffb6a5; }
-    .code-workspace-header, .code-workspace-toolbar, .code-workspace-pane-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .code-workspace-header {
-      min-height: 48px;
-      padding: 8px 12px 8px 16px;
-      border-bottom: 1px solid rgba(120, 200, 255, .2);
-      color: #bceaff;
-      letter-spacing: .12em;
-      font-size: 11px;
-    }
-    .code-workspace-title { font-weight: bold; }
-    .code-workspace-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-    .code-workspace-tools .hud-btn { min-width: auto; height: 30px; font-size: 10px; }
-    .code-workspace-request {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 9px 12px;
-      border-bottom: 1px solid rgba(120, 200, 255, .16);
-    }
-    #workspaceRequest {
-      flex: 1;
-      min-width: 0;
-      padding: 9px 10px;
-      border: 1px solid rgba(120, 200, 255, .3);
-      border-radius: 5px;
-      background: rgba(0, 0, 0, .42);
-      color: #e7f7ff;
-      font: 12px "Courier New", monospace;
-      outline: none;
-    }
-    #workspaceRequest:focus { border-color: rgba(115, 220, 255, .9); }
-    #workspaceLanguage, #workspaceFileSelect, #workspaceFileName {
-      min-width: 0;
-      padding: 8px 9px;
-      border: 1px solid rgba(120, 200, 255, .3);
-      border-radius: 5px;
-      color: #dbeeff;
-      background: #091426;
-      font: 11px "Courier New", monospace;
-      outline: none;
-    }
-    #workspaceLanguage { flex: 0 0 150px; }
-    #workspaceBuildBtn { min-width: 190px; height: 38px; font-size: 10px; }
-    .code-workspace-files {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 7px;
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(120, 200, 255, .16);
-    }
-    #workspaceFileSelect { flex: 0 1 190px; }
-    #workspaceFileName { flex: 1 1 150px; }
-    .code-workspace-files .hud-btn { min-width: auto; height: 30px; padding: 0 9px; font-size: 9px; }
-    .code-workspace-status {
-      min-height: 23px;
-      padding: 5px 14px;
-      color: #9bcbe7;
-      font-size: 10px;
-      letter-spacing: .04em;
-      border-bottom: 1px solid rgba(120, 200, 255, .14);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .code-workspace-main {
-      position: relative;
-      display: grid;
-      grid-template-columns: 208px minmax(0, 1fr) minmax(280px, 340px);
-      grid-template-rows: minmax(0, 1fr) minmax(132px, 190px);
-      flex: 1 1 0;
-      min-height: 0;
-      gap: 8px;
-      padding: 8px;
-    }
-    .code-workspace-main.workspace-ai-hidden {
-      grid-template-columns: 208px minmax(0, 1fr) 0;
-    }
-    .code-workspace-main.workspace-ai-hidden .code-workspace-side-pane { display: none; }
-    .code-workspace-editor-pane { grid-column: 2; grid-row: 1; }
-    .code-workspace-side-pane { grid-column: 3; grid-row: 1 / 3; }
-    .code-workspace-terminal-pane { grid-column: 2; grid-row: 2; }
-    .workspace-side-head {
-      display: flex;
-      align-items: center;
-      min-height: 34px;
-      padding: 4px 6px;
-      border-bottom: 1px solid rgba(120, 200, 255, .17);
-      background: rgba(3, 11, 23, .86);
-    }
-    .workspace-side-tabs { display: flex; align-items: center; gap: 4px; min-width: 0; }
-    .workspace-side-tab {
-      min-width: 0;
-      padding: 6px 8px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      color: #839db5;
-      background: transparent;
-      font: 9px "Courier New", monospace;
-      letter-spacing: .08em;
-      cursor: pointer;
-    }
-    .workspace-side-tab[aria-selected="true"] {
-      border-color: rgba(106, 201, 255, .28);
-      color: #c9efff;
-      background: rgba(46, 117, 168, .22);
-    }
-    .workspace-ai-panel, .workspace-preview-panel { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
-    .workspace-ai-panel[hidden], .workspace-preview-panel[hidden] { display: none !important; }
-    .workspace-ai-context { padding: 8px 10px; border-bottom: 1px solid rgba(120, 200, 255, .12); color: #7e9db7; font-size: 9px; line-height: 1.45; }
-    #workspaceAIChat { display: flex; flex: 1 1 0; flex-direction: column; align-items: stretch; gap: 8px; min-height: 0; overflow: auto; padding: 10px; }
-    .workspace-ai-message { max-width: 100%; padding: 8px 9px; border: 1px solid rgba(120, 200, 255, .16); border-radius: 6px; color: #c9ddec; background: rgba(9, 20, 36, .82); font: 10px/1.5 "Cascadia Code", Consolas, "Courier New", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .workspace-ai-message.user { align-self: flex-end; border-color: rgba(99, 187, 239, .3); color: #e2f5ff; background: rgba(39, 101, 146, .24); }
-    .workspace-ai-message.assistant { align-self: stretch; }
-    .workspace-ai-message-label { display: block; margin-bottom: 4px; color: #6fcfff; font: 8px "Courier New", monospace; letter-spacing: .12em; text-transform: uppercase; }
-    #workspaceAIForm { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-top: 1px solid rgba(120, 200, 255, .16); }
-    #workspaceAIInput { width: 100%; min-height: 54px; max-height: 120px; resize: vertical; padding: 8px; border: 1px solid rgba(120, 200, 255, .28); border-radius: 5px; outline: none; color: #dbeeff; background: #07101c; font: 10px/1.45 "Courier New", monospace; }
-    #workspaceAIInput:focus { border-color: rgba(115, 220, 255, .78); }
-    #workspaceAIForm .hud-btn { min-width: 0; align-self: flex-end; height: 30px; padding: 0 12px; font-size: 9px; }
-    .workspace-terminal-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid rgba(120, 200, 255, .22); border-radius: 7px; background: rgba(1, 6, 15, .9); }
-    .workspace-terminal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 29px; padding: 4px 9px; border-bottom: 1px solid rgba(120, 200, 255, .14); color: #9fc8e1; font-size: 9px; letter-spacing: .1em; }
-    .workspace-terminal-head small { color: #6e879d; font-size: 8px; letter-spacing: .02em; }
-    .workspace-terminal-head .hud-btn { min-width: 0; height: 22px; padding: 0 7px; font-size: 8px; }
-    #workspaceTerminalOutput { flex: 1 1 0; min-height: 0; overflow: auto; padding: 6px 9px; color: #a8c2d4; font: 9px/1.45 "Cascadia Code", Consolas, "Courier New", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .workspace-terminal-line { margin: 0 0 3px; }
-    .workspace-terminal-line.command { color: #86d5ff; }
-    .workspace-terminal-line.error { color: #ff9b87; }
-    #workspaceTerminalForm { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 9px; border-top: 1px solid rgba(120, 200, 255, .13); color: #72cfff; font: 9px "Courier New", monospace; }
-    #workspaceTerminalInput { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; color: #e3f2ff; background: transparent; font: inherit; }
-    .code-workspace-explorer {
-      grid-column: 1;
-      grid-row: 1 / 3;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-      border: 1px solid rgba(120, 200, 255, .22);
-      border-radius: 7px;
-      background: rgba(1, 7, 17, .72);
-    }
-    .code-workspace-explorer-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      padding: 9px 8px 8px 11px;
-      border-bottom: 1px solid rgba(120, 200, 255, .17);
-      color: #bceaff;
-      font-size: 10px;
-      letter-spacing: .12em;
-    }
-    .code-workspace-explorer-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .code-workspace-explorer-head small, .code-workspace-explorer-hint {
-      color: #7e9db7;
-      font-size: 9px;
-      letter-spacing: .04em;
-    }
-    .workspace-folder-form {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 7px;
-      border-bottom: 1px solid rgba(120, 200, 255, .12);
-    }
-    #workspaceFolderName {
-      flex: 1 1 auto;
-      width: 0;
-      min-width: 0;
-      padding: 6px 5px;
-      border: 1px solid rgba(120, 200, 255, .24);
-      border-radius: 4px;
-      color: #dbeeff;
-      background: #091426;
-      font: 9px "Courier New", monospace;
-      outline: none;
-    }
-    #workspaceFolderName:focus { border-color: rgba(115, 220, 255, .75); }
-    .workspace-new-folder-btn, .workspace-cancel-folder-rename {
-      flex: 0 0 auto;
-      min-height: 26px;
-      padding: 4px 5px;
-      border: 1px solid rgba(91, 190, 245, .3);
-      border-radius: 4px;
-      color: #91dcff;
-      background: rgba(37, 112, 161, .16);
-      font: 8px "Courier New", monospace;
-      letter-spacing: .02em;
-      cursor: pointer;
-    }
-    .workspace-new-folder-btn:hover { background: rgba(37, 145, 205, .3); }
-    .workspace-cancel-folder-rename { color: #ff9b87; }
-    .workspace-cancel-folder-rename[hidden] { display: none; }
-    #workspaceExplorerList {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      gap: 2px;
-      min-height: 0;
-      overflow: auto;
-      padding: 7px;
-    }
-    .workspace-explorer-empty {
-      padding: 8px 6px;
-      color: #849ab1;
-      font-size: 10px;
-      line-height: 1.5;
-    }
-    .workspace-explorer-file {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      min-height: 30px;
-      padding: 5px 8px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      background: transparent;
-      min-width: 0;
-      color: #c5d9eb;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-      font: 11px "Cascadia Code", Consolas, "Courier New", monospace;
-      cursor: pointer;
-    }
-    .workspace-explorer-file .workspace-explorer-name { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
-    .workspace-explorer-dirty { flex: 0 0 auto; color: #ffd279; font-size: 8px; }
-    .workspace-explorer-file:hover { background: rgba(78, 146, 204, .14); }
-    .workspace-explorer-file.active {
-      border-color: rgba(98, 194, 255, .35);
-      background: rgba(52, 121, 183, .24);
-      color: #e4f6ff;
-    }
-    .workspace-explorer-icon { flex: 0 0 14px; width: 14px; color: #70cfff; text-align: center; }
-    .workspace-folder-icon { color: #87c8ed; font-size: 13px; }
-    .workspace-explorer-root, .workspace-explorer-folder {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      width: 100%;
-      min-width: 0;
-      min-height: 28px;
-      padding: 4px 6px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      color: #bcd2e5;
-      background: transparent;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-      font: 10px "Cascadia Code", Consolas, "Courier New", monospace;
-      cursor: pointer;
-    }
-    .workspace-explorer-root { color: #d3ebfb; font-weight: 700; }
-    .workspace-explorer-folder span:last-child { overflow: hidden; text-overflow: ellipsis; }
-    .workspace-explorer-folder:hover, .workspace-explorer-root:hover { background: rgba(78, 146, 204, .14); }
-    .workspace-explorer-folder.active, .workspace-explorer-root.active {
-      border-color: rgba(98, 194, 255, .28);
-      background: rgba(52, 121, 183, .18);
-      color: #e4f6ff;
-    }
-    .workspace-explorer-folder-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
-    .workspace-explorer-folder-row > .workspace-explorer-folder { flex: 1 1 auto; }
-    .workspace-explorer-action, .workspace-explorer-remove {
-      flex: 0 0 22px;
-      width: 22px;
-      height: 23px;
-      padding: 0;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      color: #7898b1;
-      background: transparent;
-      font: 12px "Courier New", monospace;
-      cursor: pointer;
-    }
-    .workspace-explorer-action:hover { color: #91dcff; background: rgba(37, 112, 161, .2); }
-    .workspace-explorer-remove:hover { color: #ff9b87; background: rgba(183, 65, 58, .2); }
-    .code-workspace-explorer-hint {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      padding: 8px 9px;
-      border-top: 1px solid rgba(120, 200, 255, .14);
-      line-height: 1.45;
-    }
-    #workspaceActiveFolder { color: #a9d7ef; overflow-wrap: anywhere; }
-    .code-workspace-pane {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-      border: 1px solid rgba(120, 200, 255, .22);
-      border-radius: 7px;
-      background: rgba(1, 7, 17, .72);
-    }
-    .code-workspace-pane-head {
-      min-height: 32px;
-      padding: 5px 10px;
-      border-bottom: 1px solid rgba(120, 200, 255, .17);
-      color: #a8d9f4;
-      font-size: 10px;
-      letter-spacing: .1em;
-    }
-    .code-workspace-editor-shell {
-      display: flex;
-      flex: 1 1 0;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-    }
-    #workspaceLineNumbers {
-      flex: 0 0 42px;
-      min-height: 0;
-      margin: 0;
-      padding: 13px 8px;
-      overflow: hidden;
-      border-right: 1px solid rgba(120, 200, 255, .12);
-      color: #607993;
-      background: #07101c;
-      text-align: right;
-      user-select: none;
-      white-space: pre;
-      font: 12px/1.55 "Cascadia Code", Consolas, "Courier New", monospace;
-    }
-    #workspaceEditor {
-      flex: 1 1 0;
-      width: 100%;
-      height: auto;
-      min-width: 0;
-      min-height: 0;
-      padding: 13px;
-      resize: none;
-      border: 0;
-      outline: 0;
-      color: #d7f0ff;
-      background: #07101c;
-      tab-size: 2;
-      white-space: pre;
-      overflow: auto;
-      font: 12px/1.55 "Cascadia Code", Consolas, "Courier New", monospace;
-    }
-    #workspacePreview {
-      display: block;
-      flex: 1 1 0;
-      width: 100%;
-      height: auto;
-      min-height: 0;
-      border: 0;
-      background: #fff;
-    }
-    @media (max-width: 900px) {
-      #codeWorkspace { inset: 4px; padding: 4px; }
-      .code-workspace-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(88px, .25fr) minmax(0, 1fr) minmax(112px, .3fr); gap: 7px; padding: 7px; }
-      .code-workspace-main.workspace-ai-hidden { grid-template-columns: minmax(0, 1fr); }
-      .code-workspace-explorer { grid-column: 1; grid-row: 1; }
-      .code-workspace-editor-pane { grid-column: 1; grid-row: 2; }
-      .code-workspace-terminal-pane { grid-column: 1; grid-row: 3; }
-      .code-workspace-side-pane { position: absolute; top: 7px; right: 7px; bottom: 7px; z-index: 5; width: min(380px, 88vw); }
-      #workspaceExplorerList { flex-direction: column; overflow: auto; }
-      .workspace-explorer-file { flex: 0 0 auto; width: 100%; min-width: 0; }
-      .code-workspace-explorer-hint { display: none; }
-      .code-workspace-header { align-items: flex-start; }
-      .code-workspace-tools .hud-btn { height: 28px; padding: 0 7px; font-size: 9px; }
-      .code-workspace-request, .code-workspace-files { padding: 7px; }
-      #workspaceRequest { flex: 1 1 100%; }
-      #workspaceLanguage { flex: 1 1 110px; }
-      #workspaceBuildBtn { min-width: 190px; flex: 1 1 190px; }
-    }
-  </style>
-  <div id="codeWorkspace" aria-hidden="true">
-    <section class="code-workspace-shell" role="dialog" aria-modal="true" aria-labelledby="codeWorkspaceTitle">
-      <header class="code-workspace-header">
-        <span id="codeWorkspaceTitle" class="code-workspace-title">WERONIKA · CODE WORKSPACE</span>
-        <div class="code-workspace-tools">
-          <button type="button" class="hud-btn" id="workspaceRightPaneBtn" aria-pressed="true" title="Toggle the right-side AI and preview panel">AI PANEL</button>
-          <button type="button" class="hud-btn" id="workspaceRunBtn">RUN PREVIEW</button>
-          <button type="button" class="hud-btn" id="workspaceTestBtn">TEST ON LOCALHOST</button>
-          <button type="button" class="hud-btn" id="workspaceVscodeBtn">OPEN PROJECT IN VS CODE</button>
-          <button type="button" class="hud-btn" id="workspaceCloseBtn" aria-label="Close code workspace">✕</button>
-        </div>
-      </header>
-      <div class="code-workspace-request">
-        <input id="workspaceRequest" type="text" maxlength="500" placeholder="Describe a website, app, or code change for Weronika…" autocomplete="off">
-        <select id="workspaceLanguage" aria-label="Programming language">
-          <option value="auto">AUTO · DETECT</option>
-          <option value="html">HTML</option>
-          <option value="css">CSS</option>
-          <option value="javascript">JavaScript</option>
-          <option value="typescript">TypeScript</option>
-          <option value="python">Python</option>
-          <option value="java">Java</option>
-          <option value="c">C</option>
-          <option value="cpp">C++</option>
-          <option value="csharp">C#</option>
-          <option value="go">Go</option>
-          <option value="rust">Rust</option>
-          <option value="php">PHP</option>
-          <option value="ruby">Ruby</option>
-          <option value="swift">Swift</option>
-          <option value="kotlin">Kotlin</option>
-          <option value="dart">Dart</option>
-          <option value="sql">SQL</option>
-          <option value="bash">Bash</option>
-          <option value="json">JSON</option>
-          <option value="markdown">Markdown</option>
-        </select>
-        <button type="button" class="hud-btn" id="workspaceBuildBtn" aria-label="Build this project with Weronika AI">✦ BUILD WITH WERONIKA AI</button>
-      </div>
-      <div class="code-workspace-files">
-        <select id="workspaceFileSelect" aria-label="Choose a project file"><option value="">Browser files</option></select>
-        <input id="workspaceFileName" type="text" value="index.html" maxlength="240" aria-label="Current project file path" autocomplete="off" spellcheck="false">
-        <button type="button" class="hud-btn" id="workspaceNewFileBtn">NEW FILE</button>
-        <button type="button" class="hud-btn" id="workspaceSaveBtn">SAVE FILE</button>
-        <button type="button" class="hud-btn" id="workspaceLoadBtn">LOAD</button>
-        <button type="button" class="hud-btn" id="workspaceRenameBtn">RENAME</button>
-        <button type="button" class="hud-btn" id="workspaceDeleteBtn">DELETE</button>
-      </div>
-      <div class="code-workspace-status" id="workspaceStatus" role="status">Browser editor ready · preview and files stay in this browser until you save to your PC.</div>
-      <main class="code-workspace-main" id="workspaceMain">
-        <aside class="code-workspace-explorer" aria-label="Project explorer">
-          <div class="code-workspace-explorer-head">
-            <div class="code-workspace-explorer-title">EXPLORER<small>WERONIKA-SITE</small></div>
-          </div>
-          <div class="workspace-folder-form">
-            <input id="workspaceFolderName" type="text" maxlength="240" placeholder="New folder name" aria-label="New folder name" autocomplete="off" spellcheck="false">
-            <button type="button" class="workspace-new-folder-btn" id="workspaceNewFolderBtn" title="Create folder or apply folder rename">+ FOLDER</button>
-            <button type="button" class="workspace-cancel-folder-rename" id="workspaceCancelFolderRenameBtn" title="Cancel folder rename" aria-label="Cancel folder rename" hidden>×</button>
-          </div>
-          <div id="workspaceExplorerList" role="tree" aria-label="Project files and folders"></div>
-          <div class="code-workspace-explorer-hint">
-            <span id="workspaceActiveFolder">ACTIVE FOLDER · /</span>
-            <span>Click a folder to work inside it. Empty folders can be deleted; folders with files are kept intact.</span>
-          </div>
-        </aside>
-        <section class="code-workspace-pane code-workspace-editor-pane" aria-label="Source code editor">
-          <div class="code-workspace-pane-head"><span id="workspaceFileLabel">index.html</span><span id="workspaceLanguageLabel">HTML · LOCAL EDITOR</span></div>
-          <div class="code-workspace-editor-shell">
-            <pre id="workspaceLineNumbers" aria-hidden="true">1</pre>
-            <textarea id="workspaceEditor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Edit source code"></textarea>
-          </div>
-        </section>
-        <aside class="code-workspace-pane code-workspace-side-pane" id="workspaceSidePane" aria-label="Weronika AI and live preview">
-          <div class="workspace-side-head">
-            <div class="workspace-side-tabs" role="tablist" aria-label="Right panel">
-              <button type="button" class="workspace-side-tab" id="workspaceAITab" role="tab" aria-selected="true" aria-controls="workspaceAIPanel">WERONIKA AI</button>
-              <button type="button" class="workspace-side-tab" id="workspacePreviewTab" role="tab" aria-selected="false" aria-controls="workspacePreviewPanel">PREVIEW</button>
-            </div>
-          </div>
-          <section class="workspace-ai-panel" id="workspaceAIPanel" role="tabpanel" aria-labelledby="workspaceAITab">
-            <div class="workspace-ai-context" id="workspaceAIContext">Weronika can discuss the active file and suggest changes. She will not edit it until you build or apply them.</div>
-            <div id="workspaceAIChat" role="log" aria-live="polite">
-              <div class="workspace-ai-message assistant"><span class="workspace-ai-message-label">Weronika · Project Assistant</span>Ask about the active file, request a fix, or describe what to build. The top prompt generates code in the editor.</div>
-            </div>
-            <form id="workspaceAIForm">
-              <textarea id="workspaceAIInput" rows="2" maxlength="600" placeholder="Ask Weronika about this project…" aria-label="Ask Weronika about the current project"></textarea>
-              <button type="submit" class="hud-btn" id="workspaceAIAskBtn">ASK WERONIKA</button>
-            </form>
-          </section>
-          <section class="workspace-preview-panel" id="workspacePreviewPanel" role="tabpanel" aria-labelledby="workspacePreviewTab" hidden>
-            <div class="code-workspace-pane-head"><span>LIVE PREVIEW</span><span id="workspacePreviewMode">SANDBOX</span></div>
-            <iframe id="workspacePreview" title="Generated webpage preview" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
-          </section>
-        </aside>
-        <section class="workspace-terminal-pane" aria-label="Project-scope terminal">
-          <div class="workspace-terminal-head"><span>TERMINAL · PROJECT SCOPE</span><small>Safe commands only · no arbitrary shell</small><button type="button" class="hud-btn" id="workspaceTerminalClearBtn" aria-label="Clear terminal output">CLEAR</button></div>
-          <div id="workspaceTerminalOutput" role="log" aria-live="polite"><div class="workspace-terminal-line">Weronika project console. Type help to list file and preview commands. Shell commands are disabled here.</div></div>
-          <form id="workspaceTerminalForm"><label for="workspaceTerminalInput">weronika-site &gt;</label><input id="workspaceTerminalInput" type="text" autocomplete="off" spellcheck="false" aria-label="Project terminal command" placeholder="help"></form>
-        </section>
-      </main>
-    </section>
-    <div class="workspace-confirm-layer" id="workspaceConfirmDialog" hidden>
-      <section class="workspace-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="workspaceConfirmTitle">
-        <h2 id="workspaceConfirmTitle">Confirm workspace change</h2>
-        <p id="workspaceConfirmMessage"></p>
-        <div class="workspace-confirm-actions">
-          <button type="button" class="hud-btn" id="workspaceConfirmCancel">KEEP</button>
-          <button type="button" class="hud-btn" id="workspaceConfirmAccept">DELETE</button>
-        </div>
-      </section>
-    </div>
   </div>
 
   <script type="importmap">
@@ -1920,19 +1230,7 @@
     import { UnrealBloomPass } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/postprocessing/UnrealBloomPass.js";
     import { ShaderPass } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/postprocessing/ShaderPass.js";
     import { createTechnicalController } from "/technical-viewer.js";
-    import { createCodeWorkspace } from "/weronika-workspace.js";
     import {
-      detectLocalMediaRequest,
-      normalizeLocalMediaBrief,
-    } from "/weronika-local-prompts.js";
-    import {
-      isClearlyNonActionableMediaMessage,
-      isExplicitMediaGenerationRequest,
-      inferMediaKindFromText,
-    } from "/weronika-media-intent.js";
-    import {
-      parseBlueprintCommand,
-      parseExplodeCommand,
       sanitizeAddressName,
       DEFAULT_ADDRESS_NAME,
     } from "/weronika-commands.js";
@@ -1959,8 +1257,6 @@
         this.video = video;
         this.overlay = overlay;
         this.callbacks = callbacks;
-        this.desktopControl = !!callbacks.desktopControl;
-        this.desktopCursor = null;
         this.landmarker = null;
         this.stream = null;
         this.rafId = 0;
@@ -2034,54 +1330,7 @@
         this.drawOverlay(result.landmarks);
       };
 
-      processDesktopHand(landmarks, labels) {
-        if (!landmarks.length) {
-          this.desktopCursor = null;
-          this.callbacks.onDesktopGesture?.({ gesture: "idle" });
-          this.emitStatus({ hands: 0, mode: "idle" });
-          return;
-        }
-
-        const hand = landmarks[0];
-        const fingerExtended = (tipIndex, pipIndex) => {
-          const tipDistance = dist2d(hand[tipIndex], hand[WRIST]);
-          const pipDistance = dist2d(hand[pipIndex], hand[WRIST]);
-          return tipDistance > pipDistance * 1.15 && tipDistance - pipDistance > 0.025;
-        };
-        const indexUp = fingerExtended(8, 6);
-        const middleUp = fingerExtended(12, 10);
-        const ringUp = fingerExtended(16, 14);
-        const pinkyUp = fingerExtended(20, 18);
-        const extendedCount = [indexUp, middleUp, ringUp, pinkyUp].filter(Boolean).length;
-        const gesture = !extendedCount
-          ? "drag"
-          : indexUp && middleUp && !ringUp && !pinkyUp
-            ? "click"
-            : indexUp && !middleUp && !ringUp && !pinkyUp
-              ? "move"
-              : extendedCount >= 3
-                ? "open"
-                : "idle";
-        const point = gesture === "drag" ? hand[MIDDLE_MCP] : hand[INDEX_TIP];
-        const raw = {
-          x: Math.min(1, Math.max(0, 1 - point.x)),
-          y: Math.min(1, Math.max(0, point.y)),
-        };
-        this.desktopCursor = this.desktopCursor
-          ? {
-              x: this.desktopCursor.x + (raw.x - this.desktopCursor.x) * SMOOTHING,
-              y: this.desktopCursor.y + (raw.y - this.desktopCursor.y) * SMOOTHING,
-            }
-          : raw;
-        this.callbacks.onDesktopGesture?.({ gesture, ...this.desktopCursor, label: labels[0] });
-        this.emitStatus({ hands: landmarks.length, mode: gesture });
-      }
-
       processHands(landmarks, labels) {
-        if (this.desktopControl) {
-          this.processDesktopHand(landmarks, labels);
-          return;
-        }
         const pinchedGrabs = [];
         const seen = new Set();
 
@@ -2743,7 +1992,6 @@
     const cameraStatus = document.getElementById("cameraStatus");
     const hudError = document.getElementById("hudError");
     const gesturesBtn = document.getElementById("gesturesBtn");
-    const cursorGesturesBtn = document.getElementById("cursorGesturesBtn");
     const voiceBtn = document.getElementById("voiceBtn");
     const wakeWordBtn = document.getElementById("wakeWordBtn");
     const wakeWordHint = document.getElementById("wakeWordHint");
@@ -2753,7 +2001,6 @@
     const resetBtn = document.getElementById("resetBtn");
     const gestureHint = document.getElementById("gestureHint");
     const chatLog = document.getElementById("chatLog");
-    const searchOutput = document.getElementById("searchOutput");
     const chatInput = document.getElementById("chatInput");
     const sendChatBtn = document.getElementById("sendChatBtn");
 
@@ -2785,29 +2032,15 @@
     const techLabels = document.getElementById("techLabels");
     const techExplode = document.getElementById("techExplode");
     const techCloseBtn = document.getElementById("techCloseBtn");
-    const checkPcAgentBtn = document.getElementById("checkPcAgentBtn");
-    const proposeUpgradeBtn = document.getElementById("proposeUpgradeBtn");
-    const approveUpgradeBtn = document.getElementById("approveUpgradeBtn");
-    const rejectUpgradeBtn = document.getElementById("rejectUpgradeBtn");
-    const upgradeGoal = document.getElementById("upgradeGoal");
-    const upgradePreview = document.getElementById("upgradePreview");
-    const agentFeatureStatus = document.getElementById("agentFeatureStatus");
-    const callPrompt = document.getElementById("callPrompt");
-    const callPromptText = document.getElementById("callPromptText");
-    const callPromptDetail = document.getElementById("callPromptDetail");
-    const callApproveBtn = document.getElementById("callApproveBtn");
-    const callDeclineBtn = document.getElementById("callDeclineBtn");
-    let pendingProposal = null;
-    let pendingCallId = null;
     let streamPresented = false;
-    let pendingChatMedia = null;
     let assistantTurnToken = 0;
 
-    function setPendingChatMedia(media, token = assistantTurnToken) {
-      if (token === assistantTurnToken) pendingChatMedia = media;
-    }
-
-    let conversationHistory = [];
+    let conversationHistory = (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("weronika.conversationHistory.v2") || "[]");
+        return Array.isArray(saved) ? saved.slice(-20) : [];
+      } catch { return []; }
+    })();
 
     function getAddressName() {
       try {
@@ -2902,6 +2135,7 @@
 
     if (clearChatBtn) clearChatBtn.addEventListener("click", () => {
       conversationHistory = [];
+      try { localStorage.removeItem("weronika.conversationHistory.v2"); } catch {}
       if (chatLog) {
         chatLog.replaceChildren();
         const greeting = document.createElement("div");
@@ -2910,7 +2144,6 @@
         greeting.textContent = "Chat: Weronika ready.";
         chatLog.appendChild(greeting);
       }
-      pendingChatMedia = null;
       logVoice("Chat history cleared.");
     });
 
@@ -2921,7 +2154,7 @@
       "https://project--9b370ba5-6b95-4715-86da-780c9e2c7e13-dev.lovable.app/api/public/brain",
     ];
     const BRAIN_ENDPOINTS = location.protocol === "http:" || location.protocol === "https:"
-      ? ["/api/public/brain", "/api/weronika-agent/api/public/brain", ...HOSTED_BRAINS]
+      ? ["/api/public/brain", ...HOSTED_BRAINS]
       : HOSTED_BRAINS;
     let brainEndpoint = null;
 
@@ -2938,7 +2171,6 @@
         history: options.includeHistory === false ? [] : conversationHistory,
         lang: detectedLanguage,
         addressName: getAddressName(),
-        ...(options.task === "media-intent" ? { task: "media-intent" } : {}),
       };
     }
 
@@ -3042,6 +2274,7 @@
             conversationHistory.push({ role: "user", content: message });
             conversationHistory.push({ role: "assistant", content: reply });
             if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+            try { localStorage.setItem("weronika.conversationHistory.v2", JSON.stringify(conversationHistory)); } catch {}
           }
           return reply;
         } catch (error) {
@@ -3072,7 +2305,7 @@
 
     // Single entry point used by both text chat and voice chat. The server
     // route owns gateway credentials and can relay to the hosted brain when
-    // this instance has no local key; callers retain web-search fallback.
+    // This instance has no local API key; replies come from the hosted cloud brain.
     async function callBrain(message, onDelta, languageOverride) {
       return await callBuiltinBrain(message, onDelta, languageOverride);
     }
@@ -3108,215 +2341,6 @@
       return null;
     }
 
-    // --- Creative studio: local prompts only; no media-generation API calls ---
-    const mediaStage = document.getElementById("mediaStage");
-    const mediaStageBody = document.getElementById("mediaStageBody");
-    const mediaStageTitle = document.getElementById("mediaStageTitle");
-    const mediaStageClose = document.getElementById("mediaStageClose");
-    if (mediaStageClose) mediaStageClose.addEventListener("click", () => mediaStage.classList.remove("visible"));
-
-    function showMedia(title, html, { gatewayNotice = true, localPrompt = false, providerNotice = "" } = {}) {
-      if (!mediaStage || !mediaStageBody) return;
-      mediaStageTitle.textContent = title;
-      const notice = providerNotice
-        ? `<div class="media-credit-note">${escapeHtml(providerNotice)}</div>`
-        : gatewayNotice
-          ? `<div class="media-credit-note">Uses connected Lovable AI Gateway access. Included credits, usage limits, or charges depend on your account.</div>`
-          : "";
-      mediaStageBody.innerHTML = `${html}${notice}`;
-      mediaStage.classList.toggle("local-prompt-mode", localPrompt);
-      mediaStage.classList.add("visible");
-    }
-
-    function escapeHtml(text) {
-      return String(text || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    }
-
-    function safeMediaSource(value) {
-      const source = String(value || "").trim();
-      if (!source || source.length > 60_000_000) return "";
-      if (/^data:(?:image|audio|video)\//i.test(source) || /^blob:/i.test(source)) return source;
-      try {
-        const url = new URL(source, location.href);
-        return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
-      } catch {
-        return "";
-      }
-    }
-
-    function createInlineMediaElement(media, compact = false) {
-      if (!media || typeof media !== "object") return null;
-      const wrapper = document.createElement("div");
-      wrapper.className = "chat-inline-media";
-      const type = String(media.type || "").toLowerCase();
-      const source = safeMediaSource(media.src);
-      if (source && ["image", "video", "audio"].includes(type)) {
-        const element = document.createElement(type === "image" ? "img" : type);
-        element.src = source;
-        if (type === "image") {
-          element.alt = String(media.alt || media.title || "Generated image");
-          element.loading = "lazy";
-        } else {
-          element.controls = true;
-          element.preload = "metadata";
-          if (type === "video") element.playsInline = true;
-        }
-        wrapper.appendChild(element);
-      } else if (media.notice) {
-        const note = document.createElement("div");
-        note.textContent = String(media.notice);
-        wrapper.appendChild(note);
-      }
-      if (media.title) {
-        const caption = document.createElement("div");
-        caption.className = `chat-inline-media-caption${compact ? " compact" : ""}`;
-        caption.textContent = String(media.title);
-        wrapper.appendChild(caption);
-      }
-      if (media.lyrics) {
-        const lyrics = document.createElement("pre");
-        lyrics.className = "chat-inline-lyrics";
-        lyrics.textContent = String(media.lyrics);
-        wrapper.appendChild(lyrics);
-      }
-      return wrapper.childNodes.length ? wrapper : null;
-    }
-
-    function showLocalPromptBrief(kind, brief, note = "") {
-      const titles = {
-        image: "LOCAL IMAGE PROMPT",
-        video: "LOCAL VIDEO SEQUENCE",
-        song: "LOCAL MUSIC BRIEF",
-      };
-      const detail = note
-        ? `<div class="media-fallback-note">${escapeHtml(note)}</div>`
-        : "";
-      showMedia(
-        titles[kind] || "LOCAL GENERATION PROMPT",
-        `<pre class="media-local-prompt" id="localMediaPromptText">${escapeHtml(brief)}</pre><button type="button" class="hud-btn media-local-copy" data-copy-local-prompt>Copy prompt</button><div class="media-local-note">Prompt text only. No image, song, or video service is contacted, and no media file is generated here. Paste this brief into a locally installed ComfyUI / Forge, Wan / LTX / AnimateDiff, or ACE-Step / YuE2 / DiffRhythm workflow.</div>${detail}`,
-        { gatewayNotice: false, localPrompt: true },
-      );
-      const copyButton = mediaStageBody.querySelector("[data-copy-local-prompt]");
-      if (copyButton) {
-        copyButton.addEventListener("click", async () => {
-          try {
-            if (navigator.clipboard?.writeText) {
-              await navigator.clipboard.writeText(brief);
-            } else {
-              const copyField = document.createElement("textarea");
-              copyField.value = brief;
-              copyField.setAttribute("readonly", "");
-              copyField.style.position = "fixed";
-              copyField.style.opacity = "0";
-              document.body.appendChild(copyField);
-              copyField.select();
-              const copied = document.execCommand?.("copy");
-              copyField.remove();
-              if (!copied) throw new Error("clipboard access is unavailable");
-            }
-            copyButton.textContent = "Copied";
-            setTimeout(() => { copyButton.textContent = "Copy prompt"; }, 1800);
-          } catch {
-            copyButton.textContent = "Select text to copy";
-          }
-        });
-      }
-    }
-
-    function handleLocalMediaPrompt(localRequest) {
-      const { kind, engine, request } = localRequest;
-      const normalized = normalizeLocalMediaBrief(kind, "", { engine, request });
-      showLocalPromptBrief(kind, normalized.text);
-      return `I prepared a local ${kind} prompt for ${engine}. No media service was contacted and no file was generated; copy the prompt into your local workflow.`;
-    }
-
-    const MEDIA_PATTERNS = [
-      // verb forms: "make / generate / draw me an image of a car"
-      { kind: "image", re: /\b(?:make|create|generate|draw|paint|design|render|show me)\s+(?:me\s+)?(?:an?\s+|the\s+)?(?:image|picture|photo|pic|art|artwork|drawing|wallpaper|illustration)\s*(?:of|about|showing|with|:)?\s*(.*)/i },
-      // bare forms the user actually types: "image of car", "a pic of a dog"
-      { kind: "image", re: /^(?:an?\s+)?(?:image|picture|photo|pic|artwork|drawing|wallpaper|illustration)\s+(?:of|about|showing|with|:)\s*(.+)/i },
-      { kind: "image", re: /(?:एक\s*)?(?:तस्वीर|फोटो|इमेज|चित्र)\s*(?:बनाओ|बना दो|दिखाओ|बनाकर दो)?\s*(.*)/i },
-      { kind: "image", rawPrompt: true, re: /\b(?:tasveer|tasvir|chitra|photo|image)\b.*\b(?:banao|bana|dikhao|taiyar karo)|\b(?:banao|bana|dikhao|taiyar karo)\b.*\b(?:tasveer|tasvir|chitra|photo|image)\b/i },
-      { kind: "song", re: /\b(?:make|create|generate|write|sing|compose)\s+(?:me\s+)?(?:a\s+|the\s+)?(?:song|music|track|melody|tune)\s*(?:about|on|for|of|:)?\s*(.*)/i },
-      { kind: "song", re: /^(?:a\s+)?(?:song|music|track|melody)\s+(?:about|on|for|of|:)\s*(.+)/i },
-      { kind: "song", re: /(?:एक\s*)?(?:गाना|गीत)\s*(?:बनाओ|गाओ|सुनाओ)?\s*(.*)/i },
-      { kind: "song", rawPrompt: true, re: /\b(?:gaana|gana|geet|song|music)\b.*\b(?:banao|bana|likho|gaao|gana|sunaao)|\b(?:banao|bana|likho|gaao|sunaao)\b.*\b(?:gaana|gana|geet|song|music)\b/i },
-      { kind: "video", re: /\b(?:make|create|generate|shoot|film)\s+(?:me\s+)?(?:a\s+|the\s+)?(?:video|clip|reel|animation|movie)\s*(?:of|about|showing|with|:)?\s*(.*)/i },
-      { kind: "video", re: /^(?:a\s+)?(?:video|clip|reel|animation)\s+(?:of|about|showing|with|:)\s*(.+)/i },
-      { kind: "video", re: /(?:एक\s*)?(?:वीडियो|क्लिप)\s*(?:बनाओ|दिखाओ)?\s*(.*)/i },
-      { kind: "video", rawPrompt: true, re: /\b(?:video|clip|reel)\b.*\b(?:banao|bana|dikhao|taiyar karo)|\b(?:banao|bana|dikhao|taiyar karo)\b.*\b(?:video|clip|reel)\b/i },
-      // Common multilingual generation requests. Keep the original wording
-      // for scripts whose word order is different from English.
-      { kind: "image", re: /\b(?:crea|genera|dibuja|hazme|haz)\s+(?:una?\s+)?(?:imagen|foto|ilustraci[oó]n|dibujo|fondo)\s*(?:de|sobre|con|:)?\s*(.*)/i },
-      { kind: "image", re: /\b(?:crée|créez|génère|générez|dessine|dessinez|fais)\s+(?:moi\s+)?(?:une?\s+)?(?:image|photo|illustration|dessin)\s*(?:de|sur|avec|:)?\s*(.*)/i },
-      { kind: "image", re: /\b(?:erstelle|erzeuge|generiere|zeichne|male)\s+(?:mir\s+)?(?:ein(?:e|en)?\s+)?(?:bild|foto|illustration|zeichnung|hintergrundbild)\s*(?:von|über|mit|:)?\s*(.*)/i },
-      { kind: "image", re: /\b(?:crie|gere|gera|desenha|faça|faz)\s+(?:uma?\s+)?(?:imagem|foto|ilustra[cç][aã]o|desenho)\s*(?:de|sobre|com|:)?\s*(.*)/i },
-      { kind: "image", re: /(?:أنشئ|اصنع|ارسم|ولّد|ولد)\s*(?:لي\s*)?(?:صورة|رسم|خلفية)\s*(?:ل|عن|حول|:)?\s*(.*)/i },
-      { kind: "image", rawPrompt: true, re: /(?:画像|写真|イラスト|壁紙).{0,4}(?:作って|生成して|描いて|作成して)|(?:作って|生成して|描いて|作成して).{0,8}(?:画像|写真|イラスト|壁紙)/i },
-      { kind: "image", rawPrompt: true, re: /(?:生成|创作|制作|画|做).{0,12}(?:图片|图像|照片|插画)|(?:图片|图像|照片|插画).{0,8}(?:生成|创作|制作|画|做)/i },
-      { kind: "image", re: /(?:একটি?\s*)?(?:ছবি|চিত্র)\s*(?:তৈরি কর|বানাও|আঁকো)\s*(.*)/i },
-      { kind: "image", re: /(?:ایک\s*)?(?:تصویر|تصویریں)\s*(?:بناؤ|بنائیں|تیار کرو)\s*(.*)/i },
-      { kind: "image", re: /(?:ਇੱਕ\s*)?(?:ਤਸਵੀਰ|ਚਿੱਤਰ)\s*(?:ਬਣਾਓ|ਬਣਾ)\s*(.*)/i },
-      { kind: "image", re: /(?:ஒரு\s*)?(?:படம்|புகைப்படம்)\s*(?:உருவாக்கு|செய்|வரை)\s*(.*)/i },
-      { kind: "song", re: /(?:একটি?\s*)?(?:গান)\s*(?:তৈরি কর|বানাও|লেখো)\s*(.*)/i },
-      { kind: "song", re: /\b(?:crea|genera|escribe|comp[oó]n|compone|canta|hazme)\s+(?:una?\s+)?(?:canci[oó]n|m[uú]sica|tema|melod[ií]a)\s*(?:sobre|de|para|:)?\s*(.*)/i },
-      { kind: "song", re: /\b(?:crée|génère|écris|compose|chante|fais)\s+(?:moi\s+)?(?:une?\s+)?(?:chanson|musique|mélodie)\s*(?:sur|de|pour|:)?\s*(.*)/i },
-      { kind: "song", re: /\b(?:schreib|komponiere|erstelle|generiere|mach|sing)\s+(?:mir\s+)?(?:ein(?:en|e)?\s+)?(?:lied|song|musik|melodie)\s*(?:über|von|für|:)?\s*(.*)/i },
-      { kind: "song", re: /\b(?:crie|gere|escreva|comp[oõ]e|canta|faça)\s+(?:uma?\s+)?(?:can[cç][aã]o|m[uú]sica|melodia)\s*(?:sobre|de|para|:)?\s*(.*)/i },
-      { kind: "song", re: /(?:أنشئ|اصنع|اكتب|ألّف|غنّ)\s*(?:لي\s*)?(?:أغنية|موسيقى|لحن)\s*(?:عن|حول|لـ|:)?\s*(.*)/i },
-      { kind: "song", rawPrompt: true, re: /(?:歌|曲|音楽).{0,5}(?:作って|作成して|生成して|歌って)|(?:作って|作成して|生成して|歌って).{0,8}(?:歌|曲|音楽)/i },
-      { kind: "song", rawPrompt: true, re: /(?:生成|创作|制作|写|唱).{0,12}(?:歌曲|音乐|歌)|(?:歌曲|音乐|歌).{0,8}(?:生成|创作|制作|写|唱)/i },
-      { kind: "song", re: /(?:একটি?\s*)?(?:গান)\s*(?:তৈরি কর|বানাও|লেখো)\s*(.*)/i },
-      { kind: "song", re: /(?:ایک\s*)?(?:گانا|نغمہ)\s*(?:بناؤ|بنائیں|لکھو)\s*(.*)/i },
-      { kind: "song", re: /(?:ਇੱਕ\s*)?(?:ਗੀਤ|ਗਾਣਾ)\s*(?:ਬਣਾਓ|ਲਿਖੋ|ਗਾਓ)\s*(.*)/i },
-      { kind: "song", re: /(?:ஒரு\s*)?(?:பாடல்|பாட்டு)\s*(?:உருவாக்கு|எழுது|பாடு)\s*(.*)/i },
-      { kind: "video", re: /\b(?:crea|genera|hazme|haz)\s+(?:un(?:a)?\s+)?(?:video|vídeo|clip|reel|animación|cortometraje)\s*(?:de|sobre|con|:)?\s*(.*)/i },
-      { kind: "video", re: /\b(?:crée|génère|fais)\s+(?:moi\s+)?(?:une?\s+)?(?:vidéo|film|clip|animation)\s*(?:de|sur|avec|:)?\s*(.*)/i },
-      { kind: "video", re: /\b(?:erstelle|erzeuge|generiere|mach|drehe)\s+(?:mir\s+)?(?:ein(?:en|e)?\s+)?(?:video|film|clip|animation)\s*(?:von|über|mit|:)?\s*(.*)/i },
-      { kind: "video", re: /\b(?:crie|gere|faça|faz)\s+(?:um(?:a)?\s+)?(?:v[ií]deo|filme|clipe|anima[cç][aã]o)\s*(?:de|sobre|com|:)?\s*(.*)/i },
-      { kind: "video", re: /(?:أنشئ|اصنع|أنشئ)\s*(?:لي\s*)?(?:مقطع فيديو|فيديو|مشهداً)\s*(?:عن|ل|حول|:)?\s*(.*)/i },
-      { kind: "video", rawPrompt: true, re: /(?:動画|映像|ビデオ).{0,5}(?:作って|作成して|生成して)|(?:作って|作成して|生成して).{0,8}(?:動画|映像|ビデオ)/i },
-      { kind: "video", rawPrompt: true, re: /(?:生成|创作|制作).{0,12}(?:视频|影片|短片)|(?:视频|影片|短片).{0,8}(?:生成|创作|制作)/i },
-      { kind: "video", re: /(?:একটি?\s*)?(?:ভিডিও|চলচ্চিত্র)\s*(?:তৈরি কর|বানাও)\s*(.*)/i },
-      { kind: "video", re: /(?:ایک\s*)?(?:ویڈیو|فلم)\s*(?:بناؤ|بنائیں|تیار کرو)\s*(.*)/i },
-      { kind: "video", re: /(?:ਇੱਕ\s*)?(?:ਵੀਡੀਓ|ਕਲਿੱਪ)\s*(?:ਬਣਾਓ|ਬਣਾ)\s*(.*)/i },
-      { kind: "video", re: /(?:ஒரு\s*)?(?:வீடியோ|காணொளி)\s*(?:உருவாக்கு|செய்)\s*(.*)/i },
-      { kind: "image", re: /\b(?:crea|genera|disegna|realizza)\s+(?:per me\s+)?(?:un['’]?immagine|una?\s+(?:foto|illustrazione|disegno|sfondo))\s*(?:di|su|con|:)?\s*(.*)/i },
-      { kind: "image", re: /\b(?:buat|buatkan|ciptakan|hasilkan|cipta)\s+(?:saya\s+)?(?:gambar|foto|ilustrasi|wallpaper)\s*(?:tentang|dari|untuk|:)?\s*(.*)/i },
-      { kind: "image", rawPrompt: true, re: /(?:resim|resmi|görsel|fotoğraf|çizim).{0,12}(?:oluştur|üret|çiz)|(?:oluştur|üret|çiz).{0,12}(?:resim|resmi|görsel|fotoğraf|çizim)/i },
-      { kind: "image", re: /(?:создай|сгенерируй|нарисуй|сделай)\s+(?:мне\s+)?(?:изображение|картинку|фото|рисунок)\s*(?:с|про|о|:)?\s*(.*)/i },
-      { kind: "song", re: /\b(?:crea|genera|scrivi|componi|canta)\s+(?:una?\s+)?(?:canzone|brano|musica|melodia)\s*(?:su|di|per|:)?\s*(.*)/i },
-      { kind: "song", re: /\b(?:buat(?:kan)?|ciptakan|tulis|nyanyikan|hasilkan|cipta)\s+(?:lagu|musik|melodi)\s*(?:tentang|dari|untuk|:)?\s*(.*)/i },
-      { kind: "song", rawPrompt: true, re: /(?:şarkı|müzik|melodi).{0,12}(?:oluştur|üret|yaz|bestele)|(?:oluştur|üret|yaz|bestele).{0,12}(?:şarkı|müzik|melodi)/i },
-      { kind: "song", re: /(?:создай|напиши|сочини|спой)\s+(?:мне\s+)?(?:песню|музыку|мелодию)\s*(?:о|про|для|:)?\s*(.*)/i },
-      { kind: "video", re: /\b(?:crea|genera|realizza|filma)\s+(?:un(?:a)?\s+)?(?:video|film|clip|animazione)\s*(?:di|su|con|:)?\s*(.*)/i },
-      { kind: "video", re: /\b(?:buat(?:kan)?|bikin|hasilkan|cipta|ciptakan)\s+(?:video|klip|film|animasi)\s*(?:tentang|dari|dengan|:)?\s*(.*)/i },
-      { kind: "video", rawPrompt: true, re: /(?:video|film|klip).{0,12}(?:oluştur|üret)|(?:oluştur|üret).{0,12}(?:video|film|klip)/i },
-      { kind: "video", re: /(?:создай|сгенерируй|сними|сделай)\s+(?:мне\s+)?(?:видео|клип|анимацию|фильм)\s*(?:о|про|с|:)?\s*(.*)/i },
-    ];
-
-    function handleMediaCommand(text) {
-      const raw = String(text || "").trim();
-      if (!raw || raw.length > 4000 || isClearlyNonActionableMediaMessage(raw)) return null;
-
-      const localRequest = detectLocalMediaRequest(raw);
-      if (localRequest) return handleLocalMediaPrompt(localRequest);
-
-      const pattern = MEDIA_PATTERNS.find((entry) => entry.re.test(raw));
-      const explicit = isExplicitMediaGenerationRequest(raw);
-      const softwareContext = /\b(?:app|application|website|webpage|software|code|script|program|prompt|tutorial|instructions|workflow|generator|editor)\b/i.test(raw);
-      if (!explicit && (!pattern || softwareContext)) return null;
-
-      const kind = (explicit ? inferMediaKindFromText(raw) : null) || pattern?.kind;
-      if (!kind) return null;
-      const engines = {
-        image: "ComfyUI / Forge (SDXL default; choose FLUX if installed)",
-        video: "ComfyUI with Wan 2.1, LTX-Video, or AnimateDiff",
-        song: "ACE-Step, YuE2, or DiffRhythm local weights",
-      };
-      return handleLocalMediaPrompt({ kind, engine: engines[kind], request: raw });
-    }
-
     initSettingsPanel();
 
     const sceneApi = createOrbScene(orbRoot);
@@ -3324,14 +2348,6 @@
     if (window.__orbDiagOK) window.__orbDiagOK();
     let tracker = null;
     let cameraState = "off";
-    let desktopCursorMode = false;
-    let desktopCursorArmed = false;
-    let desktopDragActive = false;
-    let lastDesktopGesture = "idle";
-    let lastDesktopMoveAt = 0;
-    let cursorRequestInFlight = false;
-    let pendingCursorMovement = null;
-    const queuedCursorActions = [];
     let recognition = null;
     let voiceEnabled = false;
     let voiceReady = false;
@@ -3356,56 +2372,6 @@
     function isHindiText(text) {
       return /[\u0900-\u097F]/.test(text || '');
     }
-
-    async function fetchAnswerFromServer(query) {
-      try {
-        const res = await fetch(`/api/public/answer?q=${encodeURIComponent(query)}`);
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data && data.answer) return { source: data.source || 'DuckDuckGo', answer: data.answer, url: data.url || '' };
-        return null;
-      } catch (error) {
-        console.error('answer lookup failed', error);
-        return null;
-      }
-    }
-
-    async function getBestAnswer(query) {
-      setStatus("Searching DuckDuckGo...");
-      const result = await fetchAnswerFromServer(query);
-      if (result) {
-        if (result.url && searchOutput) {
-          searchOutput.hidden = false;
-          searchOutput.innerHTML = `<div class="hud-result-card"><div class="hud-result-title">${result.source}</div><div class="hud-result-url">${result.url}</div></div>`;
-        }
-        setStatus("SHOW HANDS");
-        return { source: result.source, answer: result.answer };
-      }
-      setStatus("SHOW HANDS");
-      return null;
-    }
-
-    if (!speechRecognitionSupported && !speechSynthesisAvailable) {
-      showError("Speech APIs unavailable. Use buttons or gestures instead.");
-      if (voiceBtn) voiceBtn.disabled = true;
-    } else if (!speechRecognitionSupported) {
-      showError("Speech recognition is not available in this browser.");
-      if (voiceBtn) voiceBtn.disabled = true;
-    } else if (voiceBtn) {
-      voiceBtn.disabled = false;
-    }
-
-    if (speechSynthesisAvailable) {
-      window.speechSynthesis.addEventListener("voiceschanged", chooseVoice);
-      chooseVoice();
-    }
-
-    window.addEventListener("error", (event) => {
-      showError(`Error: ${event.message}`);
-    });
-    window.addEventListener("unhandledrejection", (event) => {
-      showError(`Promise error: ${event.reason}`);
-    });
 
     function setStatus(text) {
       cameraStatus.textContent = text;
@@ -3504,11 +2470,6 @@
       } catch (e) { /* ignore */ }
       return normalizeSpeechTag(navigator.language || "en-US");
     })();
-    const codeWorkspaceController = createCodeWorkspace({
-      askBrain: (prompt, language) => callBuiltinBrain(prompt, null, language),
-      getDisplayName: getAddressName,
-      getLanguage: () => spokenLang,
-    });
     function speechTagForLanguage(code) {
       if (code === "en" && /^en-/i.test(spokenLang)) return spokenLang;
       return SPEECH_LANG_TAGS[code] || "";
@@ -3715,29 +2676,21 @@
 
     const answerBanner = document.getElementById("answerBanner");
     const answerBannerText = document.getElementById("answerBannerText");
-    const answerBannerMedia = document.getElementById("answerBannerMedia");
     let answerBannerTimer = null;
 
-    function showAnswerBanner(text, media = null) {
+    function showAnswerBanner(text) {
       if (!answerBanner || !answerBannerText || !text) return;
       answerBannerText.textContent = text;
-      if (answerBannerMedia) {
-        answerBannerMedia.replaceChildren();
-        const mediaElement = createInlineMediaElement(media, true);
-        if (mediaElement) answerBannerMedia.appendChild(mediaElement);
-        answerBanner.classList.toggle("has-media", !!mediaElement);
-      }
       answerBanner.classList.add('visible');
       if (answerBannerTimer) clearTimeout(answerBannerTimer);
-      const duration = media ? 18000 : Math.min(16000, 4500 + text.length * 55);
+      const duration = Math.min(16000, 4500 + text.length * 55);
       answerBannerTimer = setTimeout(() => {
-        answerBanner.classList.remove('visible', 'has-media');
-        if (answerBannerMedia) answerBannerMedia.replaceChildren();
+        answerBanner.classList.remove('visible');
       }, duration);
     }
 
     function appendChat(who, text, options = {}) {
-      if (who === 'assistant' && options.banner !== false) showAnswerBanner(text, options.media || null);
+      if (who === 'assistant' && options.banner !== false) showAnswerBanner(text);
       if (!chatLog) return;
       let message = null;
       if (options.replace) {
@@ -3761,10 +2714,6 @@
       body.textContent = String(text || '');
       message.appendChild(label);
       message.appendChild(body);
-      if (options.media) {
-        const mediaElement = createInlineMediaElement(options.media);
-        if (mediaElement) message.appendChild(mediaElement);
-      }
       while (chatLog.children.length > 36) chatLog.removeChild(chatLog.firstElementChild);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -3772,132 +2721,6 @@
     function upsertAssistantLine(text) {
       appendChat('assistant', text, { banner: false, replace: true });
     }
-
-    // ---- Windows control bridge (same-origin proxy to the optional local agent) ----
-    const PC_AGENT_URL = location.port === '8765' ? '' : '/api/weronika-agent';
-    const PC_AGENT_PREFIX = PC_AGENT_URL;
-
-    async function pcAgentSend(action, payload = {}) {
-      try {
-        const res = await fetch(`${PC_AGENT_PREFIX}/command`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, ...payload }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          return {
-            ok: false,
-            message: data?.message || data?.error || `The local PC agent returned HTTP ${res.status}.`,
-          };
-        }
-        return data;
-      } catch (error) {
-        return null;
-      }
-    }
-
-    function parsePcCommand(text) {
-      const lower = (text || '').toLowerCase().trim();
-      const pcWords = /(on (my )?(pc|computer|laptop|windows)|in windows|windows)/i;
-      const openAndType = String(text || '').match(/^(?:open|launch|start)\s+(?:the\s+)?(.+?)\s+(?:and|then)\s+(?:type|write)\s+(.+)$/i);
-      if (openAndType) {
-        const supportedApp = openAndType[1].trim().toLowerCase();
-        const supportedApps = new Set(['notepad', 'paint', 'word', 'microsoft word', 'excel', 'calculator']);
-        if (supportedApps.has(supportedApp)) {
-          let typedText = openAndType[2].trim();
-          typedText = typedText.replace(/\s+(?:in|into)\s+(?:notepad|word|microsoft word)\s*$/i, '').trim();
-          if ((typedText.startsWith('"') && typedText.endsWith('"')) || (typedText.startsWith("'") && typedText.endsWith("'"))) typedText = typedText.slice(1, -1);
-          return [{ action: 'open_app', app: supportedApp }, { action: 'type', text: typedText }];
-        }
-      }
-      const openApp = lower.match(/^(?:open|launch|start|run)\s+(.+)$/);
-      if (openApp && (pcWords.test(lower) || /(notepad|calculator|paint|explorer|file explorer|cmd|command prompt|powershell|word|excel|settings|task manager|camera|spotify app|chrome app|vs code|code)/.test(lower))) {
-        return { action: 'open_app', app: openApp[1].replace(pcWords, '').trim() };
-      }
-      const closeApp = lower.match(/^(?:close|quit|kill|exit)\s+(.+)$/);
-      if (closeApp && pcWords.test(lower + ' pc')) {
-        return { action: 'close_app', app: closeApp[1].replace(pcWords, '').trim() };
-      }
-      if (/(lock (the )?(pc|computer|screen|windows))/.test(lower)) return { action: 'lock' };
-      if (/(shut ?down|turn off) (the )?(pc|computer|windows|laptop)/.test(lower)) return { action: 'shutdown' };
-      if (/(restart|reboot) (the )?(pc|computer|windows|laptop)/.test(lower)) return { action: 'restart' };
-      if (/(sleep) (the )?(pc|computer|windows|laptop)/.test(lower)) return { action: 'sleep' };
-      if (/take (a )?screenshot/.test(lower)) return { action: 'screenshot' };
-      if (/volume up|increase volume/.test(lower)) return { action: 'volume', direction: 'up' };
-      if (/volume down|decrease volume|lower volume/.test(lower)) return { action: 'volume', direction: 'down' };
-      if (/mute/.test(lower)) return { action: 'volume', direction: 'mute' };
-      if (/(minimi[sz]e all|show desktop)/.test(lower)) return { action: 'minimize_all' };
-      const moveCursor = text.match(/^(?:move|place|put)(?: the)? (?:mouse|cursor)(?: to| at)?\s*\(?\s*(?:x\s*=?\s*)?(\d{1,5})\s*[,; ]\s*(?:y\s*=?\s*)?(\d{1,5})\s*\)?$/i);
-      if (moveCursor) return { action: 'move', x: Number(moveCursor[1]), y: Number(moveCursor[2]) };
-      const clickAt = text.match(/^(?:click|tap)(?: at)?\s*\(?\s*(\d{1,5})\s*[,; ]\s*(\d{1,5})\s*\)?$/i);
-      if (clickAt) return { action: 'click', x: Number(clickAt[1]), y: Number(clickAt[2]) };
-      if (/^(?:click|tap)(?: here)?$/i.test(text.trim())) return { action: 'click' };
-      const typeText = text.match(/^(?:type|write)\s+(.+)$/i);
-      if (typeText) {
-        let typedText = typeText[1].trim();
-        const destination = typedText.match(/^(.*?)\s+(?:in|into)\s+(?:notepad|the text editor|word|microsoft word|excel|paint|chrome|edge)$/i);
-        if (destination) typedText = destination[1].trim();
-        if ((typedText.startsWith('"') && typedText.endsWith('"')) || (typedText.startsWith("'") && typedText.endsWith("'"))) typedText = typedText.slice(1, -1);
-        const codeLike = /\b(?:code|script|program|function|class|python|javascript|typescript|html|css|java|rust|golang|sql)\b/i.test(typedText);
-        if (destination || !codeLike) return { action: 'type', text: typedText };
-      }
-      return null;
-    }
-
-    async function handlePcCommand(text) {
-      const parsed = parsePcCommand(text);
-      if (!parsed) return null;
-      const actions = Array.isArray(parsed) ? parsed : [parsed];
-      let result = null;
-      for (let index = 0; index < actions.length; index++) {
-        const action = actions[index];
-        if (index > 0 && actions[index - 1].action === 'open_app') {
-          await new Promise((resolve) => setTimeout(resolve, 900));
-        }
-        result = await pcAgentSend(action.action, action);
-        if (!result) {
-          return 'My Windows agent is not running. Start weronika-agent.py on your PC and I can control it.';
-        }
-        if (result.ok === false) return result.message || 'The local PC action did not complete.';
-      }
-      return result?.message || 'Done on your PC.';
-    }
-
-    // ---- Silent self-upgrade ----
-    function loadSkills() {
-      try { return JSON.parse(localStorage.getItem('weronika-skills') || 'null'); } catch (e) { return null; }
-    }
-    let liveSkills = loadSkills();
-
-    async function selfUpgrade() {
-      try {
-        const res = await fetch('/api/public/upgrade', { cache: 'no-store' });
-        if (!res.ok) return false;
-        const data = await res.json();
-        if (!data || !data.version) return false;
-        liveSkills = data;
-        localStorage.setItem('weronika-skills', JSON.stringify(data));
-        return true;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    function matchSkill(text) {
-      const lower = (text || '').toLowerCase();
-      const skills = (liveSkills && Array.isArray(liveSkills.skills)) ? liveSkills.skills : [];
-      for (const skill of skills) {
-        try {
-          if (new RegExp(skill.pattern, 'i').test(lower)) return skill.reply;
-        } catch (e) { /* ignore bad pattern */ }
-      }
-      return null;
-    }
-
-    // keep herself updated quietly in the background
-    selfUpgrade();
-    setInterval(selfUpgrade, 15 * 60 * 1000);
 
     function renderTechnical(meta) {
       if (!meta || !techOverlay) return;
@@ -3972,252 +2795,6 @@
         (title) => `${title}, अनलॉक हो गया। मैं वापस ऑर्ब पर हूँ।`);
     }
 
-    function handleBlueprintCommand(text) {
-      const command = parseBlueprintCommand(text);
-      if (!command) {
-        if (sceneApi.isTechnicalOpen()) {
-          const explode = parseExplodeCommand(text);
-          if (explode === "explode") {
-            sceneApi.setExplode(1);
-            if (techExplode) techExplode.value = "100";
-            return titledReply(text, (title) => `${title}, exploding the parts.`, (title) => `${title}, हिस्से अलग कर रही हूँ।`);
-          }
-          if (explode === "assemble") {
-            sceneApi.setExplode(0);
-            if (techExplode) techExplode.value = "0";
-            return titledReply(text, (title) => `${title}, assembling the model.`, (title) => `${title}, मॉडल वापस जोड़ रही हूँ।`);
-          }
-        }
-        return null;
-      }
-      if (command.action === "unlock" || command.action === "close") return closeTechnicalFromCommand(text);
-      return openTechnicalFromCommand({ ...command, source: text });
-    }
-
-    async function handleSpecialCommands(text, languageOverride) {
-      const lower = (text || '').toLowerCase();
-      const cursorGestureRequest = /(?:cursor|mouse).*(?:hand|gesture|finger)|(?:hand|gesture|finger).*(?:cursor|mouse)/i.test(lower);
-      if (cursorGestureRequest) {
-        if (/\b(?:stop|disable|turn off|close|cancel)\b/i.test(lower)) {
-          stopGestures();
-          return "PC hand-cursor control stopped; the camera is off.";
-        }
-        if (/\b(?:open|start|enable|turn on|activate|use)\b/i.test(lower)) {
-          await startGestures({ desktopControl: true });
-          return desktopCursorMode
-            ? "PC cursor gestures are on. Point with one finger to move, raise two fingers to click, and make a fist to drag."
-            : "I could not start PC cursor gestures. Check the local agent and camera permissions.";
-        }
-      }
-      const pointerCommand = parsePcCommand(text);
-      if (pointerCommand && !Array.isArray(pointerCommand) && ['move', 'click'].includes(pointerCommand.action)) {
-        return handlePcCommand(text);
-      }
-      const workspaceReply = await codeWorkspaceController.handleRequest(text);
-      if (workspaceReply) return workspaceReply;
-      const blueprintReply = handleBlueprintCommand(text);
-      if (blueprintReply) return blueprintReply;
-      if (/(upgrade|update) your ?self|upgrade yourself|update yourself/.test(lower)) {
-        await selfUpgrade();
-        return '';
-      }
-      const mediaReply = await handleMediaCommand(text, languageOverride);
-      if (mediaReply) return mediaReply;
-      const pcReply = await handlePcCommand(text);
-      if (pcReply) return pcReply;
-      const mapReply = handleMapCommand(text);
-      if (mapReply) return mapReply;
-      const skillReply = matchSkill(text);
-      if (skillReply) return skillReply;
-      return null;
-
-    }
-
-    function showSearchResults(query, results) {
-      if (!searchOutput) return;
-      const safeQuery = (query || 'your query').trim();
-      const cards = results.slice(0, 4).map((item) => `
-        <div class="hud-result-card">
-          <div class="hud-result-title">${item.title}</div>
-          <div class="hud-result-url">${item.url}</div>
-        </div>
-      `).join('');
-      searchOutput.hidden = false;
-      searchOutput.innerHTML = `<div style="margin-bottom:4px;color:#ffd88f;">Search: ${safeQuery}</div>${cards}`;
-    }
-
-    const knownSites = {
-      youtube: { url: 'https://www.youtube.com', label: 'YouTube' },
-      instagram: { url: 'https://www.instagram.com', label: 'Instagram' },
-      filecr: { url: 'https://filecr.com', label: 'FileCR' },
-      'file cr': { url: 'https://filecr.com', label: 'FileCR' },
-      github: { url: 'https://github.com', label: 'GitHub' },
-      google: { url: 'https://www.google.com', label: 'Google' },
-      gmail: { url: 'https://mail.google.com', label: 'Gmail' },
-      wikipedia: { url: 'https://www.wikipedia.org', label: 'Wikipedia' },
-      reddit: { url: 'https://www.reddit.com', label: 'Reddit' },
-      linkedin: { url: 'https://www.linkedin.com', label: 'LinkedIn' },
-      x: { url: 'https://x.com', label: 'X' },
-      twitter: { url: 'https://x.com', label: 'X' },
-      facebook: { url: 'https://www.facebook.com', label: 'Facebook' },
-      netflix: { url: 'https://www.netflix.com', label: 'Netflix' },
-      amazon: { url: 'https://www.amazon.com', label: 'Amazon' },
-      chatgpt: { url: 'https://chatgpt.com', label: 'ChatGPT' },
-      copilot: { url: 'https://copilot.microsoft.com', label: 'Microsoft Copilot' },
-      discord: { url: 'https://discord.com', label: 'Discord' },
-      pinterest: { url: 'https://www.pinterest.com', label: 'Pinterest' },
-      spotify: { url: 'https://open.spotify.com', label: 'Spotify' },
-      twitch: { url: 'https://www.twitch.tv', label: 'Twitch' },
-      steam: { url: 'https://store.steampowered.com', label: 'Steam' },
-      dropbox: { url: 'https://www.dropbox.com', label: 'Dropbox' },
-      drive: { url: 'https://drive.google.com', label: 'Google Drive' },
-      docs: { url: 'https://docs.google.com', label: 'Google Docs' },
-      whatsapp: { url: 'https://web.whatsapp.com', label: 'WhatsApp Web' },
-      'whatsapp web': { url: 'https://web.whatsapp.com', label: 'WhatsApp Web' },
-      telegram: { url: 'https://web.telegram.org', label: 'Telegram Web' },
-      outlook: { url: 'https://outlook.live.com', label: 'Outlook' },
-      hotmail: { url: 'https://outlook.live.com', label: 'Outlook' },
-      yahoo: { url: 'https://www.yahoo.com', label: 'Yahoo' },
-      bing: { url: 'https://www.bing.com', label: 'Bing' },
-      ebay: { url: 'https://www.ebay.com', label: 'eBay' },
-      tiktok: { url: 'https://www.tiktok.com', label: 'TikTok' },
-      snapchat: { url: 'https://www.snapchat.com', label: 'Snapchat' },
-      medium: { url: 'https://medium.com', label: 'Medium' },
-      quora: { url: 'https://www.quora.com', label: 'Quora' },
-      stackoverflow: { url: 'https://stackoverflow.com', label: 'Stack Overflow' },
-      'stack overflow': { url: 'https://stackoverflow.com', label: 'Stack Overflow' },
-      gitlab: { url: 'https://gitlab.com', label: 'GitLab' },
-      bitbucket: { url: 'https://bitbucket.org', label: 'Bitbucket' },
-      vscode: { url: 'https://code.visualstudio.com', label: 'VS Code' },
-      'visual studio': { url: 'https://code.visualstudio.com', label: 'VS Code' },
-      figma: { url: 'https://www.figma.com', label: 'Figma' },
-      canva: { url: 'https://www.canva.com', label: 'Canva' },
-      notion: { url: 'https://www.notion.so', label: 'Notion' },
-      evernote: { url: 'https://evernote.com', label: 'Evernote' },
-      trello: { url: 'https://trello.com', label: 'Trello' },
-      asana: { url: 'https://asana.com', label: 'Asana' },
-      slack: { url: 'https://slack.com', label: 'Slack' },
-      zoom: { url: 'https://zoom.us', label: 'Zoom' },
-      teams: { url: 'https://teams.microsoft.com', label: 'Microsoft Teams' },
-      skype: { url: 'https://skype.com', label: 'Skype' },
-      meetup: { url: 'https://meetup.com', label: 'Meetup' },
-      eventbrite: { url: 'https://eventbrite.com', label: 'Eventbrite' },
-      udemy: { url: 'https://www.udemy.com', label: 'Udemy' },
-      coursera: { url: 'https://www.coursera.org', label: 'Coursera' },
-      khan: { url: 'https://www.khanacademy.org', label: 'Khan Academy' },
-      'khan academy': { url: 'https://www.khanacademy.org', label: 'Khan Academy' },
-      bbc: { url: 'https://www.bbc.com', label: 'BBC' },
-      cnn: { url: 'https://www.cnn.com', label: 'CNN' },
-      'the new york times': { url: 'https://www.nytimes.com', label: 'NY Times' },
-      nytimes: { url: 'https://www.nytimes.com', label: 'NY Times' },
-      weather: { url: 'https://weather.com', label: 'Weather.com' },
-      accuweather: { url: 'https://www.accuweather.com', label: 'AccuWeather' },
-      maps: { url: 'https://www.google.com/maps', label: 'Google Maps' },
-      'google maps': { url: 'https://www.google.com/maps', label: 'Google Maps' },
-      translate: { url: 'https://translate.google.com', label: 'Google Translate' },
-      'google translate': { url: 'https://translate.google.com', label: 'Google Translate' },
-      calendar: { url: 'https://calendar.google.com', label: 'Google Calendar' },
-      'google calendar': { url: 'https://calendar.google.com', label: 'Google Calendar' },
-      photos: { url: 'https://photos.google.com', label: 'Google Photos' },
-      'google photos': { url: 'https://photos.google.com', label: 'Google Photos' },
-      news: { url: 'https://news.google.com', label: 'Google News' },
-      'google news': { url: 'https://news.google.com', label: 'Google News' },
-      sheets: { url: 'https://sheets.google.com', label: 'Google Sheets' },
-      'google sheets': { url: 'https://sheets.google.com', label: 'Google Sheets' },
-      slides: { url: 'https://slides.google.com', label: 'Google Slides' },
-      'google slides': { url: 'https://slides.google.com', label: 'Google Slides' },
-    };
-
-    function normalizeSiteKey(value) {
-      return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    }
-
-    function openWebsite(target) {
-      const key = normalizeSiteKey(target);
-      const match = knownSites[key];
-      const site = match || knownSites[key.split(' ')[0]];
-      if (!site) {
-        return 'I can open common sites like YouTube, Instagram, WhatsApp, GitHub, Google, Reddit, Netflix, Spotify, and many more.';
-      }
-      window.open(site.url, '_blank', 'noopener,noreferrer');
-      return titledReply(target, (title) => `${title}, I’m opening ${site.label}.`, (title) => `${title}, मैं ${site.label} खोल रही हूँ।`);
-    }
-
-    function searchWeb(query) {
-      const clean = (query || '').trim();
-      if (!clean) return 'Please say what you want to search for.';
-      const encoded = encodeURIComponent(clean);
-      const results = [
-        { title: `Search Google for ${clean}`, url: `https://www.google.com/search?q=${encoded}` },
-        { title: `Open YouTube for ${clean}`, url: `https://www.youtube.com/results?search_query=${encoded}` },
-        { title: `Open Wikipedia for ${clean}`, url: `https://en.wikipedia.org/wiki/Special:Search?search=${encoded}` },
-      ];
-      showSearchResults(clean, results);
-      window.open(results[0].url, '_blank', 'noopener,noreferrer');
-      return titledReply(clean, (title) => `${title}, I’m searching for ${clean}. Results are shown on screen and opened in a new tab.`, (title) => `${title}, मैं ${clean} खोज रही हूँ। नतीजे स्क्रीन पर और नई टैब में खुल रहे हैं।`);
-    }
-
-    // --- Maps & place finding ---------------------------------------------
-    // "open map", "find a coffee shop near me", "where is the Eiffel Tower",
-    // "directions to Delhi airport", "navigate to Central Park".
-    function openMaps(url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-
-    function openMapSearch(place) {
-      const clean = (place || '').trim();
-      if (!clean) {
-        openMaps('https://www.google.com/maps');
-        return 'Opening Maps for you.';
-      }
-      openMaps(`https://www.google.com/maps/search/${encodeURIComponent(clean)}`);
-      return `Opening Maps and looking up ${clean} for you.`;
-    }
-
-    function openMapDirections(destination) {
-      const clean = (destination || '').trim();
-      if (!clean) return openMapSearch('');
-      openMaps(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clean)}`);
-      return `Getting directions to ${clean} — Maps is opening now.`;
-    }
-
-    function openMapNearMe(place) {
-      const clean = (place || '').trim();
-      if (!navigator.geolocation) return openMapSearch(`${clean} near me`);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          openMaps(`https://www.google.com/maps/search/${encodeURIComponent(clean || 'places')}/@${latitude},${longitude},15z`);
-        },
-        () => openMapSearch(`${clean} near me`),
-        { timeout: 8000 },
-      );
-      return `Looking for ${clean || 'places'} around your current location.`;
-    }
-
-    function handleMapCommand(text) {
-      const raw = (text || '').trim();
-      const lower = raw.toLowerCase();
-      if (!lower) return null;
-
-      const dir = lower.match(/(?:directions?\s+to|navigate\s+to|route\s+to|how\s+do\s+i\s+get\s+to|way\s+to)\s+(.+)/i);
-      if (dir) return openMapDirections(dir[1]);
-
-      const near = lower.match(/(?:find|show|search|locate|nearest|nearby)\s+(?:me\s+)?(?:a\s+|an\s+|the\s+)?(.+?)\s*(?:near\s*(?:me|by)|around\s*me|nearby)\s*$/i);
-      if (near) return openMapNearMe(near[1]);
-
-      const find = lower.match(/(?:find|locate|search\s+for)\s+(?:the\s+)?(?:place|location|address)\s+(?:of\s+)?(.+)/i)
-        || lower.match(/(?:where\s+is|where's)\s+(?:the\s+)?(.+?)\??$/i)
-        || lower.match(/(?:show|find|open)\s+(?:me\s+)?(.+?)\s+on\s+(?:the\s+)?maps?/i);
-      if (find) return openMapSearch(find[1]);
-
-      if (/^(open|show|launch)\s+(google\s+)?maps?\b/.test(lower) || lower === 'maps' || lower === 'map') {
-        return openMapSearch('');
-      }
-      return null;
-    }
-
-
     function creatorIdentityReply(message) {
       const text = String(message || "").trim();
       const creatorQuestion =
@@ -4238,587 +2815,24 @@
       return "I’m Weronika AI, built by Keshav Dixit Sir—not Google.";
     }
 
-    function detectUserIntent(message) {
-      const lower = (message || '').toLowerCase();
-      if (creatorIdentityReply(message) || lower.includes('hello') || lower.includes('hi') || lower.includes('who are you') || lower.includes('your name')) return 'identity';
-      if (lower.includes('open') || lower.includes('search') || lower.includes('google') || lower.includes('whatsapp') || lower.includes('youtube')) return 'navigation';
-      if (lower.includes('zoom') || lower.includes('reset') || lower.includes('camera') || lower.includes('gesture') || lower.includes('scroll') || lower.includes('back') || lower.includes('forward') || lower.includes('refresh')) return 'control';
-      if (lower.includes('joke') || lower.includes('tell me') || lower.includes('how are you') || lower.includes('time') || lower.includes('date')) return 'conversation';
-
-      // Detect question words for information seeking
-      if (lower.includes('how many') || lower.includes('how much') || lower.includes('who is') || lower.includes('what is') ||
-          lower.includes('when did') || lower.includes('where is') || lower.includes('why is') || lower.includes('how do') ||
-          lower.match(/^(what|who|when|where|how|why|which|whose)\s+/)) {
-        return 'information';
-      }
-
-      return 'general';
-    }
-
-    function respondToIntent(message) {
-      const intent = detectUserIntent(message);
-      if (intent === 'navigation') return 'I am interpreting this as a navigation request and can open sites or search the web for you.';
-      if (intent === 'control') return 'I am recognizing this as a control request and can adjust the orb, camera, or gesture view.';
-      if (intent === 'identity') return creatorIdentityReply(message) || 'I am Weronika AI, built by Keshav Dixit Sir—not Google.';
-      if (intent === 'conversation') return 'I am interpreting this as a conversational request and can respond naturally with context-aware help.';
-      if (intent === 'information') return 'I am searching for information to answer your question using multiple sources.';
-      return 'I am using intent recognition to understand your goal and respond more naturally.';
-    }
-
-    function detectPrivateAppRequest(message) {
-      const text = String(message || "").trim();
-      if (!text) return null;
-      const personalReference = /\b(my|our|this|these|inbox|unread|latest|recent|family|to me|from me)\b|(?:मेरा|मेरी|मेरे|इस|इन|परिवार)/i.test(text);
-      if (/^\s*(?:how (?:do|can) i|what is|what does|explain|teach me)\b/i.test(text) && !personalReference) return null;
-      const explicitPrivate = text.match(/^\s*(?:private|local[- ]only|निजी|स्थानीय)\s*[:：]\s*([\s\S]+)$/i);
-      if (explicitPrivate) {
-        const privateBody = explicitPrivate[1].trim();
-        const labeledBody = privateBody.match(/^([^:：]{1,150})[:：]\s*([\s\S]+)$/);
-        const hindiPrivate = /(?:निजी|स्थानीय)/i.test(text);
-        const isTask = labeledBody && /\b(read|check|summari[sz]e|summary|rank|draft|reply|respond|review)\b|(?:पढ़|देख|सारांश|जवाब)/i.test(labeledBody[1]);
-        return {
-          kind: "local_text",
-          task: isTask ? labeledBody[1].trim() : (hindiPrivate ? "इस निजी सामग्री का सारांश दें" : "Summarize this private content"),
-          content: isTask ? labeledBody[2].trim() : privateBody,
-        };
-      }
-
-      const lower = text.toLowerCase();
-      const spotifyYoutube = lower.match(/\b(spotify|youtube)\b/);
-      const mediaPlayVerb = /\b(play|listen to|search|find)\b|(?:चलाओ|बजाओ|सुनाओ|चलाएं|खोजो)/i.test(text);
-      if (spotifyYoutube && mediaPlayVerb) {
-        const app = spotifyYoutube[1] === "spotify" ? "spotify" : "youtube";
-        const queryMatch = text.match(/\b(?:play|listen to|search(?: for)?|find)\s+(.+?)(?:\s+(?:on|in)\s+(?:spotify|youtube)\b|$)/i);
-        const query = queryMatch
-          ? queryMatch[1].replace(/\b(?:please|for me)\b/gi, "").trim()
-          : text.replace(/\b(?:spotify|youtube)\b/gi, "").replace(/(?:पर|में|कृपया|चलाओ|बजाओ|सुनाओ|चलाएं|खोजो)/g, " ").replace(/\s+/g, " ").trim();
-        if (query) return { kind: "app", action: "play", app, query, task: text };
-      }
-
-      const appFromText = () => {
-        if (/\b(microsoft|outlook|office)\b/i.test(text) && /\b(calendar|agenda|meeting|event)\b/i.test(text)) return "microsoft_calendar";
-        if (/\b(google calendar|gcal)\b/i.test(text) || /कैलेंडर/.test(text)) return "google_calendar";
-        if (/\b(calendar|agenda|meeting|event)\b/i.test(text)) return "google_calendar";
-        if (/\boutlook\b|\bhotmail\b/i.test(text)) return "outlook";
-        if (/\bgmail\b|\binbox\b|\be-?mail\b/i.test(text) || /जीमेल|मेल/.test(text)) return "gmail";
-        if (/\binstagram\b|\bdms?\b|direct messages?/i.test(text) || /इंस्टाग्राम/.test(text)) return "instagram";
-        if (/\btelegram\b|\bchannel\b/i.test(text) || /टेलीग्राम/.test(text)) return "telegram";
-        if (/\bwhatsapp\b|\bchat\b|\bconversation\b/i.test(text) || /व्हाट्सऐप/.test(text)) return "whatsapp";
-        if (/\byoutube\b/i.test(text)) return "youtube";
-        if (/\bspotify\b/i.test(text)) return "spotify";
-        if (/\binbox\b/i.test(text)) return "gmail";
-        if (/\bdms?\b|direct messages?/i.test(text)) return "instagram";
-        if (/\bmessages?\b/i.test(text)) return "whatsapp";
-        return "";
-      };
-      const app = appFromText();
-
-      const callIntent = /\b(?:incoming|answer|pick up|decline|reject)\b(?:\W+\w+){0,4}\W+call\b|\b(?:telegram|whatsapp)\s+(?:voice|video)?\s*call\b|\bcall\s+(?:is\s+)?incoming\b|कॉल/i.test(text);
-      if (callIntent && /\btelegram\b/i.test(text)) {
-        if (/\b(alert|notify|monitor|watch|incoming)\b/i.test(text) && /\b(alert|notify|monitor|watch)\b/i.test(text)) {
-          return { kind: "app", action: "start_family_alerts", apps: ["telegram"], contacts: [], task: text };
-        }
-        return { kind: "app", action: "detect_call", app: "telegram", task: text };
-      }
-
-      const family = /\bfamily\b|\b(mom|mother|mum|dad|father|sister|brother|wife|husband|son|daughter)\b|परिवार|माँ|पापा/i.test(text);
-      const alertIntent = /\b(alert|notify|monitor|watch|keep an eye|tell me when)\b|अलर्ट|सूचित/i.test(text);
-      if (family && alertIntent) {
-        if (/\b(stop|disable|turn off|cancel)\b/i.test(text)) {
-          return { kind: "app", action: "stop_family_alerts", task: text };
-        }
-        const apps = /\bwhatsapp\b/i.test(text) && !/\btelegram\b/i.test(text) ? ["whatsapp"]
-          : /\btelegram\b/i.test(text) && !/\bwhatsapp\b/i.test(text) ? ["telegram"]
-            : /\binstagram\b/i.test(text) ? ["instagram"] : ["whatsapp", "telegram"];
-        const contactsMatch = text.match(/\b(?:from|for)\s+([A-Za-z][A-Za-z ,'-]{1,100})(?:\s+(?:on|in|using|when)\s+(?:WhatsApp|Telegram|Instagram))?$/i);
-        const contacts = contactsMatch ? contactsMatch[1].split(/,|\band\b/i).map((name) => name.trim()).filter(Boolean) : [];
-        return { kind: "app", action: "start_family_alerts", apps, contacts, task: text };
-      }
-
-      const openMatch = text.match(/^\s*(?:please\s+)?(?:open|launch|go to|खोलो|खोल)\s+(?:my\s+)?(google calendar|microsoft calendar|outlook calendar|gmail|outlook|instagram|telegram|whatsapp|calendar|spotify|youtube)\b/i);
-      const openAndRead = /\b(read|check|summari[sz]e|summary|rank|important|unread|inbox|messages?|dms?|agenda|events?)\b|(?:पढ़|देख|सारांश|संदेश)/i.test(text);
-      if (openMatch && !openAndRead) {
-        const openApp = /google calendar/i.test(openMatch[1]) ? "google_calendar"
-          : /microsoft calendar/i.test(openMatch[1]) ? "microsoft_calendar"
-            : /calendar/i.test(openMatch[1]) ? (app === "microsoft_calendar" ? "microsoft_calendar" : "google_calendar")
-              : openMatch[1].toLowerCase();
-        return { kind: "app", action: "open", app: openApp, task: text };
-      }
-
-      const calendarIntent = app === "google_calendar" || app === "microsoft_calendar";
-      if (calendarIntent && /\b(create|add|schedule|book|set up|make)\b|जोड़|बनाओ/i.test(text)) {
-        return { kind: "app", action: "calendar_create", app, task: text };
-      }
-      if (app === "telegram" && family && /\b(read|check|summari[sz]e|messages?)\b/i.test(text)) {
-        return { kind: "app", action: "read", apps: ["telegram", "whatsapp"], task: text };
-      }
-
-      const privateHeader = text.match(/(?:^|\n)\s*(?:from|subject|to|sent):/i);
-      const bodyMatch = text.match(/(?:e-?mail|message|dm|chat|body|content|संदेश|मेल)\s*(?:body|content)?\s*[:：]\s*([\s\S]+)$/i);
-      const privateText = bodyMatch ? bodyMatch[1].trim() : privateHeader ? text.slice(privateHeader.index).trim() : "";
-      const privateAction = /\b(read|check|summari[sz]e|summary|rank|prioriti[sz]e|important|urgent|draft|reply|respond|send|show|list|review|scan|unread|latest|recent|who sent|who messaged|what(?:'s| is| does| do| did) new|what does|tell me what|did anyone|my messages|agenda|events?|leer|lee|revisa|revisar|resumen|resumir|resume|importante|prioriza|lire|lis|résume|résumer|vérifie|zusammenfassen|lies|prüfe|wichtig|resuma|ler)\b|(?:पढ़|देख|सारांश|जवाब|भेज|चेक|बताओ)/i.test(text);
-        const appWriteRequest = Boolean(app) && /\b(draft|compose|reply|respond|send|write back|write\s+(?:an?\s+)?(?:email|message|dm)|answer)\b|(?:जवाब|भेज)/i.test(text);
-      if ((privateText || privateHeader) && (privateAction || privateHeader || bodyMatch) && !appWriteRequest) {
-        return { kind: "local_text", task: bodyMatch ? text.slice(0, bodyMatch.index + bodyMatch[0].search(/[:：]/)).trim() : text.slice(0, privateHeader.index).trim(), content: privateText };
-      }
-
-      if (!app && !family) return null;
-      if (app === "spotify" || app === "youtube") return null;
-      const callApps = app === "telegram" || app === "whatsapp";
-      if (callApps && callIntent) return { kind: "app", action: "detect_call", app, task: text };
-
-      const writeIntent = /\b(draft|compose|reply|respond|send|write back|write\s+(?:an?\s+)?(?:email|message|dm)|answer)\b|(?:जवाब|भेज)/i.test(text);
-      if (writeIntent && app && ["gmail", "outlook", "instagram", "telegram", "whatsapp"].includes(app)) {
-        const draftOnly = /\b(draft|compose)\b/i.test(text);
-        const emailApp = app === "gmail" || app === "outlook";
-        const explicitNewEmail = emailApp && /\bnew email\b|\bcompose\b|\bemail\s+to\b|\bmail\s+to\b|\bwrite\s+(?:an?\s+)?email\b/i.test(text);
-        const emailMatch = text.match(/\bto\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
-        const namedRecipient = text.match(/\bto\s+(.+?)(?:\s+(?:saying|about|subject|message body)\b|\s+(?:on|via|using)\s+(?:whatsapp|telegram|instagram|gmail|outlook)\b|[:：]|$)/i);
-        const namedTarget = namedRecipient ? namedRecipient[1].trim().replace(/^(?:the|my)\s+/i, "") : "";
-        const replyLocator = /^(?:latest|last|this|that|the|current|active|selected)\b/i.test(namedTarget);
-        const chatApp = ["instagram", "telegram", "whatsapp"].includes(app);
-        const chatTargetMatch = text.match(/\b(?:from|with|channel)\s+(.+?)(?:\s+(?:on|in|via|using)\s+(?:whatsapp|telegram|instagram)\b|$)/i);
-        const chatTarget = chatTargetMatch ? chatTargetMatch[1].trim().replace(/[.,!?]+$/, "") : "";
-        const senderMatch = emailApp && text.match(/\bfrom\s+([A-Za-z][A-Za-z .'-]{1,60})/i);
-        const recipient = emailMatch ? emailMatch[1]
-          : explicitNewEmail && !replyLocator ? namedTarget
-            : emailApp && senderMatch && !explicitNewEmail ? senderMatch[1].trim()
-              : chatApp && !replyLocator ? (namedTarget || chatTarget) : chatApp ? chatTarget : "";
-        const messageBody = text.match(/(?:\bsaying\b\s*[:：]?|\b(?:message|body|content)\s*[:：]|\bto\s+[^:：]{1,160}[:：])\s*([\s\S]+)$/i);
-        const newEmail = emailApp && explicitNewEmail;
-        return {
-          kind: "app", action: "prepare_send", app, task: text,
-          send: !draftOnly && /\b(send|reply|respond|answer)\b/i.test(text),
-          mode: newEmail ? "new" : "reply",
-          recipient,
-          target: chatApp ? chatTarget : "",
-          subject: "",
-          content: messageBody ? messageBody[1].trim() : "",
-        };
-      }
-
-      const readIntent = /\b(read|check|summari[sz]e|summary|rank|prioriti[sz]e|important|urgent|show|list|review|scan|unread|latest|recent|inbox|emails?|messages?|dms?|conversation|chat|channel|who sent|who messaged|what(?:'s| is| does| do| did)(?:\s+(?:new|in|on|this|these))?|did anyone|agenda|events?|calendar|leer|lee|revisa|revisar|resumen|resumir|resume|importante|prioriza|lire|lis|résume|résumer|vérifie|zusammenfassen|lies|prüfe|wichtig|resuma|ler)\b|(?:पढ़|देख|सारांश|चेक|बताओ)/i.test(text);
-      if (readIntent && (app || family)) {
-        const apps = family && !app ? ["whatsapp", "telegram"] : [app];
-        const targetMatch = text.match(/\b(?:from|with|channel)\s+(.+?)(?:\s+(?:on|in|via)\s+(?:whatsapp|telegram|instagram)\b|$)/i);
-        const target = targetMatch ? targetMatch[1].trim().replace(/[.,!?]+$/, "") : "";
-        return { kind: "app", action: "read", app: apps[0], apps, target, task: text };
-      }
-      return null;
-    }
-
-    async function postLocalAppAction(action, payload = {}) {
-      if (!["localhost", "127.0.0.1", "::1"].includes(location.hostname)) {
-        throw new Error("Local signed-in app automation is available only in Weronika running on your PC. No app data was sent to the cloud.");
-      }
-      const response = await fetch(`${PC_AGENT_URL}/api/apps/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "omit",
-        cache: "no-store",
-        body: JSON.stringify({ action, ...payload }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || (data.ok === false && !data.requires_sign_in)) throw new Error(data.error || `Local app action failed (HTTP ${response.status}).`);
-      return data;
-    }
-
-    async function localOnlyCompletion(task, content, language) {
-      if (!["localhost", "127.0.0.1", "::1"].includes(location.hostname)) {
-        throw new Error("Private app text can only be processed on this PC. Nothing was sent to the cloud.");
-      }
-      const response = await fetch(`${PC_AGENT_URL}/api/local/brain`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "omit",
-        cache: "no-store",
-        body: JSON.stringify({ task, content: String(content || "").slice(0, 78_000), lang: language || "en" }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.ok || !data.answer) throw new Error(data.error || `Local-only assistant returned HTTP ${response.status}.`);
-      return data.answer;
-    }
-
-    function parseLocalJson(value) {
-      const text = String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-      const start = text.indexOf("{");
-      const end = text.lastIndexOf("}");
-      if (start < 0 || end <= start) return null;
-      try { return JSON.parse(text.slice(start, end + 1)); } catch { return null; }
-    }
-
-    let appAlertPollTimer = null;
-    let appAlertCursor = 0;
-    let appAlertPolling = false;
-
-    function startAppAlertPolling(language) {
-      if (appAlertPollTimer) return;
-      if ("Notification" in window && Notification.permission === "default") {
-        void Promise.resolve(Notification.requestPermission()).catch(() => {});
-      }
-      const poll = async () => {
-        if (appAlertPolling || !["localhost", "127.0.0.1", "::1"].includes(location.hostname)) return;
-        appAlertPolling = true;
-        try {
-          const response = await fetch(`${PC_AGENT_URL}/api/apps/alerts?since=${appAlertCursor}`, { cache: "no-store", credentials: "omit" });
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || !data.ok) return;
-          for (const event of data.events || []) {
-            appAlertCursor = Math.max(appAlertCursor, Number(event.id) || 0);
-            if (event.type === "incoming_call" && event.confirmation_token) {
-              const answer = window.confirm(`Incoming ${event.app} call detected. Answer it now?`);
-              const result = await postLocalAppAction("confirm", { confirmation_token: event.confirmation_token, confirm: answer });
-              appendChat("assistant", result.message || (answer ? "Call answer action confirmed." : "Call left unanswered."));
-              continue;
-            }
-            if (event.type === "family_message" && event.text) {
-              let summary;
-              try {
-                summary = await localOnlyCompletion("Summarize this new family message in one or two sentences. Mention urgency, deadlines, or a request for help. Do not take any action.", event.text, language || detectSpokenLanguage(event.text));
-              } catch (error) {
-                summary = `Local summary unavailable. Private message was not sent to the cloud. ${error.message || ""}`;
-              }
-              const alertText = `Family message · ${event.app}: ${summary}`;
-              appendChat("assistant", alertText);
-              if ("Notification" in window && Notification.permission === "granted") {
-                try { new Notification("Weronika · family message", { body: summary.slice(0, 240) }); } catch { /* notifications are optional */ }
-              }
-            }
-          }
-        } catch {
-          /* local agent may be stopped; private alerts are not sent elsewhere */
-        } finally {
-          appAlertPolling = false;
-        }
-      };
-      void poll();
-      appAlertPollTimer = setInterval(poll, 15_000);
-    }
-
-    function stopAppAlertPolling() {
-      if (appAlertPollTimer) clearInterval(appAlertPollTimer);
-      appAlertPollTimer = null;
-    }
-
-    async function answerPrivateAppRequest(request, languageOverride) {
-      const language = languageOverride || detectSpokenLanguage(request.content || request.task || "");
-      const notLocal = !["localhost", "127.0.0.1", "::1"].includes(location.hostname);
-      if (notLocal) {
-        return "Signed-in app automation and private text processing run only in Weronika on your PC. The hosted preview cannot read your accounts; nothing was sent to the cloud.";
-      }
-      try {
-        if (request.kind === "local_text") {
-          return await localOnlyCompletion(request.task || "Summarize this private content", request.content, language);
-        }
-        if (request.action === "open") {
-          const opened = await postLocalAppAction("open", { app: request.app });
-          return `${opened.message || `${request.app} opened in Weronika's local browser.`}${opened.requires_sign_in ? " Sign in manually in that browser, then retry." : ""}`;
-        }
-        if (request.action === "play") {
-          const result = await postLocalAppAction("play", { app: request.app, query: request.query });
-          return `${result.message || "Search finished."}${result.title ? ` ${result.title}` : ""}`;
-        }
-        if (request.action === "start_family_alerts") {
-          const result = await postLocalAppAction("start_family_alerts", { apps: request.apps || ["whatsapp", "telegram"], contacts: request.contacts || [] });
-          startAppAlertPolling(language);
-          return `${result.message} Apps: ${(result.apps || []).join(", ")}.`;
-        }
-        if (request.action === "stop_family_alerts") {
-          const result = await postLocalAppAction("stop_family_alerts");
-          stopAppAlertPolling();
-          return result.message;
-        }
-        if (request.action === "detect_call") {
-          const call = await postLocalAppAction("detect_call", { app: request.app });
-          if (!call.detected || !call.requires_confirmation) return call.message || "No incoming call was detected.";
-          const approved = window.confirm(`Incoming ${request.app} call detected. Answer it?`);
-          const result = await postLocalAppAction("confirm", { confirmation_token: call.confirmation_token, confirm: approved });
-          return result.message || (approved ? "Call answer action confirmed." : "Call left unanswered.");
-        }
-        if (request.action === "calendar_create") {
-          const now = new Date();
-          const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-          const extracted = await localOnlyCompletion(
-            `Extract the requested calendar event. Return JSON only with keys title, start, end, details. Use ISO local date-times YYYY-MM-DDTHH:mm without a timezone suffix. Current local time is ${now.toISOString()} and time zone is ${timeZone}. If the user did not specify a duration, use one hour. Do not invent a date if it cannot be resolved; return an empty start and end.`,
-            request.task,
-            language,
-          );
-          const event = parseLocalJson(extracted);
-          if (!event || !event.title || !event.start || !event.end) {
-            return "I couldn't safely determine the calendar date and time. Say the exact date, start time, and end time; no event was created.";
-          }
-          const prepared = await postLocalAppAction("calendar_create", { app: request.app, ...event, timezone: timeZone });
-          const approved = window.confirm(`Save this calendar event?\n\n${event.title}\n${event.start} – ${event.end}\n\nNo event will be saved unless you confirm.`);
-          const result = await postLocalAppAction("confirm", { confirmation_token: prepared.confirmation_token, confirm: approved });
-          return result.message || (approved ? "Calendar save confirmed." : "Event left open and not saved.");
-        }
-        if (request.action === "prepare_send") {
-          let source = request.content || "";
-          if (!source && request.mode !== "new") {
-            const read = await postLocalAppAction("read", { app: request.app, target: request.target || request.recipient || "" });
-            if (read.requires_sign_in) return `${request.app}: sign in manually in the opened Weronika browser profile, then retry. No private page text was processed.`;
-            source = read.content || "";
-          }
-          if (!source) source = request.task;
-          const draft = await localOnlyCompletion(
-            request.mode === "new"
-              ? "Draft the requested new message using only the user's supplied facts. Keep it concise and do not invent details. Return only the message body."
-              : "Draft a concise, helpful reply to the visible selected email or chat. Use only facts in the local page text and user's request; do not invent details. Return only the message body.",
-            `${request.task}\n\nVisible private conversation or user-provided content:\n${source}`,
-            language,
-          );
-          const prepared = await postLocalAppAction("prepare_send", {
-            app: request.app, mode: request.mode || "reply", recipient: request.recipient || "",
-            subject: request.subject || "", body: draft,
-          });
-          if (!request.send) return `Draft is open in ${request.app} for ${prepared.target || "the selected conversation"}. It has not been sent.\n\n${draft}`;
-          const approved = window.confirm(`Send this message to ${prepared.target || request.recipient || "the selected conversation"}?\n\n${draft}\n\nIt will not be sent unless you confirm.`);
-          const result = await postLocalAppAction("confirm", { confirmation_token: prepared.confirmation_token, confirm: approved });
-          return `${result.message || (approved ? "Send confirmed." : "Cancelled; draft remains open and unsent.")}\n\n${draft}`;
-        }
-        if (request.action === "read") {
-          // First try Google APIs for gmail/calendar/drive - no Ollama needed, works same-browser tab
-          if (request.app === 'gmail' || request.app === 'google_calendar' || request.app === 'google_drive' || request.app === 'calendar' || request.app === 'drive') {
-            const svcMap = {gmail:'gmail', calendar:'calendar', google_calendar:'calendar', drive:'drive', google_drive:'drive'};
-            const svc = svcMap[request.app] || request.app;
-            try {
-              const gRes = await fetch(`${PC_AGENT_URL}/api/google/action`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({service: svc, action: 'list', params: {q: '', max_results: 10}})});
-              const gData = await gRes.json().catch(()=>({}));
-              if (gData && gData.ok) {
-                const summary = gData.messages ? gData.messages.slice(0,5).map(m=> (m.subject||m.snippet||'').slice(0,90)).join('\n• ') : JSON.stringify(gData).slice(0,600);
-                const task = /important|urgent|prioriti[sz]e|rank/i.test(request.task) ? `${request.task} — rank by urgency, flag deadlines` : request.task || "Summarize inbox";
-                // Try local first, fallback to cloud brain automatically
-                try {
-                  return await localOnlyCompletion(task || "Summarize inbox", `Gmail result: ${summary}\n\nFull: ${JSON.stringify(gData).slice(0,2000)}`, language);
-                } catch {
-                  const cloud = await answerWithBrain(`User asked: "${request.task || 'check inbox'}". Google ${svc} returned: ${JSON.stringify(gData).slice(0,1200)}. Summarize warmly in user's language, 2-3 sentences, mention it's open in same-browser tab.`, language);
-                  if (cloud) return cloud;
-                  return `Checked your ${request.app} — ${summary || 'done'} — opened in your current browser tab, Commander.`;
-                }
-              }
-              if (gData && gData.requires_auth) {
-                return `Your ${request.app} needs Google connected, Commander. Open Settings → Google → paste Client ID/Secret → Connect, then I’ll show your inbox in a new tab in your current browser — no separate chrome test.`;
-              }
-            } catch (e) {
-              // fall through to old local browser method
-            }
-          }
-          const apps = request.apps || [request.app];
-          const parts = [];
-          for (const app of apps) {
-            const result = await postLocalAppAction("read", { app, target: request.target || "" });
-            if (result.requires_sign_in) return `${app}: sign in manually in the opened Weronika browser profile, then retry. No private page text was processed.`;
-            if (result.content) parts.push(`APP: ${app}\n${result.content}`);
-          }
-          if (!parts.length) return "No visible signed-in app content was found. Open the target inbox/chat/calendar in Weronika's local browser and retry.";
-          const task = /important|urgent|prioriti[sz]e|rank/i.test(request.task)
-            ? `${request.task}\nRank the visible items by importance and urgency. Explain the reason briefly and flag deadlines or family requests.`
-            : request.task;
-          // localOnlyCompletion now has smart fallback to cloud brain
-          try {
-            return await localOnlyCompletion(task || "Summarize the visible local app content", parts.join("\n\n---\n\n"), language);
-          } catch (e) {
-            const cloud2 = await answerWithBrain(`Summarize this for the user warmly in their language: ${task || 'Summarize'} — content: ${parts.join("\n").slice(0,1500)}`, language);
-            if (cloud2) return cloud2;
-            throw e;
-          }
-        }
-        return "I couldn't map that to a supported local app action. No account data was sent to the cloud.";
-      } catch (error) {
-        const reason = error && error.message ? error.message : "Local app automation is unavailable.";
-        // If Ollama is offline (404 /api/chat or Local Ollama offline), fallback to cloud brain with same content
-        // instead of showing a scary error. This is what user sees for "check my inbox".
-        if (/404|Ollama|offline|Private app content was not sent/i.test(reason)) {
-          try {
-            // Try Google APIs first for Gmail/Calendar/Drive
-            if (request && (request.app === 'gmail' || request.app === 'google_calendar' || request.app === 'google_drive' || request.app === 'calendar' || request.app === 'drive')) {
-              const svcMap = {gmail:'gmail', calendar:'calendar', google_calendar:'calendar', drive:'drive', google_drive:'drive'};
-              const svc = svcMap[request.app] || request.app;
-              const act = request.action === 'read' ? 'list' : (request.action || 'list');
-              const gRes = await fetch(`${PC_AGENT_URL}/api/google/action`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({service: svc, action: act, params: {q: '', max_results: 5}})});
-              const gData = await gRes.json().catch(()=>({}));
-              if (gData && gData.ok) {
-                const brainFriendly = await answerWithBrain(`Summarize this for the user in a warm Weronika voice. The user asked "${request.task || request.content || ''}" and I got result: ${JSON.stringify(gData).slice(0,800)}`, language);
-                if (brainFriendly) return brainFriendly;
-                return `I checked your ${request.app} — ${gData.plan || gData.recognition || gData.message || JSON.stringify(gData.files||gData.messages||[]).slice(0,400) || 'done'}. Opened in your current browser tab, Commander.`;
-              }
-              if (gData && gData.requires_auth) {
-                return `I’d love to check your ${request.app}, but Google isn’t connected yet. Please open Settings → Google → paste your OAuth Client ID/Secret → Connect, then say “check my inbox” again — I’ll open it in a new tab in your current browser, no separate chrome test.`;
-              }
-            }
-            // Fallback: let cloud brain explain gently
-            const fallback = await answerWithBrain(`User said: "${request.task || request.content || 'check inbox'}". Local Ollama is offline (${reason}). Explain gently in 1-2 sentences that I can still help via Google APIs if connected, or they can start Ollama with "ollama serve" for fully local summaries. Be warm, like Weronika, and offer to open Gmail/Calendar/Drive in a new tab in their current browser.`, language);
-            if (fallback) return fallback;
-          } catch {}
-          return `Hmm, local Ollama is offline right now — but I can still help, Commander. If you connect Google in Settings, I’ll check your inbox via Gmail API and open it in a new tab in your current browser. Or start Ollama with “ollama serve” and “ollama pull llama3.2” for fully local summaries.`;
-        }
-        return `Hmm, I hit a snag: ${reason} — but I’m still here. Try connecting Google in Settings → Google, and I’ll open it in a new tab in your current browser (no separate chrome test).`;
-      }
-    }
-
     async function generateChatReply(message, languageOverride) {
       const responseToken = assistantTurnToken;
-      const lower = (message || '').toLowerCase();
-      if (!lower) return "I'm listening.";
-
-      const identityReply = creatorIdentityReply(message);
+      const text = String(message || "").trim();
+      if (!text) return "I'm listening.";
+      const identityReply = creatorIdentityReply(text);
       if (identityReply) return identityReply;
-
-      const privateRequest = detectPrivateAppRequest(message);
-      if (privateRequest) return await answerPrivateAppRequest(privateRequest, languageOverride);
-
-      const wakeReply = handleWakeActivationRequest(message);
-      if (wakeReply) return wakeReply;
-      const special = await handleSpecialCommands(message, languageOverride);
+      const reply = await answerWithBrain(text, languageOverride);
       if (responseToken !== assistantTurnToken) return null;
-      if (special !== null) return special;
-
-
-
-      // Real actions first (explicit commands only), then everything else goes
-      // to the AI brain so she can genuinely converse on any topic.
-      if (/^(web\s+)?search\s+(for\s+)?/i.test(message.trim())) {
-        const query = message.replace(/^(web\s+)?search\s+(for\s+)?/i, '').trim();
-        if (query) return searchWeb(query);
-      }
-      if (/^(open|go to)\s+/i.test(message.trim())) {
-        const target = message.replace(/^open\s+/i, '').replace(/^go to\s+/i, '').replace(/website/i, '').trim();
-        return openWebsite(target);
-      }
-      if (/^(what('s| is) the )?time\b|\bcurrent time\b/i.test(lower)) return `It's ${new Date().toLocaleTimeString()} right now.`;
-      if (/^(what('s| is) the )?date\b|\btoday'?s date\b/i.test(lower)) return `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
-      if (/^go back$|^back$/i.test(lower)) { window.history.back(); return 'Going back.'; }
-      if (/^go forward$|^forward$/i.test(lower)) { window.history.forward(); return 'Going forward.'; }
-      if (/^(refresh|reload)( the page)?$/i.test(lower)) { window.location.reload(); return 'Refreshing the page.'; }
-      if (/^(open )?new tab$/i.test(lower)) { window.open('about:blank', '_blank'); return 'Opening a new tab.'; }
-
-      // AI brain — natural, free-form conversation on any topic, in whatever
-      // language the user is using. DuckDuckGo and web search stay as
-      // fallbacks below if the brain is unreachable.
-      const brainReply = await answerWithBrain(message, languageOverride);
-      if (responseToken !== assistantTurnToken) return null;
-      if (brainReply) return brainReply;
-
-
-      // Try to get the best answer from multiple sources
-      const bestAnswer = await getBestAnswer(message);
-      if (bestAnswer) {
-        return `[${bestAnswer.source}] ${bestAnswer.answer}`;
-      }
-
-      // If no instant answer is available, perform web search and show results
-      setStatus("Searching the web for results...");
-      return searchWeb(message);
+      return reply || "I couldn't reach my cloud brain just now. Please try again in a moment.";
     }
 
     async function parseVoiceCommand(command, languageOverride) {
-      const lower = command.toLowerCase();
-      const identityReply = creatorIdentityReply(command);
+      const text = String(command || "").trim();
+      if (!text) return "I'm listening.";
+      const identityReply = creatorIdentityReply(text);
       if (identityReply) return identityReply;
-      const special = await handleSpecialCommands(command, languageOverride);
-      if (special !== null) return special;
-
-      // Greetings and small talk go to the AI brain further below so she
-      // answers naturally instead of repeating a canned line.
-
-      if (lower.includes("open camera") || lower.includes("start camera") || lower.includes("gestures on")) {
-        startGestures();
-        return "Starting hand gestures now. Use pinch to interact.";
-      }
-      if (lower.includes("stop camera") || lower.includes("turn off gestures") || lower.includes("gestures off")) {
-        stopGestures();
-        return "Stopping gestures and hiding the camera preview.";
-      }
-      if (lower.includes("zoom in")) {
-        sceneApi.zoomIn();
-        return "Zooming in on the orb.";
-      }
-      if (lower.includes("zoom out")) {
-        sceneApi.zoomOut();
-        return "Zooming out from the orb.";
-      }
-      if (lower.includes("reset")) {
-        sceneApi.resetView();
-        return "Resetting the view.";
-      }
-      if (lower.includes("open google")) {
-        window.open("https://www.google.com", "_blank");
-        return "Opening Google in a new tab.";
-      }
-      if (lower.includes("search for")) {
-        const query = command.split(/search for/i)[1]?.trim();
-        if (query) {
-          return searchWeb(query);
-        }
-      }
-      if (lower.startsWith("open ")) {
-        const target = command.replace(/^open\s+/i, "").trim();
-        if (target) return openWebsite(target);
-      }
-      if (lower.includes("scroll down")) {
-        window.scrollBy({ top: window.innerHeight * 0.75, behavior: "smooth" });
-        return "Scrolling down.";
-      }
-      if (lower.includes("scroll up")) {
-        window.scrollBy({ top: -window.innerHeight * 0.75, behavior: "smooth" });
-        return "Scrolling up.";
-      }
-      if (/^go back$|^back$/i.test(lower.trim())) {
-        window.history.back();
-        return "Going back.";
-      }
-      if (/^go forward$|^forward$/i.test(lower.trim())) {
-        window.history.forward();
-        return "Going forward.";
-      }
-
-      if (lower.includes("refresh") || lower.includes("reload")) {
-        window.location.reload();
-        return "Refreshing the page.";
-      }
-      if (lower.includes("new tab") || lower.includes("open new tab")) {
-        window.open('about:blank', '_blank');
-        return "Opening a new tab.";
-      }
-      if (lower.includes("close tab")) {
-        window.close();
-        return "Note: Browsers only allow closing tabs that were opened by script.";
-      }
-      if (lower.includes("open")) {
-        const urlMatch = command.match(/open (https?:\/\/\S+|www\.\S+)/i);
-        if (urlMatch) {
-          let url = urlMatch[1];
-          if (!url.startsWith("http")) url = `https://${url}`;
-          window.open(url, "_blank");
-          return `Opening ${url} in a new tab.`;
-        }
-      }
-      if (lower.includes("what can you do") || lower.includes("what are your abilities")) {
-        return "I can chat with you about anything, open maps and find places, spin and zoom the orb, start gesture control, open websites, search the web, and tell you the time and date.";
-      }
-      if (/^(what('s| is) the )?time\b|\bcurrent time\b/i.test(lower)) {
-        return `It's ${new Date().toLocaleTimeString()} right now.`;
-      }
-      if (/^(what('s| is) the )?date\b|\btoday'?s date\b/i.test(lower)) {
-        return `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
-      }
-
-
-      // AI Brain (OpenAI or local NLTK server) — lets voice chat carry on a
-      // natural conversation in any language. DuckDuckGo fallback below is
-      // left untouched.
-      const brainReply = await answerWithBrain(command, languageOverride);
-      if (brainReply) return brainReply;
-
-      // Try to get the best answer from multiple sources
-      const bestAnswer = await getBestAnswer(command);
-      if (bestAnswer) {
-        return `[${bestAnswer.source}] ${bestAnswer.answer}`;
-      }
-
-      // If no instant answer is available, perform web search and show results
-      setStatus("Searching the web for results...");
-      return searchWeb(command);
+      return await answerWithBrain(text, languageOverride)
+        || "I couldn't reach my cloud brain just now. Please try again in a moment.";
     }
 
     function isWakeActivationPhrase(text) {
@@ -5070,18 +3084,14 @@
               return;
             }
             appendChat('user', transcript);
-            if (await maybeHandleCallUtterance(transcript)) return;
-            pendingChatMedia = null;
             streamPresented = false;
             const reply = await parseVoiceCommand(transcript, spokenLang);
-            const media = pendingChatMedia;
-            pendingChatMedia = null;
             if (!reply) return;
             if (!streamPresented) {
-              appendChat('assistant', reply, { media });
+              appendChat('assistant', reply);
               speak(reply);
             } else {
-              appendChat('assistant', reply, { banner: false, replace: true, media });
+              appendChat('assistant', reply, { banner: false, replace: true });
             }
             adaptSpokenLang(reply, transcript);
             setTimeout(() => logVoice(`Weronika says: ${reply}`), 200);
@@ -5185,163 +3195,42 @@
       if (brainAbort) brainAbort.abort();
       appendChat('user', String(options.displayText || text));
       if (chatInput) chatInput.value = '';
-      if (await maybeHandleCallUtterance(text)) return;
       if (responseToken !== assistantTurnToken) return;
-      pendingChatMedia = null;
       streamPresented = false;
       const reply = await generateChatReply(text, options.language);
       if (responseToken !== assistantTurnToken) return;
-      const media = pendingChatMedia;
-      pendingChatMedia = null;
-      if (!reply || reply.includes('Searching...') || reply.includes('ढूंढ रही हूँ...')) return;
+      if (!reply) return;
       adaptSpokenLang(reply, text);
       if (!streamPresented) {
-        appendChat('assistant', reply, { media });
+        appendChat('assistant', reply);
         speak(reply);
       } else {
-        appendChat('assistant', reply, { banner: false, replace: true, media });
+        appendChat('assistant', reply, { banner: false, replace: true });
       }
       if (options.source === "voice" || options.source === "wake") setTimeout(() => logVoice(`Weronika says: ${reply}`), 200);
     }
 
-    async function verifyLocalAgentForCursor() {
-      if (!["localhost", "127.0.0.1", "::1"].includes(location.hostname)) {
-        showError("PC cursor gestures work only in the local Weronika app on the PC. The hosted preview cannot control your laptop.");
-        return false;
-      }
-      try {
-        const response = await fetch(`${PC_AGENT_URL}/health`, { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok || data.ok !== true) throw new Error("Local agent is not ready.");
-        return true;
-      } catch {
-        showError("Start the Weronika local agent on this PC, then try PC CURSOR again.");
-        return false;
-      }
+    function updateGestureHint(on) {
+      gestureHint.innerHTML = on
+        ? '<span class="key">PINCH + MOVE</span> spin&nbsp;&nbsp;<span class="key">PINCH BOTH HANDS ± SPREAD</span> zoom'
+        : '<span class="key">G</span> hand gestures&nbsp;&nbsp;<span class="key">R</span> reset&nbsp;&nbsp;<span class="key">+/−</span> zoom';
     }
 
-    function queueCursorAction(gesture, point = null) {
-      const payload = { gesture };
-      if (point) {
-        payload.x = point.x;
-        payload.y = point.y;
-      }
-      if (gesture === "move" || gesture === "drag") {
-        pendingCursorMovement = payload;
-      } else {
-        pendingCursorMovement = null;
-        queuedCursorActions.push(payload);
-      }
-      void flushCursorActions();
-    }
-
-    async function flushCursorActions() {
-      if (cursorRequestInFlight) return;
-      const queued = queuedCursorActions.shift();
-      const next = queued || pendingCursorMovement;
-      if (!next) return;
-      if (!queued) pendingCursorMovement = null;
-      cursorRequestInFlight = true;
-      const result = await pcAgentSend("cursor_gesture", next);
-      cursorRequestInFlight = false;
-      if (!result || !result.ok) {
-        const message = result?.message || "The local PC agent could not reach the mouse controller.";
-        if (desktopCursorMode) {
-          queuedCursorActions.length = 0;
-          pendingCursorMovement = null;
-          showError(message);
-          stopGestures(false);
-        }
-        return;
-      }
-      void flushCursorActions();
-    }
-
-    function handleDesktopGestureFrame(frame) {
-      const now = performance.now();
-      const gesture = frame.gesture || "idle";
-      if (!desktopCursorArmed) {
-        if (gesture === "move" || gesture === "open") {
-          desktopCursorArmed = true;
-          if (gesture === "move") queueCursorAction("move", frame);
-          cameraStatus.textContent = "PC CURSOR READY";
-        } else {
-          cameraStatus.textContent = "SHOW INDEX FINGER TO ARM";
-        }
-        lastDesktopGesture = gesture;
-        return;
-      }
-
-      if (gesture === "move") {
-        if (desktopDragActive) {
-          queueCursorAction("release");
-          desktopDragActive = false;
-        }
-        if (now - lastDesktopMoveAt >= 45) {
-          queueCursorAction("move", frame);
-          lastDesktopMoveAt = now;
-        }
-      } else if (gesture === "click") {
-        if (lastDesktopGesture !== "click") queueCursorAction("click", frame);
-        desktopDragActive = false;
-      } else if (gesture === "drag") {
-        if (!desktopDragActive || now - lastDesktopMoveAt >= 45) {
-          queueCursorAction("drag", frame);
-          lastDesktopMoveAt = now;
-        }
-        desktopDragActive = true;
-      } else if (desktopDragActive) {
-        queueCursorAction("release");
-        desktopDragActive = false;
-      }
-      lastDesktopGesture = gesture;
-    }
-
-    function updateGestureHint(on, desktop = false) {
-      if (on && desktop) {
-        gestureHint.innerHTML = '<span class="key">INDEX</span> move&nbsp;&nbsp;<span class="key">TWO FINGERS</span> click&nbsp;&nbsp;<span class="key">FIST</span> drag';
-      } else if (on) {
-        gestureHint.innerHTML = '<span class="key">PINCH + MOVE</span> spin&nbsp;&nbsp;<span class="key">PINCH BOTH HANDS ± SPREAD</span> zoom';
-      } else {
-        gestureHint.innerHTML = '<span class="key">G</span> hand gestures&nbsp;&nbsp;<span class="key">R</span> reset&nbsp;&nbsp;<span class="key">+/−</span> zoom';
-      }
-    }
-
-    async function startGestures({ desktopControl = false } = {}) {
-      if (tracker) {
-        if (desktopCursorMode === desktopControl) return;
-        stopGestures();
-      }
-      if (desktopControl && !(await verifyLocalAgentForCursor())) return;
-
-      desktopCursorMode = desktopControl;
-      desktopCursorArmed = !desktopControl;
-      desktopDragActive = false;
-      lastDesktopGesture = "idle";
-      lastDesktopMoveAt = 0;
-      queuedCursorActions.length = 0;
-      pendingCursorMovement = null;
+    async function startGestures() {
+      if (tracker) stopGestures();
       setError("");
       setStatus("INITIALIZING...");
       cameraPanel.classList.add("visible");
       tracker = new HandTracker(cameraVideo, cameraOverlay, {
-        desktopControl,
-        onDesktopGesture: desktopControl ? handleDesktopGestureFrame : undefined,
         onRotate: (dt, dp) => sceneApi.rotateBy(dt, dp),
         onZoom: (factor) => sceneApi.zoomBy(factor),
         onExplode: (delta) => {
           if (sceneApi.isTechnicalOpen()) sceneApi.nudgeExplode(delta);
         },
         onStatus: ({ hands, mode }) => {
-          if (desktopControl) {
-            cameraStatus.textContent = hands > 0
-              ? `PC CURSOR · ${mode.toUpperCase()}`
-              : desktopCursorArmed ? "SHOW HAND" : "SHOW INDEX FINGER TO ARM";
-          } else {
-            cameraStatus.textContent = hands > 0
-              ? `${hands} HAND${hands > 1 ? "S" : ""} · ${mode.toUpperCase()}`
-              : "SHOW HANDS";
-          }
+          cameraStatus.textContent = hands > 0
+            ? `${hands} HAND${hands > 1 ? "S" : ""} · ${mode.toUpperCase()}`
+            : "SHOW HANDS";
         },
       });
       try {
@@ -5349,48 +3238,27 @@
         cameraState = "on";
         gesturesBtn.textContent = "GESTURES ON";
         gesturesBtn.setAttribute("aria-pressed", "true");
-        if (cursorGesturesBtn) {
-          cursorGesturesBtn.textContent = desktopControl ? "PC CURSOR ON" : "PC CURSOR OFF";
-          cursorGesturesBtn.setAttribute("aria-pressed", String(desktopControl));
-        }
-        updateGestureHint(true, desktopControl);
+        updateGestureHint(true);
       } catch (error) {
         tracker?.stop();
         tracker = null;
-        desktopCursorMode = false;
-        desktopCursorArmed = false;
-        desktopDragActive = false;
         cameraPanel.classList.remove("visible");
         cameraState = "error";
         setStatus("GESTURE INIT FAILED");
         setError(error instanceof DOMException && error.name === "NotAllowedError" ? "CAMERA ACCESS DENIED" : "TRACKING INIT FAILED");
         gesturesBtn.textContent = "GESTURES OFF";
         gesturesBtn.setAttribute("aria-pressed", "false");
-        if (cursorGesturesBtn) {
-          cursorGesturesBtn.textContent = "PC CURSOR OFF";
-          cursorGesturesBtn.setAttribute("aria-pressed", "false");
-        }
       }
     }
 
-    function stopGestures(sendRelease = true) {
+    function stopGestures() {
       if (!tracker) return;
-      if (desktopCursorMode && desktopDragActive && sendRelease) queueCursorAction("release");
       tracker.stop();
       tracker = null;
-      pendingCursorMovement = null;
-      desktopCursorArmed = false;
-      desktopDragActive = false;
-      lastDesktopGesture = "idle";
-      desktopCursorMode = false;
       cameraPanel.classList.remove("visible");
       cameraState = "off";
       gesturesBtn.textContent = "GESTURES OFF";
       gesturesBtn.setAttribute("aria-pressed", "false");
-      if (cursorGesturesBtn) {
-        cursorGesturesBtn.textContent = "PC CURSOR OFF";
-        cursorGesturesBtn.setAttribute("aria-pressed", "false");
-      }
       setStatus("SHOW HANDS");
       updateGestureHint(false);
     }
@@ -5399,13 +3267,7 @@
       if (tracker) stopGestures(); else void startGestures();
     }
 
-    function toggleCursorGestures() {
-      if (tracker && desktopCursorMode) stopGestures();
-      else void startGestures({ desktopControl: true });
-    }
-
     gesturesBtn.addEventListener("click", toggleGestures);
-    if (cursorGesturesBtn) cursorGesturesBtn.addEventListener("click", toggleCursorGestures);
     voiceBtn.addEventListener("click", toggleVoice);
     if (wakeWordBtn) wakeWordBtn.addEventListener("click", toggleWakeWord);
     if (sendChatBtn) sendChatBtn.addEventListener('click', sendChatMessage);
@@ -5439,241 +3301,6 @@
     });
     setInterval(syncTechnicalHud, 120);
 
-    function callIdentity() {
-      return {
-        addressName: getAddressName(),
-        lang: (spokenLang || "en").slice(0, 2),
-      };
-    }
-
-    function isCallYes(text) {
-      const folded = String(text || "").toLowerCase().replace(/[.!]+$/g, "").trim();
-      return /^(yes|yeah|yep|approve|pick up|pick it up|answer|answer it|haan|han|theek hai|utha lo|kar do|हाँ|हां|जी हाँ|उठा लो|कर दो)$/.test(folded);
-    }
-
-    function isCallNo(text) {
-      const folded = String(text || "").toLowerCase().replace(/[.!]+$/g, "").trim();
-      return /^(no|nope|decline|ignore|don't|do not|nahi|nahin|mat uthao|नहीं|ना|मत उठाओ)$/.test(folded);
-    }
-
-    async function postAgent(path, body) {
-      const res = await fetch(`${PC_AGENT_URL}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body || {}),
-      });
-      const data = await res.json().catch(() => ({}));
-      return { ok: res.ok, data };
-    }
-
-    function showCallPrompt(status) {
-      if (!callPrompt) return;
-      const waiting = status && status.state === "awaiting_approval" && status.prompt;
-      if (!waiting) {
-        callPrompt.hidden = true;
-        pendingCallId = null;
-        return;
-      }
-      callPrompt.hidden = false;
-      if (callPromptText) callPromptText.textContent = status.prompt;
-      if (callPromptDetail) {
-        callPromptDetail.textContent = status.capability === "available"
-          ? "Nothing is answered until you say yes. Audio routing still depends on this PC."
-          : (status.reason || "This call cannot be answered from here.");
-      }
-      if (status.event_id && status.event_id !== pendingCallId) {
-        pendingCallId = status.event_id;
-        speak(status.prompt);
-        logVoice(status.prompt);
-      }
-    }
-
-    async function approveCall() {
-      try {
-        const { data } = await postAgent("/api/call/approve", { ...callIdentity(), confirm: true });
-        const message = data.reason || data.say || "The call was not answered.";
-        if (callPromptDetail) callPromptDetail.textContent = message;
-        logVoice(message);
-        speak(message);
-        if (!data.answered) showError(message);
-        if (data.state !== "awaiting_approval") callPrompt.hidden = true;
-      } catch (error) {
-        showError("The local call assistant is not reachable. Nothing was answered.");
-      }
-    }
-
-    async function declineCall() {
-      try {
-        const { data } = await postAgent("/api/call/decline", callIdentity());
-        const message = data.reason || "Declined. The call was not answered.";
-        logVoice(message);
-        speak(message);
-        if (callPrompt) callPrompt.hidden = true;
-      } catch (error) {
-        if (callPrompt) callPrompt.hidden = true;
-      }
-    }
-
-    async function maybeHandleCallUtterance(text) {
-      if (!pendingCallId && (!callPrompt || callPrompt.hidden)) return false;
-      if (isCallYes(text)) {
-        await approveCall();
-        return true;
-      }
-      if (isCallNo(text)) {
-        await declineCall();
-        return true;
-      }
-      return false;
-    }
-
-    async function pollCallAssistant() {
-      try {
-        const { ok, data } = await postAgent("/api/call/status", callIdentity());
-        if (!ok) return;
-        showCallPrompt(data);
-      } catch (error) {
-        /* local agent is optional */
-      }
-    }
-
-    async function refreshAgentFeatures() {
-      if (!agentFeatureStatus) return;
-      try {
-        const res = await fetch(`${PC_AGENT_URL}/health`, { cache: "no-store" });
-        if (!res.ok) throw new Error("offline");
-        const data = await res.json();
-        if (data.ok === false) throw new Error("offline");
-        const features = data.features || {};
-        const calls = features.whatsapp_calls || {};
-        const upgrades = features.upgrade_proposals || {};
-        const browser = features.browser_automation || {};
-        const apps = features.local_apps || {};
-        const privateBrain = data.ollama ? "local Ollama ready" : "local Ollama offline; private content stays local";
-        agentFeatureStatus.textContent = `Connected to this PC. Desktop actions: launch apps, type, move and click. Private brain: ${privateBrain}. Signed-in app browser: ${apps.state || browser.state || "unknown"}. Upgrades: ${upgrades.state || "available"}; desktop WhatsApp calls: ${calls.state || "unknown"}; Telegram/WhatsApp Web calls use the local browser.`;
-      } catch (error) {
-        agentFeatureStatus.textContent = "Local PC agent offline. Start it on this PC (run: python start.py or python weronika_agent.py) and open the local Weronika app at http://127.0.0.1:8765/. The hosted preview cannot control your PC.";
-      }
-    }
-
-    if (checkPcAgentBtn) checkPcAgentBtn.addEventListener("click", async () => {
-      checkPcAgentBtn.disabled = true;
-      checkPcAgentBtn.textContent = "CHECKING…";
-      try {
-        await refreshAgentFeatures();
-      } finally {
-        checkPcAgentBtn.disabled = false;
-        checkPcAgentBtn.textContent = "CHECK LOCAL AGENT";
-      }
-    });
-
-    function showProposal(data) {
-      pendingProposal = data && data.id ? data : null;
-      if (!upgradePreview) return;
-      const text = [data.explanation, data.reason, data.patch].filter(Boolean).join("\n\n");
-      upgradePreview.textContent = text || "No proposal came back.";
-      upgradePreview.classList.add("visible");
-      const canApprove = !!(data && data.applicable && data.status === "pending");
-      if (approveUpgradeBtn) approveUpgradeBtn.hidden = !canApprove;
-      if (rejectUpgradeBtn) rejectUpgradeBtn.hidden = !data || !data.id;
-    }
-
-    if (proposeUpgradeBtn) proposeUpgradeBtn.addEventListener("click", async () => {
-      proposeUpgradeBtn.disabled = true;
-      try {
-        const { ok, data } = await postAgent("/api/upgrade/propose", {
-          goal: upgradeGoal ? upgradeGoal.value : "",
-          ...callIdentity(),
-        });
-        if (!ok && data.error) {
-          showError(data.error);
-          return;
-        }
-        showProposal(data);
-        const say = data.say || `${getAddressName()}, I prepared a proposal. Nothing is written until you approve it.`;
-        logVoice(say);
-        speak(say);
-      } catch (error) {
-        showError("The local agent is not running, so I could not prepare a proposal.");
-      } finally {
-        proposeUpgradeBtn.disabled = false;
-      }
-    });
-
-    if (approveUpgradeBtn) approveUpgradeBtn.addEventListener("click", async () => {
-      if (!pendingProposal) return;
-      const { data } = await postAgent("/api/upgrade/approve", { id: pendingProposal.id, confirm: true });
-      const message = data.reason || data.say || "Nothing was written.";
-      logVoice(message);
-      speak(message);
-      if (!data.written) showError(message);
-      if (data.written && approveUpgradeBtn) approveUpgradeBtn.hidden = true;
-    });
-
-    if (rejectUpgradeBtn) rejectUpgradeBtn.addEventListener("click", async () => {
-      if (!pendingProposal) return;
-      const { data } = await postAgent("/api/upgrade/reject", { id: pendingProposal.id });
-      logVoice(data.reason || "Rejected. Nothing was written.");
-      pendingProposal = null;
-      if (approveUpgradeBtn) approveUpgradeBtn.hidden = true;
-      if (rejectUpgradeBtn) rejectUpgradeBtn.hidden = true;
-    });
-
-    if (callApproveBtn) callApproveBtn.addEventListener("click", approveCall);
-    if (callDeclineBtn) callDeclineBtn.addEventListener("click", declineCall);
-    pollCallAssistant();
-    refreshAgentFeatures();
-    setInterval(pollCallAssistant, 4000);
-    setInterval(refreshAgentFeatures, 15000);
-  </script>
-
-
-
-  <script type="module">
-    import { setupGooglePanel } from "./weronika-google.js";
-    import { setupMemory } from "./weronika-memory.js";
-    import { setupSameBrowser } from "./weronika-same-browser.js";
-    import { setupAutomation } from "./weronika-automation.js";
-    // Wire helpers lazily after main script defines its globals
-    const tryWire = () => {
-      const chatLog = document.getElementById('chatLog');
-      if (!chatLog) { setTimeout(tryWire, 500); return; }
-      // helpers expected by modules
-      const helpers = {
-        showError: (msg) => { const el=document.getElementById('hudError'); if(el){el.textContent=msg; el.style.opacity=1; setTimeout(()=>el.style.opacity=0, 4000);} else alert(msg); },
-        showBanner: (msg) => {
-          let b=document.getElementById('answerBanner');
-          if(!b){ b=document.createElement('div'); b.id='answerBanner'; b.className='answer-banner'; document.body.appendChild(b); }
-          b.innerHTML = '<div class="answer-banner-title">WERONIKA</div>' + String(msg).replace(/</g,'&lt;').replace(/\n/g,'<br>');
-          b.classList.add('visible'); b.style.pointerEvents='auto';
-          setTimeout(()=>{ b.classList.remove('visible'); }, 7000);
-          try { const chatLog=document.getElementById('chatLog'); if(chatLog){ const d=document.createElement('div'); d.className='chat-message assistant'; d.textContent=String(msg).slice(0,800); chatLog.appendChild(d); chatLog.scrollTop=chatLog.scrollHeight; } } catch {}
-        },
-        speak: (msg) => { try { if (window.speechSynthesis) { const u=new SpeechSynthesisUtterance(msg.slice(0,400)); speechSynthesis.speak(u); } } catch {} },
-        logVoice: (msg)=>{ const v=document.getElementById('voiceLog'); if(v) v.textContent=msg; },
-        getConversation: ()=>{ try { return JSON.parse(localStorage.getItem('weronika.conversationHistory.v2')||'[]'); } catch { return window.conversationHistory||[]; } },
-        setConversation: (h)=>{ try{ localStorage.setItem('weronika.conversationHistory.v2', JSON.stringify(h.slice(-40))); if(window.conversationHistory) window.conversationHistory=h; } catch {} },
-        getAddressName: ()=>{ try { return localStorage.getItem('weronika_address_name')||'Commander'; } catch { return 'Commander'; } },
-        callBrain: (msg)=> fetch('/api/public/brain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})})
-      };
-      try { setupMemory(helpers); } catch(e){ console.warn('memory setup failed',e); }
-      try { setupGooglePanel(helpers); } catch(e){ console.warn('google setup failed',e); }
-      try { setupSameBrowser(helpers); } catch(e){ console.warn('same-browser setup failed',e); }
-      try { setupAutomation(helpers); } catch(e){ console.warn('automation setup failed',e); }
-      // Hook conversationHistory global to persist
-      try {
-        let _hist = helpers.getConversation();
-        Object.defineProperty(window, 'conversationHistory', {
-          get(){ return _hist; },
-          set(v){ _hist = v; try{ localStorage.setItem('weronika.conversationHistory.v2', JSON.stringify((v||[]).slice(-40))); /* also sync to disk */ fetch('/api/memory/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({history: v})}).catch(()=>fetch('/api/weronika-agent/api/memory/history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({history:v})}).catch(()=>{})); } catch{} }
-        });
-        // initial load
-        fetch('/api/memory/history').then(r=>r.json()).then(d=>{ if(d && Array.isArray(d.history) && d.history.length){ _hist=d.history; try{ localStorage.setItem('weronika.conversationHistory.v2', JSON.stringify(_hist.slice(-40))); }catch{}} }).catch(()=>{});
-        // also check alternate path
-        fetch('/api/weronika-agent/api/memory/history').then(r=>r.json()).then(d=>{ if(d && Array.isArray(d.history) && d.history.length && !_hist.length){ _hist=d.history; } }).catch(()=>{});
-      } catch {}
-    };
-    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', tryWire); else tryWire();
   </script>
 
 </body></html>

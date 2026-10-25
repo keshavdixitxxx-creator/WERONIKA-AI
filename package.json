@@ -10,12 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "npm run test:js && npm run test:py",
+    "test": "npm run test:js",
     "test:js": "node scripts/run-tests.mjs",
-    "test:py": "python -m unittest discover -s weronika-py/tests -p \"test_*.py\"",
-    "sync:standalone": "node scripts/sync-standalone.mjs",
-    "dev:py": "python weronika-py/weronika_launcher.py",
-    "start": "python weronika-py/weronika_launcher.py"
+    "start": "vite preview --host 0.0.0.0"
   },
   "overrides": {
     "rolldown": "1.2.1"
