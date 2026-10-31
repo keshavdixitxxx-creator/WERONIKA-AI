@@ -3,7 +3,6 @@
  * Models are bundled in technical-models.js so the page never downloads a 3D file.
  */
 import { buildCatalog } from "./technical-models.js";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js";
 
 const CYAN = 0x3ad7ff;
 const CYAN_DIM = 0x7fdfff;
@@ -166,6 +165,8 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
       throw new Error("Choose a VRM file under 100 MB.");
     }
     const data = await file.arrayBuffer();
+    const { GLTFLoader } =
+      await import("https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js");
     const loader = new GLTFLoader();
     const gltf = await new Promise((resolve, reject) => {
       loader.parse(data, "", resolve, (error) =>
