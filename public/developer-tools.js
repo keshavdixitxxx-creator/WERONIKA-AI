@@ -45,6 +45,7 @@ const WORKSPACE_STYLE = `
 `;
 
 export function mountDeveloperTools({ onPrompt = null } = {}) {
+  document.querySelectorAll(".devtools-launch").forEach((button) => button.remove());
   const style = document.createElement("style");
   style.textContent = WORKSPACE_STYLE;
   document.head.append(style);
@@ -84,6 +85,48 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   let savedContent = "";
   let loadedExisting = false;
   let workspaceRoot = "";
+  let browserStorageMode = false;
+  const browserWorkspaceKey = "weronika.workspace.files.v1";
+  const supportedFilePath =
+    /^(?!\/)(?!.*(?:^|\/)(?:\.|\.\.|__proto__|constructor|prototype)(?:\/|$))[^\\\u0000-\u001f]{1,200}\.(?:py|js|mjs|cjs|jsx|ts|tsx|vue|svelte|html|css|scss|json|md|txt|toml|yaml|yml|java|kt|kts|cs|c|h|cpp|hpp|go|rs|rb|php|sql|sh|bash|swift|dart|lua|r|scala|xml|graphql|proto|ex|exs|pl|ps1|bat)$/i;
+
+  function readBrowserWorkspace() {
+    const files = Object.create(null);
+    try {
+      const stored = JSON.parse(localStorage.getItem(browserWorkspaceKey) || "{}");
+      if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+        for (const [path, content] of Object.entries(stored)) {
+          if (supportedFilePath.test(path) && typeof content === "string") files[path] = content;
+        }
+      }
+    } catch {}
+    return files;
+  }
+
+  function browserWorkspaceTree(files) {
+    const root = [];
+    for (const [path, content] of Object.entries(files)) {
+      const parts = path.split("/");
+      let items = root;
+      for (let index = 0; index < parts.length - 1; index += 1) {
+        const name = parts[index];
+        let folder = items.find((item) => item.kind === "directory" && item.name === name);
+        if (!folder) {
+          folder = { kind: "directory", name, children: [] };
+          items.push(folder);
+        }
+        items = folder.children;
+      }
+      const name = parts.at(-1);
+      items.push({
+        kind: "file",
+        name,
+        path,
+        size: new Blob([content]).size,
+      });
+    }
+    return root;
+  }
 
   function status(element, message, error = false) {
     element.textContent = message;
@@ -94,10 +137,30 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     try {
       response = await fetch(path, { cache: "no-store", ...options });
     } catch {
-      throw new Error("Local workspace is offline. Start Weronika with start.bat on this device.");
+      const error = new Error(
+        "Local worker is offline; using this browser’s private workspace storage.",
+      );
+      error.localApiUnavailable = true;
+      throw error;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      const error = new Error(
+        "Local worker API is unavailable; using this browser’s private workspace storage.",
+      );
+      error.localApiUnavailable = true;
+      throw error;
     }
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || "The local workspace rejected that request.");
+    if (!response.ok) {
+      const error = new Error(
+        response.status === 404
+          ? "Local worker API is unavailable; using this browser’s private workspace storage."
+          : result.error || "The local workspace rejected that request.",
+      );
+      error.localApiUnavailable = response.status === 404;
+      throw error;
+    }
     return result;
   }
   const post = (path, payload) =>
@@ -144,7 +207,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     editor.value = state.content;
     savedContent = state.savedContent;
     loadedExisting = state.existing;
-    $(".run-file").hidden = !path.toLowerCase().endsWith(".py");
+    $(".run-file").hidden = browserStorageMode || !path.toLowerCase().endsWith(".py");
     renderEditorTabs();
     updateGutter();
   }
@@ -292,12 +355,27 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
       workspaceRoot = result.root || "";
       fileList.replaceChildren();
       renderTree(result.items);
+      browserStorageMode = false;
+      if (activePath && openFiles.has(activePath))
+        activateFile(activePath, openFiles.get(activePath));
+      $(".devtools-connection").textContent = "● LOCAL WORKSPACE";
       status(
         codeStatus,
         workspaceRoot ? `LOCAL WORKSPACE · ${workspaceRoot}` : "Local workspace connected.",
       );
     } catch (error) {
-      status(codeStatus, error.message, true);
+      if (!error.localApiUnavailable) {
+        status(codeStatus, error.message, true);
+        return;
+      }
+      browserStorageMode = true;
+      workspaceRoot = "Browser storage · this browser only";
+      const files = readBrowserWorkspace();
+      fileList.replaceChildren();
+      renderTree(browserWorkspaceTree(files));
+      $(".devtools-connection").textContent = "● BROWSER STORAGE";
+      $(".run-file").hidden = true;
+      status(codeStatus, `${workspaceRoot} · Python execution requires weronika-py/start.bat.`);
     }
   }
   async function openFile(path) {
@@ -309,6 +387,14 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
           codeStatus,
           `Opened ${path}${cached.content !== cached.savedContent ? " · unsaved changes" : ""}`,
         );
+        return;
+      }
+      if (browserStorageMode) {
+        const content = readBrowserWorkspace()[path];
+        if (typeof content !== "string")
+          throw new Error(`Could not find ${path} in browser storage.`);
+        setEditorFile(path, content, true);
+        status(codeStatus, `Opened ${path} · ${new Blob([content]).size} bytes · browser storage`);
         return;
       }
       const result = await request(`/api/workspace/file?path=${encodeURIComponent(path)}`);
@@ -328,6 +414,26 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     }
     const content = editor.value;
     try {
+      if (browserStorageMode) {
+        if (!supportedFilePath.test(path))
+          throw new Error("Use a safe relative path with a supported code or text extension.");
+        const files = readBrowserWorkspace();
+        if (
+          Object.hasOwn(files, path) &&
+          !loadedExisting &&
+          !window.confirm(`“${path}” already exists in browser storage. Overwrite it?`)
+        )
+          return;
+        files[path] = content;
+        localStorage.setItem(browserWorkspaceKey, JSON.stringify(files));
+        setEditorFile(path, content, true);
+        await refreshFiles();
+        status(
+          codeStatus,
+          `Saved ${path} in this browser only · Python run requires the local worker.`,
+        );
+        return;
+      }
       let result;
       try {
         result = await post("/api/workspace/file", { path, content, overwrite: loadedExisting });
@@ -348,6 +454,14 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   }
   async function runPython() {
     const path = pathInput.value.trim();
+    if (browserStorageMode) {
+      status(
+        codeStatus,
+        "Python execution needs the local worker. Run weronika-py/start.bat on this PC.",
+        true,
+      );
+      return;
+    }
     if (!path.toLowerCase().endsWith(".py")) return;
     if (!loadedExisting || editor.value !== savedContent) {
       status(codeStatus, "Save the current Python file before running it.", true);

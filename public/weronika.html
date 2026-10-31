@@ -171,6 +171,7 @@
       background: linear-gradient(135deg, rgba(0, 91, 151, .9), rgba(0, 37, 73, .96));
       box-shadow: 0 0 22px rgba(24, 155, 255, .36), inset 0 0 15px rgba(24, 155, 255, .2);
     }
+    .devtools-launch { display: none !important; }
 
     .chat-panel {
       width: 100%;
@@ -1270,7 +1271,7 @@
     const developerTools = mountDeveloperTools({
       onPrompt: async (prompt) => {
         appendChat("user", prompt, { banner: false });
-        const reply = await runAutomationPlan(prompt);
+        const reply = await runAutomationPlan(prompt, undefined, "workspace-code");
         if (reply) appendChat("assistant", reply, { banner: false });
         return reply;
       },
@@ -3064,10 +3065,10 @@
       return { handled: false };
     }
 
-    async function runAutomationPlan(message, languageOverride) {
+    async function runAutomationPlan(message, languageOverride, planningTask = "automation-plan") {
       appendChat("assistant", "I’m asking the cloud brain to break this into safe steps…", { banner: false });
       const planningReply = await callBuiltinBrain(message, null, languageOverride, {
-        task: "automation-plan",
+        task: planningTask,
         recordHistory: false,
       });
       if (planningReply && planningReply.error) return planningReply.error;
@@ -3075,7 +3076,12 @@
       let plan;
       try { plan = parseAutomationPlan(planningReply); }
       catch (error) { return error.message; }
-      if (plan.intent === "chat") return await callBrain(message, null, languageOverride);
+      if (plan.intent === "chat") {
+        if (planningTask === "workspace-code") {
+          return "Weronika couldn’t create a code draft from that prompt. Try describing the desired language, files, and behavior more directly.";
+        }
+        return await callBrain(message, null, languageOverride);
+      }
       if (plan.intent === "needs_info") return String(plan.question || "What extra detail should I use?").slice(0, 500);
       if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. Weronika can prepare direct messages and build code drafts in Workspace.").slice(0, 700);
 
@@ -3096,7 +3102,7 @@
         const acknowledgement = String(plan.acknowledgement || `I drafted ${files.length} file${files.length === 1 ? "" : "s"} in Workspace.`).slice(0, 500);
         const steps = Array.isArray(plan.steps) ? plan.steps.filter((step) => typeof step === "string").slice(0, 4) : [];
         steps.forEach((step, index) => appendChat("system", `Code plan ${index + 1}/${steps.length}: ${String(step).slice(0, 180)}`, { banner: false }));
-        return `${acknowledgement} Review the open tabs in WORKSPACE and choose SAVE for each file. Nothing has been run.`;
+        return `${acknowledgement} Review the editor tabs in WORKSPACE and choose SAVE for each file. Nothing has been run.`;
       }
 
       if (plan.intent !== "message" || typeof plan.platform !== "string" || typeof plan.recipient !== "string" || typeof plan.message !== "string" || !plan.recipient.trim() || !plan.message.trim()) {

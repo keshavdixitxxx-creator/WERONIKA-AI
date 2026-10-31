@@ -9,6 +9,7 @@ import {
   buildAutomationPlanInstructions,
   buildInstructions,
   buildMediaIntentInstructions,
+  buildWorkspaceCodeInstructions,
   buildResponsesBody,
   isTransientStatus,
   readResponseDeltas,
@@ -28,12 +29,13 @@ type BrainInput = {
   history: HistoryItem[];
   lang: string;
   addressName: string;
-  task?: "media-intent" | "automation-plan";
+  task?: "media-intent" | "automation-plan" | "workspace-code";
 };
 
 function instructionsFor(input: Pick<BrainInput, "lang" | "addressName" | "task">) {
   if (input.task === "media-intent") return buildMediaIntentInstructions();
   if (input.task === "automation-plan") return buildAutomationPlanInstructions();
+  if (input.task === "workspace-code") return buildWorkspaceCodeInstructions();
   return buildInstructions(input.lang, input.addressName);
 }
 
@@ -231,7 +233,11 @@ export const Route = createFileRoute("/api/public/brain")({
         const lang = sanitizeLang(body.lang, message);
         const addressName = sanitizeAddressName(body.addressName);
         const task =
-          body.task === "media-intent" || body.task === "automation-plan" ? body.task : undefined;
+          body.task === "media-intent" ||
+          body.task === "automation-plan" ||
+          body.task === "workspace-code"
+            ? body.task
+            : undefined;
         const input: BrainInput = {
           message,
           history,

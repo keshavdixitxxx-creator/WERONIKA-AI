@@ -165,16 +165,21 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
       throw new Error("Choose a VRM file under 100 MB.");
     }
     const data = await file.arrayBuffer();
-    const { GLTFLoader } =
-      await import("https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js");
+    const [{ GLTFLoader }, { VRMLoaderPlugin, VRMUtils }] = await Promise.all([
+      import("https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js"),
+      import("https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"),
+    ]);
     const loader = new GLTFLoader();
+    loader.register((parser) => new VRMLoaderPlugin(parser));
     const gltf = await new Promise((resolve, reject) => {
       loader.parse(data, "", resolve, (error) =>
         reject(new Error(error?.message || "That VRM file could not be parsed.")),
       );
     });
-    const model = gltf.scene || gltf.scenes?.[0];
+    const vrm = gltf.userData?.vrm;
+    const model = vrm?.scene || gltf.scene || gltf.scenes?.[0];
     if (!model) throw new Error("The VRM file has no 3D scene.");
+    if (vrm?.meta?.metaVersion === "0") VRMUtils.rotateVRM0(vrm);
     const title = file.name.replace(/\.vrm$/i, "").slice(0, 80) || "Uploaded VRM";
     return activateCustom(model, title, "vrm", "VRM avatar");
   }

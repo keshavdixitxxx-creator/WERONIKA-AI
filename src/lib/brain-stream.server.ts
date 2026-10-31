@@ -166,6 +166,13 @@ export function buildAutomationPlanInstructions(): string {
   ].join(" ");
 }
 
+export function buildWorkspaceCodeInstructions(): string {
+  return [
+    buildAutomationPlanInstructions(),
+    'WORKSPACE MODE OVERRIDE: the user submitted this as a coding prompt. Treat it as a direct request to produce code, not ordinary chat. Return intent "write_code" and 1 to 10 complete, relative-path files unless an essential requirement is genuinely missing; then return "needs_info" with one concise question. Never return "chat" merely because the user phrased the request conversationally. Do not save or run files.',
+  ].join(" ");
+}
+
 export function buildMediaIntentInstructions(): string {
   return [
     "You are Weronika's internal media-intent classifier, using her existing AI brain. This is not a user-facing reply.",
@@ -181,7 +188,7 @@ export function buildResponsesBody(input: {
   history: HistoryItem[];
   lang: string;
   addressName: string;
-  task?: "media-intent" | "automation-plan";
+  task?: "media-intent" | "automation-plan" | "workspace-code";
 }) {
   return {
     model: BRAIN_MODEL,
@@ -191,12 +198,15 @@ export function buildResponsesBody(input: {
         ? buildMediaIntentInstructions()
         : input.task === "automation-plan"
           ? buildAutomationPlanInstructions()
-          : buildInstructions(input.lang, input.addressName),
+          : input.task === "workspace-code"
+            ? buildWorkspaceCodeInstructions()
+            : buildInstructions(input.lang, input.addressName),
     input: [
       ...input.history.map((item) => ({ role: item.role, content: item.content })),
       { role: "user" as const, content: input.message },
     ],
-    max_output_tokens: input.task === "automation-plan" ? 8_000 : 700,
+    max_output_tokens:
+      input.task === "automation-plan" || input.task === "workspace-code" ? 8_000 : 700,
   };
 }
 
