@@ -1196,7 +1196,7 @@
   <div class="tech-overlay" id="techOverlay" hidden>
     <div class="tech-frame"></div>
     <div class="tech-panel tech-panel-left">
-      <div class="tech-kicker">WERONIKA · TECHNICAL</div>
+      <div class="tech-kicker">WERONIKA · BLUEPRINT MODE</div>
       <div class="tech-title" id="techTitle">MODEL</div>
       <div class="tech-meta" id="techMeta"></div>
       <div class="tech-upload-controls">
@@ -3060,7 +3060,7 @@
         const opened = await developerTools.openBrowserTabs(urls);
         if (!opened) return "I couldn’t open the managed browser. Check the Browser tab in the developer workspace for details.";
         const count = Array.isArray(opened.tabs) ? opened.tabs.length : 0;
-        return `Opened ${count} website tab${count === 1 ? "" : "s"} in Weronika’s managed browser. Use CODE · BROWSER to switch between them.`;
+        return `Opened ${count} website tab${count === 1 ? "" : "s"} in Weronika’s managed browser. Open WORKSPACE and choose its Browser tab to switch between them.`;
       }
 
       if (plan.intent === "write_code") {
@@ -3078,7 +3078,7 @@
         const acknowledgement = String(plan.acknowledgement || `I drafted ${path} in the workspace editor.`).slice(0, 500);
         const steps = Array.isArray(plan.steps) ? plan.steps.filter((step) => typeof step === "string").slice(0, 4) : [];
         steps.forEach((step, index) => appendChat("system", `Code plan ${index + 1}/${steps.length}: ${String(step).slice(0, 180)}`, { banner: false }));
-        return `${acknowledgement} Review it in CODE · BROWSER and choose SAVE to write it locally. Nothing has been run.`;
+        return `${acknowledgement} Review it in WORKSPACE and choose SAVE to write it locally. Nothing has been run.`;
       }
 
       if (plan.intent !== "message" || typeof plan.platform !== "string" || typeof plan.recipient !== "string" || typeof plan.message !== "string" || !plan.recipient.trim() || !plan.message.trim()) {

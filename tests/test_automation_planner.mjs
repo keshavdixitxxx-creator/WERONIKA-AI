@@ -30,9 +30,11 @@ const developerTools = readFileSync(
   "utf8",
 );
 assert.match(developerTools, /\/api\/workspace\/browser\/open/);
+assert.match(developerTools, /WORKSPACE/);
 assert.match(developerTools, /RUN PYTHON/);
 assert.match(orb, /techVrmUpload/);
 assert.match(orb, /techPhotoUpload/);
+assert.match(orb, /BLUEPRINT MODE/);
 const technical = readFileSync(new URL("../public/technical-viewer.js", import.meta.url), "utf8");
 assert.match(technical, /openVRMFile/);
 assert.match(technical, /openPhotoFile/);
