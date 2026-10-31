@@ -28,6 +28,9 @@ class LocalWorkspaceTests(unittest.TestCase):
                 self.workspace.save(path, "nope")
         with self.assertRaises(WorkspaceError):
             self.workspace.save("notes.bin", "binary")
+        for path, content in (("src/App.tsx", "export default function App() {}"), ("src/main.rs", "fn main() {}"), ("src/server.go", "package main")):
+            with self.subTest(path=path):
+                self.assertEqual(self.workspace.save(path, content)["path"], path)
         self.workspace.save("main.py", "one")
         with self.assertRaises(WorkspaceError):
             self.workspace.save("main.py", "two", overwrite=False)

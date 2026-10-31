@@ -11,14 +11,14 @@ This package is the local Python worker behind Weronika's **existing animated or
 5. The worker opens and verifies the chat, prepares the exact message, and shows it in the orb. It does not send during preparation.
 6. Sending requires your separate `confirm send` / `send it` reply. The worker reports whether the send was verified.
 
-Supported local tools are direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X; a VS Code-style code/text workspace; and a managed Chromium browser that can open multiple HTTP/HTTPS websites, including localhost URLs. Weronika can draft one code file at a time into the editor, but it is not written until you choose Save. Website opening does not imply that Weronika can click, log in, submit forms, or otherwise interact with the page.
+The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X, plus two dedicated feature panels: BLUEPRINT and WORKSPACE. Workspace accepts a natural-language build prompt through the hosted cloud brain, then opens up to ten multilingual code/text files as unsaved editor drafts; files are written only when you choose Save. The general-purpose browser tab UI has been removed. Chromium remains an internal requirement for visible messaging automation.
 
 ## Safety and privacy
 
-- The worker binds only to `127.0.0.1`; browser UI calls its API through same-origin routes. A hosted web page cannot call the local worker directly.
+- The worker binds only to `127.0.0.1`; orb pages call its local APIs through same-origin routes. A hosted web page cannot call the local worker directly.
 - Similar-name contacts are never silently selected. The open chat header and exact composer text are checked before any send action.
 - The local worker only clicks Send after explicit approval. An uncertain result is reported and never automatically retried.
-- Each messaging platform and the managed workspace browser use local persistent profiles under `~/.weronika/`; session cookies stay on this device. Do not share those profile directories.
+- Each messaging platform uses a local persistent browser profile under `~/.weronika/`; session cookies stay on this device. Do not share those profile directories.
 - Workspace code/text files are stored under `~/.weronika/workspace/`. Python files can be run only after a separate confirmation dialog. This is not a sandbox: confirmed code can access this device and its files, so inspect code before running it.
 - VRM uploads and photos are handled in the browser and are not saved to the workspace. A photo is converted into a shallow 3D relief from its brightness map; it is not a full 3D object reconstruction.
 - Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.

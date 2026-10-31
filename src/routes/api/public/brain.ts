@@ -230,9 +230,8 @@ export const Route = createFileRoute("/api/public/brain")({
         const history = sanitizeHistory(body.history);
         const lang = sanitizeLang(body.lang, message);
         const addressName = sanitizeAddressName(body.addressName);
-        const task = body.task === "media-intent" || body.task === "automation-plan"
-          ? body.task
-          : undefined;
+        const task =
+          body.task === "media-intent" || body.task === "automation-plan" ? body.task : undefined;
         const input: BrainInput = {
           message,
           history,

@@ -12,7 +12,13 @@ MAX_FILE_BYTES = 1_000_000
 MAX_RUN_SECONDS = 20
 MAX_OUTPUT_CHARS = 20_000
 IGNORED_NAMES = {".git", ".venv", "venv", "node_modules", "__pycache__", ".idea", ".vscode"}
-ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".md", ".txt", ".toml", ".yaml", ".yml"}
+ALLOWED_EXTENSIONS = {
+    ".py", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".vue", ".svelte",
+    ".html", ".css", ".scss", ".json", ".md", ".txt", ".toml", ".yaml", ".yml",
+    ".java", ".kt", ".kts", ".cs", ".c", ".h", ".cpp", ".hpp", ".go", ".rs",
+    ".rb", ".php", ".sql", ".sh", ".bash", ".swift", ".dart", ".lua", ".r",
+    ".scala", ".xml", ".graphql", ".proto", ".ex", ".exs", ".pl", ".ps1", ".bat",
+}
 
 
 class WorkspaceError(RuntimeError):

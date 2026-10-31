@@ -6,10 +6,21 @@ const root = resolve(new URL("..", import.meta.url).pathname);
 const html = readFileSync(new URL("../public/weronika.html", import.meta.url), "utf8");
 const viteConfig = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const pythonServer = readFileSync(new URL("../weronika-py/weronika_agent/http_server.py", import.meta.url), "utf8");
+const pythonServer = readFileSync(
+  new URL("../weronika-py/weronika_agent/http_server.py", import.meta.url),
+  "utf8",
+);
 
-assert.equal(existsSync(resolve(root, "weronika-py")), true, "the Python worker is present beside the web app");
-assert.equal(existsSync(resolve(root, "weronika-py/web")), false, "automation uses the main orb instead of a separate chat UI");
+assert.equal(
+  existsSync(resolve(root, "weronika-py")),
+  true,
+  "the Python worker is present beside the web app",
+);
+assert.equal(
+  existsSync(resolve(root, "weronika-py/web")),
+  false,
+  "automation uses the main orb instead of a separate chat UI",
+);
 for (const file of [
   "public/weronika-automation.js",
   "public/weronika-google.js",
@@ -19,7 +30,10 @@ for (const file of [
 ]) {
   assert.equal(existsSync(resolve(root, file)), false, `${file} remains removed`);
 }
-assert.doesNotMatch(html, /api\/weronika-agent|127\.0\.0\.1:8765|api\/apps\/action|api\/google\/action/);
+assert.doesNotMatch(
+  html,
+  /api\/weronika-agent|127\.0\.0\.1:8765|api\/apps\/action|api\/google\/action/,
+);
 assert.doesNotMatch(viteConfig, /127\.0\.0\.1:8765|api\/weronika-agent/);
 assert.doesNotMatch(JSON.stringify(packageJson.scripts), /python|sync:standalone|dev:py/);
 assert.match(html, /api\/automation\/prepare/);
@@ -42,6 +56,9 @@ const voiceEnd = html.indexOf("    function isWakeActivationPhrase", voiceStart)
 assert.ok(voiceEnd > voiceStart, "voice handler has a clear boundary");
 const voiceHandler = html.slice(voiceStart, voiceEnd);
 assert.match(voiceHandler, /generateChatReply\(text, languageOverride\)/);
-assert.doesNotMatch(voiceHandler, /fetch\(|openWebsite|searchWeb|postLocalAppAction|parsePcCommand/);
+assert.doesNotMatch(
+  voiceHandler,
+  /fetch\(|openWebsite|searchWeb|postLocalAppAction|parsePcCommand/,
+);
 
 console.log("orb-to-cloud-brain and same-origin Python-worker checks passed");

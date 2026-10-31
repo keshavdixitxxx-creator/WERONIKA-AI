@@ -152,6 +152,26 @@
       align-items: stretch;
     }
 
+    .orb-feature-launchers {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .orb-feature-btn {
+      flex: 1;
+      color: #b5eaff;
+      border-color: rgba(35, 174, 255, .72);
+      background: linear-gradient(135deg, rgba(0, 54, 96, .78), rgba(0, 20, 43, .9));
+      box-shadow: 0 0 18px rgba(24, 155, 255, .19), inset 0 0 12px rgba(24, 155, 255, .12);
+      text-shadow: 0 0 8px rgba(71, 187, 255, .8);
+    }
+    .orb-feature-btn:hover {
+      color: #e5f7ff;
+      border-color: #8fdcff;
+      background: linear-gradient(135deg, rgba(0, 91, 151, .9), rgba(0, 37, 73, .96));
+      box-shadow: 0 0 22px rgba(24, 155, 255, .36), inset 0 0 15px rgba(24, 155, 255, .2);
+    }
+
     .chat-panel {
       width: 100%;
       min-width: 0;
@@ -754,6 +774,10 @@
   </div>
   <div class="hud hud-controls">
     <div class="hud-status sr-only" id="voiceLog" role="status" aria-live="polite"></div>
+    <div class="orb-feature-launchers" aria-label="Weronika tools">
+      <button type="button" class="hud-btn orb-feature-btn" id="blueprintOpenBtn">◇ BLUEPRINT</button>
+      <button type="button" class="hud-btn orb-feature-btn" id="workspaceOpenBtn">▣ WORKSPACE</button>
+    </div>
     <section class="chat-panel" id="chatPanel" aria-label="Chat with Weronika">
       <div class="chat-panel-heading">WERONIKA · CHAT</div>
       <div class="hud-status" id="chatLog" aria-live="polite"><div class="chat-message system" data-who="system">Chat: Weronika ready.</div></div>
@@ -1059,7 +1083,7 @@
       box-shadow: inset 0 0 40px rgba(58, 215, 255, 0.05);
       background:
         linear-gradient(rgba(58, 215, 255, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 178, 58, 0.04) 1px, transparent 1px);
+        linear-gradient(90deg, rgba(58, 165, 255, 0.04) 1px, transparent 1px);
       background-size: 48px 48px;
     }
 
@@ -1084,12 +1108,12 @@
       background: rgba(4, 12, 18, 0.78);
       border: 1px solid rgba(58, 215, 255, 0.45);
       border-radius: 8px;
-      box-shadow: 0 0 24px rgba(58, 215, 255, 0.12), inset 0 0 18px rgba(255, 178, 58, 0.05);
+      box-shadow: 0 0 24px rgba(58, 215, 255, 0.12), inset 0 0 18px rgba(58, 165, 255, 0.07);
       backdrop-filter: blur(6px);
     }
 
     .tech-kicker {
-      color: #ffb23a;
+      color: #75caff;
       letter-spacing: 0.28em;
       font-size: 10px;
       margin-bottom: 6px;
@@ -1110,7 +1134,7 @@
       color: #9ee9ff;
     }
 
-    .tech-meta b { color: #ffd27a; font-weight: normal; }
+    .tech-meta b { color: #a9e0ff; font-weight: normal; }
     .tech-upload-controls { display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:12px; max-width:300px; pointer-events:auto; }
     .tech-upload-btn { display:inline-flex; align-items:center; padding:7px 9px; border:1px solid rgba(58,215,255,.55); border-radius:4px; color:#a5edff; background:rgba(4,20,28,.78); font:10px "Courier New",monospace; letter-spacing:.08em; cursor:pointer; }
     .tech-upload-btn:hover { background:rgba(20,70,84,.82); border-color:#8deaff; }
@@ -1157,7 +1181,7 @@
       margin-top: 8px;
       font-size: 10px;
       letter-spacing: 0.04em;
-      color: #ffd27a;
+      color: #a9e0ff;
       opacity: 0.85;
     }
 
@@ -1183,7 +1207,7 @@
       top: 100%;
       width: 1px;
       height: 10px;
-      background: rgba(255, 178, 58, 0.8);
+      background: rgba(58, 165, 255, 0.8);
     }
 
     @media (max-width: 640px) {
@@ -1243,7 +1267,14 @@
     import { ShaderPass } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/postprocessing/ShaderPass.js";
     import { createTechnicalController } from "/technical-viewer.js";
     import { mountDeveloperTools } from "/developer-tools.js";
-    const developerTools = mountDeveloperTools();
+    const developerTools = mountDeveloperTools({
+      onPrompt: async (prompt) => {
+        appendChat("user", prompt, { banner: false });
+        const reply = await runAutomationPlan(prompt);
+        if (reply) appendChat("assistant", reply, { banner: false });
+        return reply;
+      },
+    });
     import {
       sanitizeAddressName,
       DEFAULT_ADDRESS_NAME,
@@ -2085,6 +2116,7 @@
     const techVrmUpload = document.getElementById("techVrmUpload");
     const techPhotoUpload = document.getElementById("techPhotoUpload");
     const techUploadStatus = document.getElementById("techUploadStatus");
+    const blueprintOpenBtn = document.getElementById("blueprintOpenBtn");
     let streamPresented = false;
     let assistantTurnToken = 0;
 
@@ -2908,12 +2940,9 @@
     const AUTOMATION_MESSAGE_PATTERN = /\b(?:send|message|text|dm)\b/i;
     const AUTOMATION_PLATFORM_PATTERN = /\b(?:whats\s?app|telegram|instagram|insta|facebook|messenger|twitter|x\.com)\b/i;
     const AUTOMATION_TARGET_PATTERN = /\b(?:to|for|via|saying|that)\b|@[\w.]+/i;
-    const AUTOMATION_ACTION_PATTERN = /\b(?:post|open|click|search|find|download|upload|book|schedule|delete|install|automate|run|visit|go to)\b/i;
+    const AUTOMATION_ACTION_PATTERN = /\b(?:post|click|search|find|download|upload|book|schedule|delete|install|automate|run)\b/i;
     const AUTOMATION_CODE_PATTERN = /\b(?:write|create|generate|build|implement|edit|fix|make|develop)\b/i;
-    const AUTOMATION_CODE_TARGET_PATTERN = /\b(?:code|script|program|file|function|app|application|component|website|webpage|python|javascript|html|css|typescript)\b/i;
-    const AUTOMATION_BROWSER_TARGET_PATTERN = /\b(?:browser|website|websites|site|sites|url|urls|webpage|tab|tabs|localhost)\b/i;
-    const AUTOMATION_WEB_ADDRESS_PATTERN = /\b(?:https?:\/\/|localhost(?::\d+)?|127\.0\.0\.1(?::\d+)?|www\.)[\w.:[\]%-]+/i;
-    const AUTOMATION_DOMAIN_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/i;
+    const AUTOMATION_CODE_TARGET_PATTERN = /\b(?:code|script|program|file|function|app|application|component|website|webpage|python|javascript|typescript|react|java|c\+\+|csharp|go|rust|ruby|php|sql|swift|kotlin|dart|shell|game|api)\b/i;
     const AUTOMATION_CONFIRM_PATTERN = /^(?:confirm send|send it|send the message)[.! ]*$/i;
     const AUTOMATION_CANCEL_PATTERN = /^cancel[.! ]*$/i;
 
@@ -3048,37 +3077,26 @@
       catch (error) { return error.message; }
       if (plan.intent === "chat") return await callBrain(message, null, languageOverride);
       if (plan.intent === "needs_info") return String(plan.question || "What extra detail should I use?").slice(0, 500);
-      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. The local worker supports direct messages, browser tabs, and code drafts.").slice(0, 700);
-
-      if (plan.intent === "browser") {
-        const urls = Array.isArray(plan.urls) ? plan.urls : [];
-        if (!urls.length || urls.length > 10 || urls.some((url) => typeof url !== "string" || !url.trim() || url.length > 2048 || !/^https?:\/\//i.test(url) && !/^(?:localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(url))) {
-          return "I couldn’t validate the website addresses. Please include full http/https URLs or localhost addresses; no tabs were opened.";
-        }
-        await checkLocalAutomationWorker();
-        if (!localAutomationConnected) return "I can open those sites once the local worker is running. Start Weronika with start.bat on this device; no tabs were opened.";
-        const opened = await developerTools.openBrowserTabs(urls);
-        if (!opened) return "I couldn’t open the managed browser. Check the Browser tab in the developer workspace for details.";
-        const count = Array.isArray(opened.tabs) ? opened.tabs.length : 0;
-        return `Opened ${count} website tab${count === 1 ? "" : "s"} in Weronika’s managed browser. Open WORKSPACE and choose its Browser tab to switch between them.`;
-      }
+      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. Weronika can prepare direct messages and build code drafts in Workspace.").slice(0, 700);
 
       if (plan.intent === "write_code") {
         const files = Array.isArray(plan.files) ? plan.files : [];
-        const file = files[0];
-        if (files.length !== 1 || !file || typeof file.path !== "string" || typeof file.content !== "string" || file.path.length > 200 || file.content.length > 10000) {
-          return "I couldn’t validate a single code draft. Ask me for one file at a time; nothing was saved or run.";
+        const validExtensions = /\.(?:py|js|mjs|cjs|jsx|ts|tsx|vue|svelte|html|css|scss|json|md|txt|toml|yaml|yml|java|kt|kts|cs|c|h|cpp|hpp|go|rs|rb|php|sql|sh|bash|swift|dart|lua|r|scala|xml|graphql|proto|ex|exs|pl|ps1|bat)$/i;
+        if (!files.length || files.length > 10 || files.some((file) => !file || typeof file.path !== "string" || typeof file.content !== "string" || file.path.length > 200 || file.content.length > 12000)) {
+          return "I couldn’t validate the code draft. Ask me to build a project with up to 10 files; nothing was saved or run.";
         }
-        const path = file.path;
-        if (path.includes(String.fromCharCode(92)) || path.startsWith("/") || path.split("/").some((part) => !part || part === "." || part === "..") || !/\.(?:py|js|ts|html|css|json|md|txt)$/i.test(path)) {
-          return "That draft has an unsafe or unsupported workspace path. Ask for a relative code/text file; nothing was saved or run.";
+        for (const file of files) {
+          const path = file.path;
+          if (path.includes(String.fromCharCode(92)) || path.startsWith("/") || path.split("/").some((part) => !part || part === "." || part === "..") || !validExtensions.test(path)) {
+            return `The draft path “${path}” is unsafe or uses an unsupported file type. Nothing was saved or run.`;
+          }
         }
-        const opened = await developerTools.openDraftFile(path, file.content);
-        if (!opened) return "The editor kept your current unsaved work. Save or discard it, then ask me to draft the file again.";
-        const acknowledgement = String(plan.acknowledgement || `I drafted ${path} in the workspace editor.`).slice(0, 500);
+        const opened = await developerTools.openDraftFiles(files);
+        if (!opened) return "The editor kept your current work. Nothing was saved or run.";
+        const acknowledgement = String(plan.acknowledgement || `I drafted ${files.length} file${files.length === 1 ? "" : "s"} in Workspace.`).slice(0, 500);
         const steps = Array.isArray(plan.steps) ? plan.steps.filter((step) => typeof step === "string").slice(0, 4) : [];
         steps.forEach((step, index) => appendChat("system", `Code plan ${index + 1}/${steps.length}: ${String(step).slice(0, 180)}`, { banner: false }));
-        return `${acknowledgement} Review it in WORKSPACE and choose SAVE to write it locally. Nothing has been run.`;
+        return `${acknowledgement} Review the open tabs in WORKSPACE and choose SAVE for each file. Nothing has been run.`;
       }
 
       if (plan.intent !== "message" || typeof plan.platform !== "string" || typeof plan.recipient !== "string" || typeof plan.message !== "string" || !plan.recipient.trim() || !plan.message.trim()) {
@@ -3119,8 +3137,7 @@
       const hasPlatform = AUTOMATION_PLATFORM_PATTERN.test(value);
       if (AUTOMATION_MESSAGE_PATTERN.test(value) && (hasPlatform || AUTOMATION_TARGET_PATTERN.test(value))) return true;
       if (AUTOMATION_CODE_PATTERN.test(value) && AUTOMATION_CODE_TARGET_PATTERN.test(value)) return true;
-      const webTarget = AUTOMATION_BROWSER_TARGET_PATTERN.test(value) || AUTOMATION_WEB_ADDRESS_PATTERN.test(value) || AUTOMATION_DOMAIN_PATTERN.test(value);
-      if (AUTOMATION_ACTION_PATTERN.test(value) && (hasPlatform || webTarget || /\b(?:browser|website|app|file|folder|computer|account|screen|device)\b/i.test(value))) return true;
+      if (AUTOMATION_ACTION_PATTERN.test(value) && (hasPlatform || /\b(?:app|file|folder|computer|account|screen|device)\b/i.test(value))) return true;
       return false;
     }
 
@@ -3612,6 +3629,11 @@
       const reply = closeTechnicalFromCommand("unlock yourself");
       appendChat("assistant", reply);
       speak(reply);
+    });
+    if (blueprintOpenBtn) blueprintOpenBtn.addEventListener("click", () => {
+      const meta = sceneApi.openTechnical("machine", "Machine", false);
+      renderTechnical(meta);
+      if (techUploadStatus) techUploadStatus.textContent = "Load a VRM avatar or photo to explore it in the gesture-controlled blueprint viewer.";
     });
     if (techVrmUpload) techVrmUpload.addEventListener("change", async () => {
       const file = techVrmUpload.files?.[0];
