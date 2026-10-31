@@ -90,6 +90,14 @@ class LocalHttpServerTests(unittest.TestCase):
                 result.append(json.loads(block[6:]))
         return result
 
+    def test_blueprint_capabilities_reports_local_hardware_without_claiming_a_model(self):
+        with self.request("/api/blueprint/capabilities") as response:
+            capabilities = json.load(response)
+        self.assertIn("platform", capabilities)
+        self.assertGreaterEqual(capabilities["cpu_threads"], 1)
+        self.assertIn("nvidia_gpus", capabilities)
+        self.assertEqual(capabilities["model_runtime"], "not-configured")
+
     def test_root_serves_original_orb_and_worker_status(self):
         with self.request("/") as response:
             html = response.read().decode("utf-8")

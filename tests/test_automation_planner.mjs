@@ -29,6 +29,8 @@ assert.match(orb, /onPrompt: async/);
 assert.match(orb, /openDraftFiles/);
 assert.match(orb, /id="blueprintOpenBtn"/);
 assert.match(orb, /id="workspaceOpenBtn"/);
+assert.match(orb, /\/api\/blueprint\/capabilities/);
+assert.match(orb, /Checking local hardware/);
 assert.match(orb, /BLUEPRINT MODE/);
 assert.doesNotMatch(orb, /browser-addresses|open-websites|data-tab="browser"/);
 

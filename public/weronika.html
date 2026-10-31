@@ -3630,10 +3630,26 @@
       appendChat("assistant", reply);
       speak(reply);
     });
+    async function refreshBlueprintCapabilities() {
+      if (!techUploadStatus) return;
+      techUploadStatus.textContent = "Checking local hardware. Photo uploads currently produce a shallow relief preview.";
+      try {
+        const response = await fetch("/api/blueprint/capabilities", { cache: "no-store" });
+        if (!response.ok) throw new Error("Local worker is unavailable");
+        const hardware = await response.json();
+        const gpus = Array.isArray(hardware.nvidia_gpus) ? hardware.nvidia_gpus : [];
+        const gpuText = gpus.map((gpu) => `${gpu.name}${gpu.memory_mb ? ` · ${(Number(gpu.memory_mb) / 1024).toFixed(1)} GB VRAM` : ""}`).join(", ");
+        const compute = gpuText || `${hardware.cpu_threads || "?"} CPU threads`;
+        const memory = hardware.memory_gb ? ` · ${hardware.memory_gb} GB system RAM` : "";
+        techUploadStatus.textContent = `Local hardware: ${compute}${memory}. No reconstruction model is configured yet; photo upload remains a relief preview.`;
+      } catch {
+        techUploadStatus.textContent = "Full photo-to-3D needs a configured local model. Run this orb with start.bat on the target device to detect CPU, RAM, and NVIDIA GPU; photo uploads remain relief previews.";
+      }
+    }
     if (blueprintOpenBtn) blueprintOpenBtn.addEventListener("click", () => {
       const meta = sceneApi.openTechnical("machine", "Machine", false);
       renderTechnical(meta);
-      if (techUploadStatus) techUploadStatus.textContent = "Load a VRM avatar or photo to explore it in the gesture-controlled blueprint viewer.";
+      refreshBlueprintCapabilities();
     });
     if (techVrmUpload) techVrmUpload.addEventListener("change", async () => {
       const file = techVrmUpload.files?.[0];

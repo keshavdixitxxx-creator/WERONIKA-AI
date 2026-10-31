@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .hardware import detect_hardware
 from .intents import parse_message_request
 from .models import Platform
 from .service import create_messaging_service
@@ -98,6 +99,9 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
                 return
             if parsed.path == "/api/automation/status":
                 self._send_json(200, {"connected": True, "worker": "weronika-py", "mode": "loopback-only"})
+                return
+            if parsed.path == "/api/blueprint/capabilities":
+                self._send_json(200, detect_hardware())
                 return
             if parsed.path == "/api/workspace/status":
                 self._send_json(200, {"connected": True, "workspace": "local", "browser": "Playwright Chromium"})

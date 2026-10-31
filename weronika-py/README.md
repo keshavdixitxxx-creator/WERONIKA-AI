@@ -20,7 +20,7 @@ The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct
 - The local worker only clicks Send after explicit approval. An uncertain result is reported and never automatically retried.
 - Each messaging platform uses a local persistent browser profile under `~/.weronika/`; session cookies stay on this device. Do not share those profile directories.
 - Workspace code/text files are stored under `~/.weronika/workspace/`. Python files can be run only after a separate confirmation dialog. This is not a sandbox: confirmed code can access this device and its files, so inspect code before running it.
-- VRM uploads and photos are handled in the browser and are not saved to the workspace. A photo is converted into a shallow 3D relief from its brightness map; it is not a full 3D object reconstruction.
+- VRM uploads and photos are handled in the browser and are not saved to the workspace. Blueprint can report local CPU/RAM and NVIDIA GPU details through a loopback-only preflight, but it does not download or run a model. A photo is currently converted into a shallow brightness-map relief, not a full 3D object reconstruction.
 - Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.
 - Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely.
 
