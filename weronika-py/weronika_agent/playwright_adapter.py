@@ -7,9 +7,11 @@ message-history scraping, or automatic send-on-prepare behavior.
 from __future__ import annotations
 
 import re
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import urlsplit, urlunsplit
 
 from .models import Platform, RecipientCandidate, VisibleContact
 from .workflow import LoginRequired, MessagingError, UnsupportedAppUi
@@ -135,6 +137,8 @@ class BrowserManager:
         self.profile_root = profile_root or (Path.home() / ".weronika" / "messaging-profiles")
         self._playwright = None
         self._contexts: dict[Platform, object] = {}
+        self._workspace_context = None
+        self._workspace_page_ids: dict[int, str] = {}
 
     def page_for(self, platform: Platform):
         try:
@@ -175,7 +179,131 @@ class BrowserManager:
         pages = context.pages
         return pages[0] if pages else context.new_page()
 
+    def _workspace_browser(self):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise MessagingError(
+                "Managed browsing needs Playwright. Install the Python requirements, "
+                "then run ‘python -m playwright install chromium’."
+            ) from exc
+        if self._playwright is None:
+            self._playwright = sync_playwright().start()
+        if self._workspace_context is None:
+            profile = self.profile_root.parent / "workspace-browser"
+            profile.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            profile.mkdir(parents=True, exist_ok=True, mode=0o700)
+            try:
+                profile.chmod(0o700)
+            except OSError:
+                pass
+            try:
+                self._workspace_context = self._playwright.chromium.launch_persistent_context(
+                    user_data_dir=str(profile),
+                    headless=False,
+                    viewport={"width": 1440, "height": 960},
+                    args=["--disable-session-crashed-bubble"],
+                )
+            except Exception as exc:
+                raise MessagingError(
+                    "Could not open Weronika's managed browser. Close any existing "
+                    "Weronika-controlled browser window and try again."
+                ) from exc
+        return self._workspace_context
+
+    @staticmethod
+    def _normalize_web_url(value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 2048 or any(char.isspace() for char in value):
+            raise ValueError("Each address must be a valid web URL (maximum 2048 characters).")
+        if not re.match(r"^https?://", value, re.IGNORECASE):
+            local_address = re.match(r"^(?:localhost|127\.0\.0\.1|\[::1\])(?::|/|$)", value, re.IGNORECASE)
+            if not local_address and re.match(r"^[a-z][a-z0-9+.-]*:", value, re.IGNORECASE):
+                raise ValueError("Only http:// and https:// website addresses are allowed.")
+            value = ("http://" if local_address else "https://") + value
+        parsed = urlsplit(value)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("Only http:// and https:// website addresses are allowed.")
+        try:
+            parsed.port
+        except ValueError as exc:
+            raise ValueError("That website address has an invalid port.") from exc
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("Website addresses must not contain embedded credentials.")
+        return urlunsplit((parsed.scheme.lower(), parsed.netloc, parsed.path or "/", parsed.query, parsed.fragment))
+
+    def open_workspace_urls(self, urls: list[str]) -> list[dict[str, str]]:
+        if not isinstance(urls, list) or not urls or len(urls) > 10:
+            raise ValueError("Choose between 1 and 10 website addresses.")
+        normalized = [self._normalize_web_url(value) for value in urls if isinstance(value, str)]
+        if len(normalized) != len(urls):
+            raise ValueError("Every website address must be text.")
+        context = self._workspace_browser()
+        results: list[dict[str, str]] = []
+        for url in normalized:
+            page = context.new_page()
+            tab_id = uuid.uuid4().hex[:12]
+            self._workspace_page_ids[id(page)] = tab_id
+            state = "opened"
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=12_000)
+            except Exception as exc:
+                state = "tab opened; page did not finish loading"
+                if exc.__class__.__name__ not in {"TimeoutError", "Error"}:
+                    state = "tab opened; navigation needs attention"
+            results.append({"id": tab_id, "url": url, "status": state})
+        return results
+
+    def workspace_tabs(self) -> list[dict[str, str]]:
+        if self._workspace_context is None:
+            return []
+        tabs: list[dict[str, str]] = []
+        for page in list(self._workspace_context.pages):
+            tab_id = self._workspace_page_ids.setdefault(id(page), uuid.uuid4().hex[:12])
+            try:
+                title = page.title()[:160]
+            except Exception:
+                title = ""
+            try:
+                url = page.url[:2048]
+            except Exception:
+                url = ""
+            tabs.append({"id": tab_id, "title": title, "url": url})
+        return tabs
+
+    def activate_workspace_tab(self, tab_id: str) -> bool:
+        if self._workspace_context is None:
+            return False
+        for page in list(self._workspace_context.pages):
+            if self._workspace_page_ids.get(id(page)) == tab_id:
+                try:
+                    page.bring_to_front()
+                    return True
+                except Exception:
+                    return False
+        return False
+
+    def close_workspace_tab(self, tab_id: str) -> bool:
+        if self._workspace_context is None:
+            return False
+        for page in list(self._workspace_context.pages):
+            if self._workspace_page_ids.get(id(page)) == tab_id:
+                try:
+                    page.close()
+                except Exception:
+                    return False
+                self._workspace_page_ids.pop(id(page), None)
+                return True
+        return False
+
     def close(self) -> None:
+        if self._workspace_context is not None:
+            try:
+                self._workspace_context.close()
+            except Exception:
+                pass
+            self._workspace_context = None
+        self._workspace_page_ids.clear()
         for context in list(self._contexts.values()):
             try:
                 context.close()

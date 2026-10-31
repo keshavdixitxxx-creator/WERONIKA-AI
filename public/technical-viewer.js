@@ -3,6 +3,7 @@
  * Models are bundled in technical-models.js so the page never downloads a 3D file.
  */
 import { buildCatalog } from "./technical-models.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js";
 
 const CYAN = 0x3ad7ff;
 const CYAN_DIM = 0x7fdfff;
@@ -100,8 +101,159 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
   let explodeTarget = 0;
   let explodeCurrent = 0;
   const scratch = new THREE.Vector3();
+  let customGroup = null;
+
+  function disposeAsset(object) {
+    if (!object) return;
+    object.traverse?.((node) => {
+      if (node.geometry) node.geometry.dispose();
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      for (const material of materials) {
+        if (!material) continue;
+        for (const value of Object.values(material)) {
+          if (value?.isTexture) value.dispose();
+        }
+        material.dispose();
+      }
+    });
+  }
+
+  function discardCustom() {
+    if (!customGroup) return;
+    rig.remove(customGroup);
+    disposeAsset(customGroup);
+    customGroup = null;
+  }
+
+  function activateCustom(object, title, kind, partName) {
+    discardCustom();
+    for (const model of Object.values(models)) model.group.visible = false;
+    customGroup = new THREE.Group();
+    customGroup.name = `uploaded-${kind}`;
+    customGroup.add(object);
+    rig.add(customGroup);
+    customGroup.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(object);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = customGroup.worldToLocal(bounds.getCenter(new THREE.Vector3()));
+    if (Number.isFinite(size.x + size.y + size.z) && Math.max(size.x, size.y, size.z) > 0) {
+      object.position.sub(center);
+      const scale = 2.7 / Math.max(size.x, size.y, size.z);
+      customGroup.scale.setScalar(scale);
+    }
+    const part = customGroup;
+    part.userData.name = partName;
+    part.userData.major = true;
+    part.userData.home = part.position.clone();
+    part.userData.explode = new THREE.Vector3(0, 0.12, 0);
+    active = {
+      kind,
+      title,
+      hindi: title,
+      parts: [part],
+    };
+    requestedLabel = title;
+    fallback = false;
+    root.visible = true;
+    rig.rotation.set(0.08, 0.62, 0);
+    explodeTarget = 0;
+    explodeCurrent = 0;
+    return describe();
+  }
+
+  async function openVRMFile(file) {
+    if (!file || !/\.vrm$/i.test(file.name) || file.size > 100 * 1024 * 1024) {
+      throw new Error("Choose a VRM file under 100 MB.");
+    }
+    const data = await file.arrayBuffer();
+    const loader = new GLTFLoader();
+    const gltf = await new Promise((resolve, reject) => {
+      loader.parse(data, "", resolve, (error) =>
+        reject(new Error(error?.message || "That VRM file could not be parsed.")),
+      );
+    });
+    const model = gltf.scene || gltf.scenes?.[0];
+    if (!model) throw new Error("The VRM file has no 3D scene.");
+    const title = file.name.replace(/\.vrm$/i, "").slice(0, 80) || "Uploaded VRM";
+    return activateCustom(model, title, "vrm", "VRM avatar");
+  }
+
+  async function openPhotoFile(file) {
+    if (!file || !file.type.startsWith("image/") || file.size > 25 * 1024 * 1024) {
+      throw new Error("Choose an image under 25 MB.");
+    }
+    const bitmap = await createImageBitmap(file);
+    const ratio = bitmap.width / bitmap.height;
+    const canvas = document.createElement("canvas");
+    const maxSide = 1400;
+    const reduction = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.max(1, Math.round(bitmap.width * reduction));
+    canvas.height = Math.max(1, Math.round(bitmap.height * reduction));
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("This browser could not prepare the uploaded photo.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    const width = 3.0;
+    const height = THREE.MathUtils.clamp(width / ratio, 0.7, 4.5);
+    const columns = 160;
+    const rows = Math.max(48, Math.min(220, Math.round((columns * height) / width)));
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let y = 0; y <= rows; y++) {
+      const v = y / rows;
+      const py = Math.min(canvas.height - 1, Math.floor(v * canvas.height));
+      for (let x = 0; x <= columns; x++) {
+        const u = x / columns;
+        const px = Math.min(canvas.width - 1, Math.floor(u * canvas.width));
+        const offset = (py * canvas.width + px) * 4;
+        const luminance =
+          (pixels[offset] * 0.2126 + pixels[offset + 1] * 0.7152 + pixels[offset + 2] * 0.0722) /
+          255;
+        positions.push((u - 0.5) * width, (0.5 - v) * height, (luminance - 0.5) * 0.24);
+        uvs.push(u, 1 - v);
+      }
+    }
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < columns; x++) {
+        const a = y * (columns + 1) + x;
+        const b = a + columns + 1;
+        indices.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const relief = new THREE.Mesh(
+      geometry,
+      new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.82,
+        metalness: 0.08,
+        side: THREE.DoubleSide,
+      }),
+    );
+    relief.name = "Photo relief";
+    const frame = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.16)),
+      new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.72 }),
+    );
+    frame.position.z = -0.09;
+    const photo = new THREE.Group();
+    photo.add(relief, frame);
+    const title = file.name.replace(/\.[^.]+$/, "").slice(0, 80) || "Uploaded photo";
+    return activateCustom(photo, title, "photo-relief", "Photo relief");
+  }
 
   function open(kind, label, isFallback) {
+    discardCustom();
     const key = models[kind] ? kind : "machine";
     active = models[key];
     requestedLabel = label || active.title;
@@ -116,6 +268,7 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
   }
 
   function close() {
+    discardCustom();
     root.visible = false;
     active = null;
     explodeTarget = 0;
@@ -206,6 +359,8 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
 
   return {
     open,
+    openVRMFile,
+    openPhotoFile,
     close,
     setExplode,
     nudgeExplode,

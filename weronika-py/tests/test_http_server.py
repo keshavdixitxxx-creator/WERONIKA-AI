@@ -1,12 +1,15 @@
 import json
+import tempfile
 import threading
 import unittest
 import urllib.error
 import urllib.request
+from types import SimpleNamespace
 
 from weronika_agent.http_server import LocalServer, make_handler
 from weronika_agent.models import Platform, VisibleContact
 from weronika_agent.workflow import MessagingService
+from weronika_agent.workspace import LocalWorkspace
 
 
 class FakeAdapter:
@@ -27,11 +30,35 @@ class FakeAdapter:
         return True
 
 
+class FakeBrowser:
+    def __init__(self):
+        self.tabs = []
+
+    def workspace_tabs(self):
+        return self.tabs
+
+    def open_workspace_urls(self, urls):
+        self.tabs = [{"id": str(index), "url": url, "title": ""} for index, url in enumerate(urls)]
+        return self.tabs
+
+    def activate_workspace_tab(self, tab_id):
+        return any(tab["id"] == tab_id for tab in self.tabs)
+
+    def close_workspace_tab(self, tab_id):
+        before = len(self.tabs)
+        self.tabs = [tab for tab in self.tabs if tab["id"] != tab_id]
+        return len(self.tabs) < before
+
+
 class LocalHttpServerTests(unittest.TestCase):
     def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.workspace = LocalWorkspace(self.temp.name)
         self.adapter = FakeAdapter()
+        self.browser = FakeBrowser()
         self.service = MessagingService(lambda _: self.adapter)
-        self.server = LocalServer(("127.0.0.1", 0), make_handler(self.service, None))
+        self.adapters = SimpleNamespace(browser=self.browser)
+        self.server = LocalServer(("127.0.0.1", 0), make_handler(self.service, self.adapters, self.workspace))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.base = f"http://127.0.0.1:{self.server.server_port}"
@@ -40,6 +67,7 @@ class LocalHttpServerTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
+        self.temp.cleanup()
 
     def request(self, path, payload=None, origin=None):
         headers = {}
@@ -92,6 +120,30 @@ class LocalHttpServerTests(unittest.TestCase):
         sent = next(event["workflow"] for event in sent_events if event["type"] == "result")
         self.assertEqual(sent["stage"], "sent")
         self.assertEqual(self.adapter.sent, ["I will be on leave tomorrow"])
+
+    def test_workspace_api_saves_reads_and_only_runs_after_explicit_confirmation(self):
+        with self.request("/api/workspace/file", {"path": "hello.py", "content": "print('ok')", "overwrite": False}, origin=self.base) as response:
+            self.assertTrue(json.load(response)["saved"])
+        with self.request("/api/workspace/files") as response:
+            self.assertEqual(json.load(response)["items"][0]["path"], "hello.py")
+        with self.request("/api/workspace/file?path=hello.py") as response:
+            self.assertEqual(json.load(response)["content"], "print('ok')")
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            self.request("/api/workspace/run", {"path": "hello.py", "confirmed": False}, origin=self.base)
+        self.assertEqual(raised.exception.code, 400)
+        with self.request("/api/workspace/run", {"path": "hello.py", "confirmed": True}, origin=self.base) as response:
+            self.assertEqual(json.load(response)["stdout"].strip(), "ok")
+
+    def test_browser_workspace_api_exposes_and_manages_multiple_tabs(self):
+        with self.request("/api/workspace/browser/open", {"urls": ["http://localhost:5173/", "https://example.com"]}, origin=self.base) as response:
+            tabs = json.load(response)["tabs"]
+        self.assertEqual(len(tabs), 2)
+        with self.request("/api/workspace/browser/tabs") as response:
+            self.assertEqual(len(json.load(response)["tabs"]), 2)
+        with self.request("/api/workspace/browser/activate", {"tab_id": "0"}, origin=self.base) as response:
+            self.assertTrue(json.load(response)["activated"])
+        with self.request("/api/workspace/browser/close", {"tab_id": "0"}, origin=self.base) as response:
+            self.assertTrue(json.load(response)["closed"])
 
     def test_cross_origin_is_rejected(self):
         request = urllib.request.Request(

@@ -9,16 +9,18 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .intents import parse_message_request
 from .models import Platform
 from .service import create_messaging_service
 from .workflow import MessagingError
+from .workspace import LocalWorkspace, WorkspaceError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = REPO_ROOT / "public"
 MAX_REQUEST_BYTES = 16_384
+MAX_WORKSPACE_REQUEST_BYTES = 1_100_000
 
 
 class LocalServer(HTTPServer):
@@ -26,7 +28,9 @@ class LocalServer(HTTPServer):
     allow_reuse_address = True
 
 
-def make_handler(service, adapters):
+def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
+    local_workspace = workspace or LocalWorkspace()
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "WeronikaLocal/0.1"
 
@@ -64,12 +68,12 @@ def make_handler(service, adapters):
                 and origin_port == self.server.server_port
             )
 
-        def _read_json(self) -> dict[str, object]:
+        def _read_json(self, max_bytes: int = MAX_REQUEST_BYTES) -> dict[str, object]:
             try:
                 length = int(self.headers.get("Content-Length", "0"))
             except ValueError as exc:
                 raise ValueError("Invalid content length.") from exc
-            if length < 0 or length > MAX_REQUEST_BYTES:
+            if length < 0 or length > max_bytes:
                 raise ValueError("Request is too large.")
             try:
                 value = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -95,6 +99,22 @@ def make_handler(service, adapters):
             if parsed.path == "/api/automation/status":
                 self._send_json(200, {"connected": True, "worker": "weronika-py", "mode": "loopback-only"})
                 return
+            if parsed.path == "/api/workspace/status":
+                self._send_json(200, {"connected": True, "workspace": "local", "browser": "Playwright Chromium"})
+                return
+            if parsed.path == "/api/workspace/files":
+                self._send_json(200, {"root": str(local_workspace.root), "items": local_workspace.tree()})
+                return
+            if parsed.path == "/api/workspace/file":
+                raw_path = parse_qs(parsed.query).get("path", [""])[0]
+                try:
+                    self._send_json(200, local_workspace.read(raw_path))
+                except WorkspaceError as exc:
+                    self._send_json(400, {"error": str(exc)})
+                return
+            if parsed.path == "/api/workspace/browser/tabs":
+                self._send_json(200, {"tabs": adapters.browser.workspace_tabs()})
+                return
             if parsed.path.startswith("/api/"):
                 self._send_json(404, {"error": "Unknown local API route."})
                 return
@@ -117,8 +137,15 @@ def make_handler(service, adapters):
             if not self._require_local():
                 return
             try:
-                data = self._read_json()
                 path = urlparse(self.path).path
+                workspace_routes = {
+                    "/api/workspace/file",
+                    "/api/workspace/run",
+                    "/api/workspace/browser/open",
+                    "/api/workspace/browser/activate",
+                    "/api/workspace/browser/close",
+                }
+                data = self._read_json(MAX_WORKSPACE_REQUEST_BYTES if path in workspace_routes else MAX_REQUEST_BYTES)
                 if path in {
                     "/api/automation/prepare",
                     "/api/automation/recipient",
@@ -138,11 +165,38 @@ def make_handler(service, adapters):
                     ).to_dict()
                 elif path == "/api/cancel":
                     result = service.cancel(self._text(data, "draft_id")).to_dict()
+                elif path == "/api/workspace/file":
+                    relative_path = self._text(data, "path")
+                    content = data.get("content")
+                    if not isinstance(content, str):
+                        raise WorkspaceError("File content must be text.")
+                    result = local_workspace.save(
+                        relative_path,
+                        content,
+                        overwrite=data.get("overwrite") is True,
+                    )
+                elif path == "/api/workspace/run":
+                    result = local_workspace.run_python(
+                        self._text(data, "path"), confirmed=data.get("confirmed") is True
+                    )
+                elif path == "/api/workspace/browser/open":
+                    urls = data.get("urls")
+                    result = {"tabs": adapters.browser.open_workspace_urls(urls)}
+                elif path == "/api/workspace/browser/activate":
+                    activated = adapters.browser.activate_workspace_tab(self._text(data, "tab_id"))
+                    if not activated:
+                        raise WorkspaceError("That browser tab is no longer open.")
+                    result = {"activated": True}
+                elif path == "/api/workspace/browser/close":
+                    closed = adapters.browser.close_workspace_tab(self._text(data, "tab_id"))
+                    if not closed:
+                        raise WorkspaceError("That browser tab is no longer open.")
+                    result = {"closed": True}
                 else:
                     self._send_json(404, {"error": "Unknown local API route."})
                     return
                 self._send_json(200, result)
-            except (ValueError, MessagingError) as exc:
+            except (ValueError, MessagingError, WorkspaceError) as exc:
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})

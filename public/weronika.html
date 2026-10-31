@@ -1111,6 +1111,11 @@
     }
 
     .tech-meta b { color: #ffd27a; font-weight: normal; }
+    .tech-upload-controls { display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:12px; max-width:300px; pointer-events:auto; }
+    .tech-upload-btn { display:inline-flex; align-items:center; padding:7px 9px; border:1px solid rgba(58,215,255,.55); border-radius:4px; color:#a5edff; background:rgba(4,20,28,.78); font:10px "Courier New",monospace; letter-spacing:.08em; cursor:pointer; }
+    .tech-upload-btn:hover { background:rgba(20,70,84,.82); border-color:#8deaff; }
+    .tech-upload-btn input { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+    .tech-upload-status { max-width:280px; color:rgba(195,224,232,.72); font-size:9px; line-height:1.5; letter-spacing:.02em; }
 
     .tech-panel-left { top: 18px; left: 18px; }
     .tech-panel-right { top: 70px; right: 18px; max-height: 46vh; overflow: auto; }
@@ -1194,6 +1199,11 @@
       <div class="tech-kicker">WERONIKA · TECHNICAL</div>
       <div class="tech-title" id="techTitle">MODEL</div>
       <div class="tech-meta" id="techMeta"></div>
+      <div class="tech-upload-controls">
+        <label class="tech-upload-btn">LOAD VRM<input id="techVrmUpload" type="file" accept=".vrm,model/gltf-binary,application/octet-stream"></label>
+        <label class="tech-upload-btn">PHOTO → 3D RELIEF<input id="techPhotoUpload" type="file" accept="image/*"></label>
+        <div class="tech-upload-status" id="techUploadStatus">VRM files render as 3D avatars. Photos become shallow 3D reliefs, not full object reconstructions.</div>
+      </div>
     </div>
     <div class="tech-panel tech-panel-right">
       <div class="tech-kicker">PARTS</div>
@@ -1232,6 +1242,8 @@
     import { UnrealBloomPass } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/postprocessing/UnrealBloomPass.js";
     import { ShaderPass } from "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/postprocessing/ShaderPass.js";
     import { createTechnicalController } from "/technical-viewer.js";
+    import { mountDeveloperTools } from "/developer-tools.js";
+    const developerTools = mountDeveloperTools();
     import {
       sanitizeAddressName,
       DEFAULT_ADDRESS_NAME,
@@ -1962,6 +1974,36 @@
         return meta;
       }
 
+      async function openVRM(file) {
+        setTechVisual(true);
+        try {
+          const meta = await technical.openVRMFile(file);
+          camera.position.copy(TECH_HOME);
+          controls.target.set(0, 0.25, 0);
+          camera.lookAt(controls.target);
+          controls.update();
+          return meta;
+        } catch (error) {
+          setTechVisual(false);
+          throw error;
+        }
+      }
+
+      async function openPhoto(file) {
+        setTechVisual(true);
+        try {
+          const meta = await technical.openPhotoFile(file);
+          camera.position.copy(TECH_HOME);
+          controls.target.set(0, 0.25, 0);
+          camera.lookAt(controls.target);
+          controls.update();
+          return meta;
+        } catch (error) {
+          setTechVisual(false);
+          throw error;
+        }
+      }
+
       function closeTechnical() {
         technical.close();
         setTechVisual(false);
@@ -1979,6 +2021,8 @@
         resetView,
         dispose,
         openTechnical,
+        openVRM,
+        openPhoto,
         closeTechnical,
         isTechnicalOpen: () => technical.isOpen(),
         setExplode: (amount) => technical.setExplode(amount),
@@ -2038,6 +2082,9 @@
     const techLabels = document.getElementById("techLabels");
     const techExplode = document.getElementById("techExplode");
     const techCloseBtn = document.getElementById("techCloseBtn");
+    const techVrmUpload = document.getElementById("techVrmUpload");
+    const techPhotoUpload = document.getElementById("techPhotoUpload");
+    const techUploadStatus = document.getElementById("techUploadStatus");
     let streamPresented = false;
     let assistantTurnToken = 0;
 
@@ -2753,18 +2800,30 @@
       appendChat('assistant', text, { banner: false, replace: true });
     }
 
+    function escapeTechnicalText(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+    }
+
     function renderTechnical(meta) {
       if (!meta || !techOverlay) return;
       document.body.classList.add("tech-mode");
       techOverlay.hidden = false;
       if (techTitle) techTitle.textContent = meta.fallback ? meta.displayTitle.toUpperCase() : meta.title.toUpperCase();
       if (techMeta) {
-        techMeta.innerHTML = meta.fallback
-          ? `<b>REQUEST</b> ${meta.requestedLabel}<br><b>MODEL</b> generic machine<br><b>PARTS</b> ${meta.partCount}<br><b>SCAN</b> <span id="techScan">0°</span><br><b>STATUS</b> NOMINAL`
-          : `<b>SUBJECT</b> ${meta.title}<br><b>PARTS</b> ${meta.partCount}<br><b>EXPLODE</b> <span id="techExplodeReadout">0%</span><br><b>SCAN</b> <span id="techScan">0°</span><br><b>STATUS</b> NOMINAL`;
+        const title = escapeTechnicalText(meta.title);
+        const request = escapeTechnicalText(meta.requestedLabel);
+        if (meta.fallback) {
+          techMeta.innerHTML = `<b>REQUEST</b> ${request}<br><b>MODEL</b> generic machine<br><b>PARTS</b> ${meta.partCount}<br><b>SCAN</b> <span id="techScan">0°</span><br><b>STATUS</b> NOMINAL`;
+        } else if (meta.kind === "photo-relief") {
+          techMeta.innerHTML = `<b>PHOTO RELIEF</b> ${title}<br><b>GEOMETRY</b> image displacement<br><b>NOTE</b> shallow relief, not full reconstruction<br><b>SCAN</b> <span id="techScan">0°</span>`;
+        } else if (meta.kind === "vrm") {
+          techMeta.innerHTML = `<b>VRM AVATAR</b> ${title}<br><b>PARTS</b> ${meta.partCount}<br><b>STATUS</b> LOADED<br><b>SCAN</b> <span id="techScan">0°</span>`;
+        } else {
+          techMeta.innerHTML = `<b>SUBJECT</b> ${title}<br><b>PARTS</b> ${meta.partCount}<br><b>EXPLODE</b> <span id="techExplodeReadout">0%</span><br><b>SCAN</b> <span id="techScan">0°</span><br><b>STATUS</b> NOMINAL`;
+        }
       }
       if (techParts) {
-        techParts.innerHTML = (meta.parts || []).map((name) => `<div class="tech-part"><i></i>${name}</div>`).join("");
+        techParts.innerHTML = (meta.parts || []).map((name) => `<div class="tech-part"><i></i>${escapeTechnicalText(name)}</div>`).join("");
       }
       if (techExplode) techExplode.value = String(Math.round((meta.explode || 0) * 100));
     }
@@ -2849,7 +2908,12 @@
     const AUTOMATION_MESSAGE_PATTERN = /\b(?:send|message|text|dm)\b/i;
     const AUTOMATION_PLATFORM_PATTERN = /\b(?:whats\s?app|telegram|instagram|insta|facebook|messenger|twitter|x\.com)\b/i;
     const AUTOMATION_TARGET_PATTERN = /\b(?:to|for|via|saying|that)\b|@[\w.]+/i;
-    const AUTOMATION_ACTION_PATTERN = /\b(?:post|open|click|search|find|download|upload|book|schedule|delete|install|automate|run)\b/i;
+    const AUTOMATION_ACTION_PATTERN = /\b(?:post|open|click|search|find|download|upload|book|schedule|delete|install|automate|run|visit|go to)\b/i;
+    const AUTOMATION_CODE_PATTERN = /\b(?:write|create|generate|build|implement|edit|fix|make|develop)\b/i;
+    const AUTOMATION_CODE_TARGET_PATTERN = /\b(?:code|script|program|file|function|app|application|component|website|webpage|python|javascript|html|css|typescript)\b/i;
+    const AUTOMATION_BROWSER_TARGET_PATTERN = /\b(?:browser|website|websites|site|sites|url|urls|webpage|tab|tabs|localhost)\b/i;
+    const AUTOMATION_WEB_ADDRESS_PATTERN = /\b(?:https?:\/\/|localhost(?::\d+)?|127\.0\.0\.1(?::\d+)?|www\.)[\w.:[\]%-]+/i;
+    const AUTOMATION_DOMAIN_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/i;
     const AUTOMATION_CONFIRM_PATTERN = /^(?:confirm send|send it|send the message)[.! ]*$/i;
     const AUTOMATION_CANCEL_PATTERN = /^cancel[.! ]*$/i;
 
@@ -2984,7 +3048,39 @@
       catch (error) { return error.message; }
       if (plan.intent === "chat") return await callBrain(message, null, languageOverride);
       if (plan.intent === "needs_info") return String(plan.question || "What extra detail should I use?").slice(0, 500);
-      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. The local worker currently supports direct messages on WhatsApp, Telegram, Instagram, Facebook Messenger, and X.").slice(0, 700);
+      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. The local worker supports direct messages, browser tabs, and code drafts.").slice(0, 700);
+
+      if (plan.intent === "browser") {
+        const urls = Array.isArray(plan.urls) ? plan.urls : [];
+        if (!urls.length || urls.length > 10 || urls.some((url) => typeof url !== "string" || !url.trim() || url.length > 2048 || !/^https?:\/\//i.test(url) && !/^(?:localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(url))) {
+          return "I couldn’t validate the website addresses. Please include full http/https URLs or localhost addresses; no tabs were opened.";
+        }
+        await checkLocalAutomationWorker();
+        if (!localAutomationConnected) return "I can open those sites once the local worker is running. Start Weronika with start.bat on this device; no tabs were opened.";
+        const opened = await developerTools.openBrowserTabs(urls);
+        if (!opened) return "I couldn’t open the managed browser. Check the Browser tab in the developer workspace for details.";
+        const count = Array.isArray(opened.tabs) ? opened.tabs.length : 0;
+        return `Opened ${count} website tab${count === 1 ? "" : "s"} in Weronika’s managed browser. Use CODE · BROWSER to switch between them.`;
+      }
+
+      if (plan.intent === "write_code") {
+        const files = Array.isArray(plan.files) ? plan.files : [];
+        const file = files[0];
+        if (files.length !== 1 || !file || typeof file.path !== "string" || typeof file.content !== "string" || file.path.length > 200 || file.content.length > 10000) {
+          return "I couldn’t validate a single code draft. Ask me for one file at a time; nothing was saved or run.";
+        }
+        const path = file.path;
+        if (path.includes(String.fromCharCode(92)) || path.startsWith("/") || path.split("/").some((part) => !part || part === "." || part === "..") || !/\.(?:py|js|ts|html|css|json|md|txt)$/i.test(path)) {
+          return "That draft has an unsafe or unsupported workspace path. Ask for a relative code/text file; nothing was saved or run.";
+        }
+        const opened = await developerTools.openDraftFile(path, file.content);
+        if (!opened) return "The editor kept your current unsaved work. Save or discard it, then ask me to draft the file again.";
+        const acknowledgement = String(plan.acknowledgement || `I drafted ${path} in the workspace editor.`).slice(0, 500);
+        const steps = Array.isArray(plan.steps) ? plan.steps.filter((step) => typeof step === "string").slice(0, 4) : [];
+        steps.forEach((step, index) => appendChat("system", `Code plan ${index + 1}/${steps.length}: ${String(step).slice(0, 180)}`, { banner: false }));
+        return `${acknowledgement} Review it in CODE · BROWSER and choose SAVE to write it locally. Nothing has been run.`;
+      }
+
       if (plan.intent !== "message" || typeof plan.platform !== "string" || typeof plan.recipient !== "string" || typeof plan.message !== "string" || !plan.recipient.trim() || !plan.message.trim()) {
         return "I couldn’t validate a complete messaging plan. Please restate the platform, recipient, and exact message; nothing was sent.";
       }
@@ -3022,7 +3118,10 @@
       const value = String(text || "");
       const hasPlatform = AUTOMATION_PLATFORM_PATTERN.test(value);
       if (AUTOMATION_MESSAGE_PATTERN.test(value) && (hasPlatform || AUTOMATION_TARGET_PATTERN.test(value))) return true;
-      return AUTOMATION_ACTION_PATTERN.test(value) && (hasPlatform || /\b(?:browser|website|app|file|folder|computer|account|screen|device)\b/i.test(value));
+      if (AUTOMATION_CODE_PATTERN.test(value) && AUTOMATION_CODE_TARGET_PATTERN.test(value)) return true;
+      const webTarget = AUTOMATION_BROWSER_TARGET_PATTERN.test(value) || AUTOMATION_WEB_ADDRESS_PATTERN.test(value) || AUTOMATION_DOMAIN_PATTERN.test(value);
+      if (AUTOMATION_ACTION_PATTERN.test(value) && (hasPlatform || webTarget || /\b(?:browser|website|app|file|folder|computer|account|screen|device)\b/i.test(value))) return true;
+      return false;
     }
 
     async function generateChatReply(message, languageOverride) {
@@ -3513,6 +3612,34 @@
       const reply = closeTechnicalFromCommand("unlock yourself");
       appendChat("assistant", reply);
       speak(reply);
+    });
+    if (techVrmUpload) techVrmUpload.addEventListener("change", async () => {
+      const file = techVrmUpload.files?.[0];
+      if (!file) return;
+      if (techUploadStatus) techUploadStatus.textContent = `Loading ${file.name}…`;
+      try {
+        const meta = await sceneApi.openVRM(file);
+        renderTechnical(meta);
+        if (techUploadStatus) techUploadStatus.textContent = `${file.name} loaded locally. The model remains in this browser session.`;
+      } catch (error) {
+        if (techUploadStatus) techUploadStatus.textContent = error instanceof Error ? error.message : "Could not load that VRM file.";
+      } finally {
+        techVrmUpload.value = "";
+      }
+    });
+    if (techPhotoUpload) techPhotoUpload.addEventListener("change", async () => {
+      const file = techPhotoUpload.files?.[0];
+      if (!file) return;
+      if (techUploadStatus) techUploadStatus.textContent = `Building a local 3D relief from ${file.name}…`;
+      try {
+        const meta = await sceneApi.openPhoto(file);
+        renderTechnical(meta);
+        if (techUploadStatus) techUploadStatus.textContent = "Photo relief ready. This is a shallow 3D surface, not a full object reconstruction.";
+      } catch (error) {
+        if (techUploadStatus) techUploadStatus.textContent = error instanceof Error ? error.message : "Could not create a relief from that photo.";
+      } finally {
+        techPhotoUpload.value = "";
+      }
     });
     setInterval(syncTechnicalHud, 120);
 
