@@ -56,7 +56,24 @@ class MessagingService:
         self._drafts: dict[str, MessageDraft] = {}
         self._lock = threading.RLock()
 
-    def prepare(self, platform: Platform, recipient: str, message: str) -> WorkflowResult:
+    @staticmethod
+    def _notify(progress: Callable[[str], None] | None, message: str) -> None:
+        if progress is None:
+            return
+        try:
+            progress(message)
+        except Exception:
+            # A disconnected progress stream must not corrupt workflow state.
+            pass
+
+    def prepare(
+        self,
+        platform: Platform,
+        recipient: str,
+        message: str,
+        *,
+        progress: Callable[[str], None] | None = None,
+    ) -> WorkflowResult:
         recipient = " ".join(recipient.split())
         message = message.strip()
         if not recipient or not message:
@@ -64,7 +81,9 @@ class MessagingService:
         if len(recipient) > 120 or len(message) > 2000:
             raise MessagingError("Recipient or message exceeds the supported length.")
 
+        self._notify(progress, "Step 1 of 4 · Validating the requested platform and message.")
         adapter = self._adapter_for(platform)
+        self._notify(progress, f"Step 2 of 4 · Searching visible {platform.value.title()} chats for “{recipient}”.")
         names = adapter.find_recipients(recipient)
         candidates = rank_candidates(recipient, names)
         now = time.time()
@@ -89,15 +108,23 @@ class MessagingService:
             if candidates:
                 draft.stage = WorkflowStage.AWAITING_RECIPIENT_CHOICE
                 draft.result = "Several or similar contacts were found. Choose one before Weronika opens the chat."
+                self._notify(progress, "Step 3 of 4 · Similar chats found; waiting for you to choose. Nothing has been typed.")
                 return WorkflowResult(draft, self._choice_prompt(draft))
             draft.stage = WorkflowStage.FAILED
             draft.result = "No matching chat was found. Nothing was typed or sent."
+            self._notify(progress, "No matching chat found. Nothing was typed or sent.")
             return WorkflowResult(draft, draft.result)
 
-        self._stage_message(draft, exact)
+        self._stage_message(draft, exact, progress=progress)
         return WorkflowResult(draft, self._confirmation_prompt(draft))
 
-    def select_recipient(self, draft_id: str, candidate_id: str) -> WorkflowResult:
+    def select_recipient(
+        self,
+        draft_id: str,
+        candidate_id: str,
+        *,
+        progress: Callable[[str], None] | None = None,
+    ) -> WorkflowResult:
         with self._lock:
             draft = self._get_draft(draft_id)
             if draft.stage != WorkflowStage.AWAITING_RECIPIENT_CHOICE:
@@ -106,11 +133,18 @@ class MessagingService:
             if candidate is None:
                 raise MessagingError("That contact choice is not in the current results.")
             draft.stage = WorkflowStage.PREPARING
-        self._stage_message(draft, candidate)
+        self._stage_message(draft, candidate, progress=progress)
         return WorkflowResult(draft, self._confirmation_prompt(draft))
 
-    def _stage_message(self, draft: MessageDraft, candidate: RecipientCandidate) -> None:
+    def _stage_message(
+        self,
+        draft: MessageDraft,
+        candidate: RecipientCandidate,
+        *,
+        progress: Callable[[str], None] | None = None,
+    ) -> None:
         try:
+            self._notify(progress, f"Step 3 of 4 · Opening and verifying “{candidate.display_name}”.")
             adapter = self._adapter_for(draft.platform)
             adapter.open_chat_and_draft(candidate, draft.message)
         except Exception as exc:
@@ -121,8 +155,15 @@ class MessagingService:
         draft.stage = WorkflowStage.AWAITING_CONFIRMATION
         draft.updated_at = time.time()
         draft.result = "Message is drafted but has not been sent."
+        self._notify(progress, "Step 4 of 4 · Exact text is prepared and awaiting your confirmation; it has not been sent.")
 
-    def confirm_send(self, draft_id: str, confirmation_phrase: str) -> WorkflowResult:
+    def confirm_send(
+        self,
+        draft_id: str,
+        confirmation_phrase: str,
+        *,
+        progress: Callable[[str], None] | None = None,
+    ) -> WorkflowResult:
         phrase = " ".join(confirmation_phrase.casefold().split()).strip(".! ")
         if phrase not in self.SEND_CONFIRMATIONS:
             raise MessagingError("To send, reply exactly ‘confirm send’ or ‘send it’. Otherwise nothing will be sent.")
@@ -136,6 +177,7 @@ class MessagingService:
 
         # Mark the draft before clicking. If the app times out after accepting the
         # click, a repeated confirmation must not send the same text a second time.
+        self._notify(progress, "Sending the approved text through the visible app UI.")
         try:
             adapter = self._adapter_for(draft.platform)
             verified = adapter.send_and_verify(draft.message)
@@ -154,9 +196,15 @@ class MessagingService:
             if verified
             else "The send action was attempted, but delivery could not be verified. Check the chat before retrying."
         )
+        self._notify(progress, draft.result)
         return WorkflowResult(draft, draft.result)
 
-    def cancel(self, draft_id: str) -> WorkflowResult:
+    def cancel(
+        self,
+        draft_id: str,
+        *,
+        progress: Callable[[str], None] | None = None,
+    ) -> WorkflowResult:
         with self._lock:
             draft = self._get_draft(draft_id)
             if draft.stage in {WorkflowStage.SENT, WorkflowStage.SENT_UNVERIFIED, WorkflowStage.SENDING}:
@@ -168,10 +216,12 @@ class MessagingService:
             draft.updated_at = time.time()
             draft.result = "Cancelled. The unsent draft was cleared if it had not changed."
         if should_clear:
+            self._notify(progress, "Cancelling and clearing the unchanged unsent draft.")
             try:
                 self._adapter_for(draft.platform).clear_draft_if_unchanged(draft.message)
             except Exception:
                 pass
+        self._notify(progress, draft.result)
         return WorkflowResult(draft, draft.result)
 
     def _get_draft(self, draft_id: str) -> MessageDraft:

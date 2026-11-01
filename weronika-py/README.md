@@ -1,24 +1,44 @@
-# Weronika local messaging automation
+# Weronika local automation worker
 
-A standalone Python package beside (not inside) the hosted cloud-brain implementation. It uses the visible web UI in a persistent local Chromium profile for WhatsApp first, with adapters planned/started for Telegram, Instagram Direct, Facebook Messenger, and X. It does not call private messaging APIs.
+This package is the local Python worker behind Weronika's **existing animated orb UI**. It does not replace the orb with a second chat page. On Windows, `start.bat` starts a loopback-only server that serves the existing `public/weronika.html`, its public assets, and the local automation API on the same origin. The orb continues to use the hosted cloud brain for conversation and task planning; supported plans are then handed to the local Python worker and progress is streamed back into the orb chat.
 
-## Safety model
+## Request flow
 
-- A request is parsed into one explicit platform, recipient, and exact message text.
-- The app's visible search results are ranked conservatively. Fuzzy matches, multiple matches, and duplicate display names require the user to choose a result; the automation does not guess.
-- A selected chat must have a matching visible header before the message is typed.
-- Preparation only fills the composer. It does not click Send.
-- The exact recipient and message are shown in the local UI. Sending requires a separate **Confirm & send** click or the explicit text `confirm send` / `send it`.
-- Before sending, the composer is checked against the approved text. After clicking Send, a failed check is reported as unverified and is never automatically retried.
-- Cancel tries to clear the composer only when its current text still exactly matches the original draft.
+1. You ask Weronika for an action in the orb text or voice chat.
+2. The hosted brain classifies the request and returns a structured plan. The orb shows its acknowledgement and step list.
+3. The local worker validates the plan and runs an allow-listed messaging workflow using the visible app website. Progress appears in the same orb chat.
+4. Weronika searches for the intended contact. Similar or duplicate names require your selection.
+5. The worker opens and verifies the chat, prepares the exact message, and shows it in the orb. It does not send during preparation.
+6. Sending requires your separate `confirm send` / `send it` reply. The worker reports whether the send was verified.
 
-This is still UI automation, not a supported platform integration. Social networks may change their layouts or limit automated access; the adapter then stops and asks the user to check the page. Keep platform use compliant with each platform's terms and applicable law.
+The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X, plus two dedicated feature panels: BLUEPRINT and WORKSPACE. Workspace accepts a natural-language build prompt through the hosted cloud brain, then opens up to ten multilingual code/text files as unsaved editor drafts; files are written only when you choose Save. The general-purpose browser tab UI has been removed. Chromium remains an internal requirement for visible messaging automation.
 
-## Run locally
+## Safety and privacy
 
-Python 3.10+ is required. On Windows, install Python first and enable **Add Python to PATH**, then double-click `start.bat`. The first run creates `.venv`, installs the requirements and Playwright Chromium, and opens the local web UI. Later runs skip installation and just start Weronika. Keep the command window open while using the app; press Ctrl+C there to stop it. If setup was interrupted or you want to reinstall dependencies, delete the `.venv` folder and run `start.bat` again.
+- The worker binds only to `127.0.0.1`; orb pages call its local APIs through same-origin routes. A hosted web page cannot call the local worker directly.
+- Similar-name contacts are never silently selected. The open chat header and exact composer text are checked before any send action.
+- The local worker only clicks Send after explicit approval. An uncertain result is reported and never automatically retried.
+- Each messaging platform uses a local persistent browser profile under `~/.weronika/`; session cookies stay on this device. Do not share those profile directories.
+- Workspace files use `~/.weronika/workspace/` when opened with `start.bat`. If the local worker is unavailable, files can still be saved to browser-local storage on that device/browser; those files do not sync to the PC workspace or other browsers. Python execution is available only through the local worker and requires a separate confirmation dialog. It is not a sandbox: confirmed code can access this device and its files, so inspect code before running it.
+- VRM uploads and photos are handled locally and are not saved to the workspace. Blueprint reports CPU/RAM and NVIDIA GPU details through a loopback-only preflight. Photo relief remains an instant browser-only preview; optional TripoSR can generate an actual single-image mesh on the local CPU after separate setup. The generated GLB and temporary input are not retained by the worker.
+- Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.
+- Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely.
 
-On macOS/Linux, or when starting manually, run from this folder:
+## Windows quick start
+
+Install Python 3.10+ and enable **Add Python to PATH**, then double-click `start.bat` in this folder. The first run creates `.venv`, installs the Python requirements and Playwright Chromium, then opens the existing orb UI at `http://127.0.0.1:8765/`. Later runs skip installation and start the orb and worker. Keep the command window open while using Weronika; press Ctrl+C there to stop it.
+
+If setup is interrupted or dependencies need reinstalling, delete `.venv` and run `start.bat` again. Sign in to messaging services yourself in the visible browser window opened when the first action needs that app.
+
+## Optional local AI photo-to-3D
+
+The default photo action is a browser-based relief preview. To generate an actual mesh locally, first run `start.bat` once, then run `setup-blueprint.bat` and type `YES` at its confirmation prompt. This installs CPU-only PyTorch and the MIT-licensed TripoSR source in the Weronika Python environment; the model weights download from Hugging Face on first generation. Photos are sent only to the loopback worker and are removed with the temporary job directory.
+
+CPU inference may take several minutes per image and can use substantial system memory. A C++ build toolchain may be required for `torchmcubes` on Windows; if compilation fails, install Visual Studio Build Tools with the C++ workload and retry. TripoSR produces a real single-view mesh/GLB, but unseen sides are inferred and its output is not guaranteed to match Meshy AI's quality. The browser provides **GENERATE 3D MODEL** only when the local worker detects a completed setup; **RELIEF PREVIEW** remains available separately.
+
+## Manual start (macOS/Linux or Windows)
+
+From this folder:
 
 ```sh
 python -m venv .venv
@@ -26,24 +46,10 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m playwright install chromium
-python start.py
+python start.py --open-browser
 ```
 
-Open `http://127.0.0.1:8765/`. The API server binds only to loopback and serves this local UI; it is not the hosted website or cloud brain. On the first request for an app, Weronika opens a visible browser window. Sign in to that service yourself, then return and retry. Use the same computer and browser session that runs the local service.
-
-To use another port, run `python start.py --port 8766`. You may choose another local browser-profile directory with `--profile-dir PATH`.
-
-## Browser sessions and private data
-
-Each platform has a separate persistent profile beneath `~/.weronika/messaging-profiles/` by default. This keeps sign-in state on the local device; it also means session cookies are stored there by the browser. Do not share that directory. Close Weronika and remove the platform's profile directory if you want to sign out/reset that browser profile. The request text and drafts are held in memory for up to ten minutes and are not written to a local database or logs.
-
-The local app does not proxy messages to the hosted brain. The existing hosted cloud-brain chat remains separate and unchanged.
-
-## Current coverage
-
-- **WhatsApp Web:** first-priority implementation.
-- **Telegram Web, Instagram Direct, Facebook Messenger, X:** visible UI adapters and common workflow; the sites' live selectors may need adjustment and should be verified against the user's current account before relying on them.
-- Contact parsing/matching and the confirmation-first workflow are covered by unit tests using local fakes; the tests do not log into or send messages on real platforms.
+The existing hosted orb URL remains available for ordinary cloud chat. To use local automation, open the orb served locally by this worker; the hosted page cannot access your computer's loopback service. The hosted cloud-brain deployment must include the `automation-plan` task added in this change; until that version is deployed, the local worker will reject incomplete or non-JSON plans rather than guess.
 
 ## Tests
 
@@ -51,6 +57,4 @@ The local app does not proxy messages to the hosted brain. The existing hosted c
 python -m unittest discover -s tests -v
 ```
 
-## Reference
-
-OpenDroid (`https://github.com/yashab-cyber/opendroid`) is an Android/Kotlin accessibility agent. Its ideas around contact resolution, safe UI interaction, and post-action verification informed this package; no OpenDroid source code is copied here.
+OpenDroid (`https://github.com/yashab-cyber/opendroid`) informed the contact-resolution and stepwise UI-verification ideas. It is an Android/Kotlin project; no OpenDroid source code is copied here.
