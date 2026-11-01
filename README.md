@@ -12,9 +12,11 @@ Weronika is a voice-and-text assistant. Her conversation UI is served by the web
 ## Run the web app
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
+
+The same scripts can be run with npm (`npm install`, `npm run dev`). The orb's public-site launcher runs in the user's browser and does not need the Python worker or a batch file. Existing direct-message automation still depends on the separate local Python worker today.
 
 To build and preview a production build:
 

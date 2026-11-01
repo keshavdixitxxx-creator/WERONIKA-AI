@@ -9,6 +9,12 @@ assert.match(prompt, /WORKSPACE MODE OVERRIDE/);
 assert.match(prompt, /input\.task === "workspace-code"/);
 assert.match(prompt, /Return exactly one JSON object/);
 assert.match(prompt, /Never plan an automatic send/);
+assert.match(prompt, /"open_sites"/);
+assert.match(prompt, /1 to 10 HTTPS URLs/);
+assert.match(
+  prompt,
+  /Do not open extra sites, search the web, click, sign in, play media, or interact with pages/,
+);
 assert.match(prompt, /Incoming or outgoing voice\/video calling is not supported/);
 assert.match(prompt, /a future call feature must ask about each individual call/);
 assert.doesNotMatch(prompt, /Use intent "browser"/);
@@ -34,8 +40,20 @@ assert.match(orb, /includeHistory: planningTask !== "workspace-code"/);
 assert.match(orb, /\/api\/automation\/prepare/);
 assert.match(orb, /\/api\/automation\/confirm/);
 assert.match(orb, /\/api\/automation\/status/);
+assert.match(orb, /AUTOMATION_OPEN_SITE_PATTERN/);
+assert.match(orb, /plan\.intent === "open_sites"/);
+assert.match(orb, /appendSiteOpenOptions\(pendingSiteOpenUrls\)/);
+assert.match(orb, /OPEN ALL \$\{urls\.length\}/);
+assert.match(orb, /up to 10 different websites at a time/);
+assert.match(orb, /window\.open\("about:blank", "_blank"\)/);
+assert.match(orb, /parsed\.protocol !== "https:"/);
+assert.match(orb, /parsed\.username \|\| parsed\.password/);
+assert.match(orb, /hostname\.endsWith\("\.onion"\)/);
 assert.match(orb, /Send a WhatsApp message to Boss saying I’m on leave tomorrow/);
-assert.match(orb, /Incoming-call detection, answering, live call audio, and call summaries are not supported yet/);
+assert.match(
+  orb,
+  /Incoming-call detection, answering, live call audio, and call summaries are not supported yet/,
+);
 assert.match(orb, /function createOrbScene/);
 assert.match(orb, /mountDeveloperTools\(\{/);
 assert.match(orb, /onPrompt: async/);

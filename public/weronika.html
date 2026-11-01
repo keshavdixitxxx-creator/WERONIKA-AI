@@ -200,6 +200,11 @@
       font: 9px/1.45 "Courier New", monospace;
       opacity: .62;
     }
+    .site-open-controls { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px 42px; }
+    .site-open-all { align-self: flex-start; padding: 7px 10px; border: 1px solid rgba(35,174,255,.72); border-radius: 4px; background: rgba(0,40,72,.8); color: #b5eaff; font: 10px "Courier New", monospace; cursor: pointer; }
+    .site-open-all:hover { background: rgba(0,75,120,.9); }
+    .site-open-links { display: flex; flex-wrap: wrap; gap: 8px; }
+    .site-open-links a { color: #9bddff; font: 10px "Courier New", monospace; text-decoration: underline; overflow-wrap: anywhere; }
 
     .chat-input-row {
       display: flex;
@@ -787,7 +792,7 @@
     </div>
     <section class="chat-panel" id="chatPanel" aria-label="Chat with Weronika">
       <div class="chat-panel-heading">WERONIKA · CHAT</div>
-      <div class="chat-guidance">Try: “Send a WhatsApp message to Boss saying I’m on leave tomorrow.” Local start.bat is required; verify the contact and exact text before confirming. Calls are not supported yet.</div>
+      <div class="chat-guidance">Try: “Send a WhatsApp message to Boss saying I’m on leave tomorrow.” Or “Open YouTube, Spotify, Wikipedia, and GitHub.” Verify the contact/text before sending; click OPEN ALL to launch site tabs. Calls are not supported yet.</div>
       <div class="hud-status" id="chatLog" aria-live="polite"><div class="chat-message system" data-who="system">Chat: Weronika ready.</div></div>
       <div class="chat-input-row">
         <input id="chatInput" class="chat-input" placeholder="Type to Weronika..." autocomplete="off">
@@ -808,7 +813,7 @@
 
       <div class="settings-section">
         <div class="settings-section-title">AI Brain</div>
-        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X. Open this orb with start.bat and sign in to the platform in the local browser; Weronika will show the resolved contact and exact text for your confirmation. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
+        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X, and can prepare up to 10 public websites to open from this browser. Site opening needs only your click on OPEN ALL; messaging still needs start.bat and your sign-in in the local browser. Weronika shows the resolved contact and exact message for your confirmation. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
         <div class="settings-status" id="automationConnectionStatus">Checking for the local Python worker…</div>
       </div>
 
@@ -2244,6 +2249,7 @@
     let localBlueprintReady = false;
     let streamPresented = false;
     let assistantTurnToken = 0;
+    let pendingSiteOpenUrls = null;
 
     let conversationHistory = (() => {
       try {
@@ -2955,6 +2961,63 @@
       chatLog.scrollTop = chatLog.scrollHeight;
     }
 
+    function appendSiteOpenOptions(urls) {
+      if (!chatLog) return;
+      let message = chatLog.lastElementChild;
+      if (!message || message.dataset?.who !== "assistant") {
+        message = document.createElement("div");
+        message.className = "chat-message assistant";
+        message.dataset.who = "assistant";
+        const label = document.createElement("span");
+        label.className = "chat-message-label";
+        label.textContent = "Weronika: ";
+        const body = document.createElement("span");
+        body.className = "chat-message-text";
+        body.textContent = "Choose the sites to open. I won’t sign in or interact with them.";
+        message.append(label, body);
+        chatLog.appendChild(message);
+      }
+      const controls = document.createElement("div");
+      controls.className = "site-open-controls";
+      const openAll = document.createElement("button");
+      openAll.type = "button";
+      openAll.className = "site-open-all";
+      openAll.textContent = `OPEN ALL ${urls.length} SITE${urls.length === 1 ? "" : "S"}`;
+      const status = document.createElement("span");
+      status.className = "chat-message-text";
+      status.setAttribute("role", "status");
+      openAll.addEventListener("click", () => {
+        let opened = 0;
+        for (const url of urls) {
+          try {
+            const popup = window.open("about:blank", "_blank");
+            if (!popup) continue;
+            popup.opener = null;
+            popup.location.replace(url);
+            opened += 1;
+          } catch { /* site links below remain available */ }
+        }
+        status.textContent = opened === urls.length
+          ? `Opened ${opened} site tabs.`
+          : `Your browser opened ${opened} of ${urls.length} tabs. If it blocked pop-ups, click the site links below.`;
+      });
+      const links = document.createElement("div");
+      links.className = "site-open-links";
+      for (const url of urls) {
+        const parsed = new URL(url);
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = parsed.hostname.replace(/^www\./i, "");
+        links.appendChild(link);
+      }
+      controls.append(openAll, status, links);
+      message.appendChild(controls);
+      while (chatLog.children.length > 36) chatLog.removeChild(chatLog.firstElementChild);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
     function upsertAssistantLine(text) {
       appendChat('assistant', text, { banner: false, replace: true });
     }
@@ -3077,6 +3140,8 @@
     const AUTOMATION_PLATFORM_PATTERN = /\b(?:whats\s?app|telegram|instagram|insta|facebook|messenger|twitter|x\.com)\b/i;
     const AUTOMATION_TARGET_PATTERN = /\b(?:to|for|via|saying|that)\b|@[\w.]+/i;
     const AUTOMATION_ACTION_PATTERN = /\b(?:post|click|search|find|download|upload|book|schedule|delete|install|automate|run)\b/i;
+    const AUTOMATION_OPEN_SITE_PATTERN = /\b(?:open|visit|launch|go to|show me)\b/i;
+    const AUTOMATION_SITE_TARGET_PATTERN = /\b(?:sites?|websites?|youtube|spotify|netflix|prime video|disney\+?|google maps|google drive|google docs|gmail|google|wikipedia|amazon|flipkart|reddit|github|gitlab|linkedin|instagram|facebook|messenger|telegram|x|twitter|pinterest|discord|twitch|chatgpt|stackoverflow|stack overflow|news)\b|\b[a-z0-9-]+\.(?:com|org|net|io|co|ai|app|dev|in|edu|gov)\b/i;
     const AUTOMATION_CODE_PATTERN = /\b(?:write|create|generate|build|implement|edit|fix|make|develop)\b/i;
     const AUTOMATION_CODE_TARGET_PATTERN = /\b(?:code|script|program|file|function|app|application|component|website|webpage|python|javascript|typescript|react|java|c\+\+|csharp|go|rust|ruby|php|sql|swift|kotlin|dart|shell|game|api)\b/i;
     const AUTOMATION_CONFIRM_PATTERN = /^(?:confirm send|send it|send the message)[.! ]*$/i;
@@ -3233,7 +3298,32 @@
         return await callBrain(message, null, languageOverride);
       }
       if (plan.intent === "needs_info") return String(plan.question || "What extra detail should I use?").slice(0, 500);
-      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. Weronika can prepare direct messages and build code drafts in Workspace.").slice(0, 700);
+      if (plan.intent === "unsupported") return String(plan.acknowledgement || "I can’t perform that automation yet. Weronika can prepare direct messages, open public websites, and build code drafts in Workspace.").slice(0, 700);
+
+      if (plan.intent === "open_sites") {
+        if (!Array.isArray(plan.urls) || plan.urls.length < 1 || plan.urls.length > 10 || plan.urls.some((value) => typeof value !== "string" || value.length > 2048)) {
+          return "I couldn’t validate the site list. Name 1 to 10 websites; nothing was opened.";
+        }
+        const urls = [];
+        try {
+          for (const raw of plan.urls) {
+            const candidate = raw.trim();
+            const parsed = new URL(/^https:\/\//i.test(candidate) ? candidate : `https://${candidate}`);
+            const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+            if (parsed.protocol !== "https:" || parsed.username || parsed.password || (parsed.port && parsed.port !== "443") || !hostname.includes(".") || hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal") || hostname.endsWith(".home") || hostname.endsWith(".lan") || hostname.endsWith(".test") || hostname.endsWith(".onion") || hostname.startsWith("[") || /^\d+(?:\.\d+){0,3}$/.test(hostname)) {
+              throw new Error("Only public HTTPS websites can be opened.");
+            }
+            if (!urls.includes(parsed.href)) urls.push(parsed.href);
+          }
+        } catch (error) {
+          return `${error instanceof Error ? error.message : "That site list is invalid."} Nothing was opened.`;
+        }
+        if (!urls.length || urls.length > 10) return "Choose up to 10 different websites at a time.";
+        const steps = Array.isArray(plan.steps) ? plan.steps.filter((step) => typeof step === "string").slice(0, 3) : [];
+        steps.forEach((step, index) => appendChat("system", `Site plan ${index + 1}/${steps.length}: ${String(step).slice(0, 180)}`, { banner: false }));
+        pendingSiteOpenUrls = urls;
+        return `I found ${urls.length} public site${urls.length === 1 ? "" : "s"}. Choose OPEN ALL or open them individually below. I won’t sign in or interact with the pages.`;
+      }
 
       if (plan.intent === "write_code") {
         const files = Array.isArray(plan.files) ? plan.files : [];
@@ -3452,6 +3542,7 @@
     function isAutomationRequest(text) {
       const value = String(text || "");
       const hasPlatform = AUTOMATION_PLATFORM_PATTERN.test(value);
+      if (AUTOMATION_OPEN_SITE_PATTERN.test(value) && AUTOMATION_SITE_TARGET_PATTERN.test(value)) return true;
       if (AUTOMATION_MESSAGE_PATTERN.test(value) && (hasPlatform || AUTOMATION_TARGET_PATTERN.test(value))) return true;
       if (AUTOMATION_CODE_PATTERN.test(value) && AUTOMATION_CODE_TARGET_PATTERN.test(value)) return true;
       if (AUTOMATION_ACTION_PATTERN.test(value) && (hasPlatform || /\b(?:app|file|folder|computer|account|screen|device)\b/i.test(value))) return true;
@@ -3741,6 +3832,10 @@
             } else {
               appendChat('assistant', reply, { banner: false, replace: true });
             }
+            if (pendingSiteOpenUrls) {
+              appendSiteOpenOptions(pendingSiteOpenUrls);
+              pendingSiteOpenUrls = null;
+            }
             adaptSpokenLang(reply, transcript);
             setTimeout(() => logVoice(`Weronika says: ${reply}`), 200);
           } catch (err) { console.warn('onresult error', err); }
@@ -3840,6 +3935,7 @@
       const text = String(options.text ?? chatInput?.value ?? "").trim();
       if (!text) return;
       const responseToken = ++assistantTurnToken;
+      pendingSiteOpenUrls = null;
       if (brainAbort) brainAbort.abort();
       appendChat('user', String(options.displayText || text));
       if (chatInput) chatInput.value = '';
@@ -3854,6 +3950,10 @@
         speak(reply);
       } else {
         appendChat('assistant', reply, { banner: false, replace: true });
+      }
+      if (pendingSiteOpenUrls) {
+        appendSiteOpenOptions(pendingSiteOpenUrls);
+        pendingSiteOpenUrls = null;
       }
       if (options.source === "voice" || options.source === "wake") setTimeout(() => logVoice(`Weronika says: ${reply}`), 200);
     }
