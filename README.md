@@ -25,10 +25,24 @@ npm run preview
 
 The cloud brain credentials remain on the server. The browser sends conversation requests to `/api/public/brain`; it does not call a local Python service.
 
+## Gmail (optional OAuth integration)
+
+Gmail is disconnected until an operator configures Google OAuth. In a Google Cloud project, enable the Gmail API, create a Web application OAuth client, and register the exact redirect URI `https://YOUR_APP_ORIGIN/api/gmail/callback` (use the matching `http://localhost:PORT/api/gmail/callback` for local development). Set these server-only environment variables:
+
+```text
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_OAUTH_REDIRECT_URI=https://YOUR_APP_ORIGIN/api/gmail/callback
+```
+
+Never expose the client secret to browser code. The app requests only `gmail.readonly` and `gmail.send`. Inbox listing shows message metadata; message bodies are fetched only for messages explicitly selected by the user. Their content is sent to the hosted AI only after the user chooses **SUMMARIZE SELECTED** or **DRAFT REPLY**. Sending requires a server-prepared review token and a second explicit confirmation of the unchanged recipient and exact reply body. No inbox organization, deletion, or modification scope is requested.
+
+OAuth state is one-time and browser-bound. Gmail access tokens and prepared-send data are held in process memory only, never written to a database or local storage. This deliberately ephemeral implementation expires/requires reconnect on token/process expiry; it is not suitable for horizontally scaled or serverless deployments unless a secure shared ephemeral session store is added. Selected-email AI processing also requires the current deployment's server-side `LOVABLE_API_KEY`; without it, Gmail requests fail closed instead of relaying email content to an older brain endpoint without Gmail-specific safety instructions. No Google credentials are configured in this checkout, so the live OAuth round trip has not been tested.
+
 ## Tests
 
 ```bash
 npm run test
 ```
 
-The JavaScript suites check the cloud-brain conversation path and that legacy local-agent connections stay removed. Media routes are checked to remain disabled/local-only.
+The JavaScript suites check the cloud-brain conversation path and keep the Gmail permissions and selected-message/send-review policy from regressing. Media routes are checked to remain disabled/local-only.

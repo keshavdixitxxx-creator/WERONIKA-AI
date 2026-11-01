@@ -8,6 +8,7 @@ import {
   RESPONSES_URL,
   buildAutomationPlanInstructions,
   buildInstructions,
+  buildGmailAssistInstructions,
   buildMediaIntentInstructions,
   buildWorkspaceCodeInstructions,
   buildResponsesBody,
@@ -29,13 +30,14 @@ type BrainInput = {
   history: HistoryItem[];
   lang: string;
   addressName: string;
-  task?: "media-intent" | "automation-plan" | "workspace-code";
+  task?: "media-intent" | "automation-plan" | "workspace-code" | "gmail-assist";
 };
 
 function instructionsFor(input: Pick<BrainInput, "lang" | "addressName" | "task">) {
   if (input.task === "media-intent") return buildMediaIntentInstructions();
   if (input.task === "automation-plan") return buildAutomationPlanInstructions();
   if (input.task === "workspace-code") return buildWorkspaceCodeInstructions();
+  if (input.task === "gmail-assist") return buildGmailAssistInstructions();
   return buildInstructions(input.lang, input.addressName);
 }
 
@@ -230,7 +232,8 @@ export const Route = createFileRoute("/api/public/brain")({
         const task =
           body.task === "media-intent" ||
           body.task === "automation-plan" ||
-          body.task === "workspace-code"
+          body.task === "workspace-code" ||
+          body.task === "gmail-assist"
             ? body.task
             : undefined;
         const maxMessageLength = task === "workspace-code" ? 40_000 : 8_000;
@@ -249,6 +252,12 @@ export const Route = createFileRoute("/api/public/brain")({
         const apiKey = readKey(request);
 
         if (!apiKey) {
+          if (task === "gmail-assist") {
+            return jsonError(
+              "Selected email content was not forwarded because this server cannot apply the Gmail-specific safety instructions. Configure the server-side AI gateway key on this deployment.",
+              503,
+            );
+          }
           return relayHosted(input, request.signal);
         }
 

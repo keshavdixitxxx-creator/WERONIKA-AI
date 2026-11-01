@@ -22,7 +22,7 @@ The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct
 - Workspace files use `~/.weronika/workspace/` when opened with `start.bat`. If the local worker is unavailable, files can still be saved to browser-local storage on that device/browser; those files do not sync to the PC workspace or other browsers. Python execution is available only through the local worker and requires a separate confirmation dialog. It is not a sandbox: confirmed code can access this device and its files, so inspect code before running it.
 - VRM uploads and photos are handled locally and are not saved to the workspace. Blueprint reports CPU/RAM and NVIDIA GPU details through a loopback-only preflight. Photo relief remains an instant browser-only preview; optional TripoSR can generate an actual single-image mesh on the local CPU after separate setup. The generated GLB and temporary input are not retained by the worker.
 - Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.
-- Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely.
+- Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely. Direct text messaging is supported across WhatsApp, Telegram, Instagram, Messenger, and X; incoming call detection, answering, live call audio, and call summaries are not implemented. Never infer permission to answer a call from a prior preference; any future call flow must ask about each call and tell the other participant they are speaking with an AI.
 
 ## Windows quick start
 
