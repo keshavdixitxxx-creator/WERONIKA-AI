@@ -5,7 +5,9 @@ import unittest
 import urllib.error
 import urllib.request
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from weronika_agent.blueprint import BlueprintError
 from weronika_agent.http_server import LocalServer, make_handler
 from weronika_agent.models import Platform, VisibleContact
 from weronika_agent.workflow import MessagingService
@@ -90,13 +92,48 @@ class LocalHttpServerTests(unittest.TestCase):
                 result.append(json.loads(block[6:]))
         return result
 
-    def test_blueprint_capabilities_reports_local_hardware_without_claiming_a_model(self):
-        with self.request("/api/blueprint/capabilities") as response:
-            capabilities = json.load(response)
+    def test_blueprint_capabilities_reports_hardware_and_optional_model_state(self):
+        with patch(
+            "weronika_agent.hardware.blueprint_status",
+            return_value={"model": "TripoSR", "available": False},
+        ):
+            with self.request("/api/blueprint/capabilities") as response:
+                capabilities = json.load(response)
         self.assertIn("platform", capabilities)
         self.assertGreaterEqual(capabilities["cpu_threads"], 1)
         self.assertIn("nvidia_gpus", capabilities)
         self.assertEqual(capabilities["model_runtime"], "not-configured")
+        self.assertFalse(capabilities["blueprint_model"]["available"])
+
+    def test_blueprint_reconstruction_returns_local_glb_bytes(self):
+        glb = b"glTF" + bytes(16)
+        request = urllib.request.Request(
+            self.base + "/api/blueprint/reconstruct",
+            data=b"image bytes",
+            headers={"Content-Type": "image/jpeg", "Origin": self.base},
+            method="POST",
+        )
+        with patch(
+            "weronika_agent.http_server.reconstruct_photo",
+            return_value=(glb, "created locally"),
+        ):
+            with urllib.request.urlopen(request, timeout=5) as response:
+                self.assertEqual(response.headers.get_content_type(), "model/gltf-binary")
+                self.assertEqual(response.read(), glb)
+
+    def test_blueprint_reconstruction_reports_when_model_is_not_installed(self):
+        request = urllib.request.Request(
+            self.base + "/api/blueprint/reconstruct",
+            data=b"image bytes",
+            headers={"Content-Type": "image/jpeg", "Origin": self.base},
+            method="POST",
+        )
+        error = BlueprintError("Install the local model first.", status_code=503)
+        with patch("weronika_agent.http_server.reconstruct_photo", side_effect=error):
+            with self.assertRaises(urllib.error.HTTPError) as raised:
+                urllib.request.urlopen(request, timeout=5)
+        self.assertEqual(raised.exception.code, 503)
+        self.assertIn("Install the local model", raised.exception.read().decode("utf-8"))
 
     def test_root_serves_original_orb_and_worker_status(self):
         with self.request("/") as response:

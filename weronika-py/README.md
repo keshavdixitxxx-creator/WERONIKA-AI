@@ -20,7 +20,7 @@ The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct
 - The local worker only clicks Send after explicit approval. An uncertain result is reported and never automatically retried.
 - Each messaging platform uses a local persistent browser profile under `~/.weronika/`; session cookies stay on this device. Do not share those profile directories.
 - Workspace files use `~/.weronika/workspace/` when opened with `start.bat`. If the local worker is unavailable, files can still be saved to browser-local storage on that device/browser; those files do not sync to the PC workspace or other browsers. Python execution is available only through the local worker and requires a separate confirmation dialog. It is not a sandbox: confirmed code can access this device and its files, so inspect code before running it.
-- VRM uploads and photos are handled in the browser and are not saved to the workspace. Blueprint can report local CPU/RAM and NVIDIA GPU details through a loopback-only preflight, but it does not download or run a model. A photo is currently converted into a shallow brightness-map relief, not a full 3D object reconstruction.
+- VRM uploads and photos are handled locally and are not saved to the workspace. Blueprint reports CPU/RAM and NVIDIA GPU details through a loopback-only preflight. Photo relief remains an instant browser-only preview; optional TripoSR can generate an actual single-image mesh on the local CPU after separate setup. The generated GLB and temporary input are not retained by the worker.
 - Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.
 - Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely.
 
@@ -29,6 +29,12 @@ The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct
 Install Python 3.10+ and enable **Add Python to PATH**, then double-click `start.bat` in this folder. The first run creates `.venv`, installs the Python requirements and Playwright Chromium, then opens the existing orb UI at `http://127.0.0.1:8765/`. Later runs skip installation and start the orb and worker. Keep the command window open while using Weronika; press Ctrl+C there to stop it.
 
 If setup is interrupted or dependencies need reinstalling, delete `.venv` and run `start.bat` again. Sign in to messaging services yourself in the visible browser window opened when the first action needs that app.
+
+## Optional local AI photo-to-3D
+
+The default photo action is a browser-based relief preview. To generate an actual mesh locally, first run `start.bat` once, then run `setup-blueprint.bat` and type `YES` at its confirmation prompt. This installs CPU-only PyTorch and the MIT-licensed TripoSR source in the Weronika Python environment; the model weights download from Hugging Face on first generation. Photos are sent only to the loopback worker and are removed with the temporary job directory.
+
+CPU inference may take several minutes per image and can use substantial system memory. A C++ build toolchain may be required for `torchmcubes` on Windows; if compilation fails, install Visual Studio Build Tools with the C++ workload and retry. TripoSR produces a real single-view mesh/GLB, but unseen sides are inferred and its output is not guaranteed to match Meshy AI's quality. The browser provides **GENERATE 3D MODEL** only when the local worker detects a completed setup; **RELIEF PREVIEW** remains available separately.
 
 ## Manual start (macOS/Linux or Windows)
 

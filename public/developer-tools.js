@@ -1,48 +1,148 @@
 const WORKSPACE_STYLE = `
-  .devtools-panel { position:fixed; z-index:55; inset:2vh 2vw; display:flex; flex-direction:column; min-width:320px; color:#e8f5ff; background:#071421; border:1px solid rgba(38,170,255,.72); border-radius:8px; box-shadow:0 24px 90px #000d,0 0 45px #008cff33; font:13px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; overflow:hidden; }
+  .devtools-panel { position:fixed; z-index:55; inset:3vh 2vw; display:flex; flex-direction:column; min-width:320px; color:#dce6f2; background:#17191e; border:1px solid #343943; border-radius:8px; box-shadow:0 24px 90px #000d,0 0 35px #008cff24; font:13px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; overflow:hidden; }
   .devtools-panel[hidden] { display:none; }
-  .devtools-top { display:flex; align-items:center; gap:12px; padding:10px 16px; background:#171d26; border-bottom:1px solid #ffffff18; }
-  .devtools-brand { color:#7dcaff; font-weight:bold; letter-spacing:.12em; margin-right:auto; }
-  .devtools-subtitle { color:#96a1b0; font-size:11px; }
-  .devtools-close { border:1px solid #ffffff2b; border-radius:4px; color:#f1f3f6; background:#ffffff0a; padding:5px 10px; cursor:pointer; }
-  .devtools-body { flex:1; min-height:0; display:flex; flex-direction:column; padding:10px 12px 0; }
-  .workspace-request { flex:0 0 auto; padding:12px; margin-bottom:9px; border:1px solid rgba(40,160,255,.38); border-radius:7px; background:linear-gradient(125deg,rgba(0,84,145,.24),rgba(5,20,36,.96)); box-shadow:inset 0 0 24px rgba(0,132,255,.08); }
-  .workspace-request-heading { display:flex; align-items:center; gap:12px; margin-bottom:8px; color:#91d6ff; font-size:10px; letter-spacing:.16em; }
-  .workspace-request-heading span:last-child { color:#8b9fb1; letter-spacing:.02em; text-transform:none; }
-  .workspace-prompt-row { display:flex; gap:8px; align-items:stretch; }
-  .workspace-prompt { flex:1; min-width:0; resize:vertical; min-height:48px; max-height:130px; padding:10px 12px; border:1px solid rgba(50,165,255,.38); border-radius:5px; color:#e5f5ff; background:#050e18; font:13px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; outline:none; }
-  .workspace-prompt:focus { border-color:#3aafff; box-shadow:0 0 0 2px rgba(42,156,255,.16); }
-  .workspace-build { min-width:120px; color:#e6f7ff; border-color:#33aaff; background:linear-gradient(145deg,#0876bc,#073b70); box-shadow:0 0 16px rgba(0,142,255,.18); }
-  .workspace-build:disabled { opacity:.55; cursor:wait; }
-  .workspace-build-status { padding-top:4px; }
-  .workspace-code-view { display:flex; flex:1; flex-direction:column; min-height:0; }
-  .devtools-statusbar {  display:flex; gap:18px; align-items:center; min-height:24px; padding:3px 12px; color:#f4fbff; background:#12689f; font-size:10px; }
-  .devtools-statusbar span:last-child { margin-left:auto; }
-  .devtools-toolbar { display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding-bottom:9px; }
-  .devtools-toolbar input,.devtools-toolbar textarea { min-width:150px; flex:1; border:1px solid #ffffff25; background:#090d13; color:#e8edf5; border-radius:5px; padding:8px; font:inherit; }
-  .devtools-btn { border:1px solid #178de070; color:#a4ddff; background:#178de013; border-radius:5px; padding:7px 10px; font:inherit; cursor:pointer; }
-  .devtools-btn:hover { background:#178de028; }
+  .devtools-top { display:flex; align-items:center; gap:14px; min-height:42px; padding:6px 12px; background:#202329; border-bottom:1px solid #ffffff12; }
+  .devtools-brand { color:#e3e8f0; font-size:12px; font-weight:600; letter-spacing:.04em; margin-right:auto; }
+  .devtools-subtitle { color:#858d9b; font-size:11px; }
+  .devtools-close { border:0; border-radius:4px; color:#ccd3df; background:transparent; padding:5px 10px; cursor:pointer; font-size:18px; }
+  .devtools-close:hover { background:#ffffff13; color:#fff; }
+  .devtools-body { flex:1; min-height:0; display:flex; padding:0; }
+  .workspace-main { flex:1; min-height:0; display:grid; grid-template-columns:220px minmax(0,1fr) 345px; }
+  .workspace-explorer { display:flex; flex-direction:column; min-height:0; background:#181a1f; border-right:1px solid #ffffff12; }
+  .workspace-pane-heading { display:flex; align-items:center; justify-content:space-between; min-height:35px; padding:0 10px; color:#c5cbd5; font-size:10px; font-weight:700; letter-spacing:.1em; border-bottom:1px solid #ffffff0e; }
+  .workspace-project-title { padding:9px 10px 5px; color:#bfc7d4; font-size:11px; font-weight:600; }
+  .devtools-files { flex:1; overflow:auto; padding:5px 4px 12px; }
+  .devtools-file { display:block; width:100%; text-align:left; border:0; border-radius:3px; padding:5px 7px; color:#aeb8c8; background:transparent; font:12px/1.4 "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .devtools-file:hover,.devtools-file.active { background:#ffffff0d; color:#fff; }
+  .workspace-editor-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#1e1f22; }
+  .devtools-toolbar { display:flex; gap:6px; align-items:center; min-height:38px; flex-wrap:wrap; padding:5px 8px; background:#25272d; border-bottom:1px solid #ffffff10; }
+  .devtools-toolbar input { min-width:70px; flex:1; border:1px solid transparent; background:#1b1d22; color:#e8edf5; border-radius:4px; padding:6px 8px; font:11px ui-monospace,Consolas,monospace; }
+  .devtools-toolbar input:focus { outline:1px solid #388bfd; }
+  .devtools-btn { border:1px solid #454a55; color:#c9d2df; background:#2b2e35; border-radius:4px; padding:5px 8px; font:11px "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
+  .devtools-btn:hover { background:#363b45; color:#fff; }
   .devtools-btn.warn { color:#ffb19b; border-color:#ff775570; }
-  .devtools-status { min-height:20px; color:#9faaba; font-size:11px; }
+  .devtools-status { min-height:19px; padding:2px 9px; color:#8e98a7; background:#1e1f22; font-size:10px; }
   .devtools-status.error { color:#ff9c88; }
-  .devtools-editor-layout { display:grid; grid-template-columns:minmax(190px, 250px) 1fr; gap:10px; min-height:0; flex:1; }
-  .devtools-file-pane { display:flex; flex-direction:column; min-height:0; background:#0a0e14; border-right:1px solid #ffffff16; }
-  .devtools-file-heading { display:flex; justify-content:space-between; align-items:center; padding:8px 9px; color:#aeb9c7; font-size:10px; letter-spacing:.13em; border-bottom:1px solid #ffffff13; }
-  .devtools-files { flex:1; overflow:auto; padding:8px 5px; }
-  .devtools-file { display:block; width:100%; text-align:left; border:0; border-radius:3px; padding:5px 7px; color:#bfcbda; background:transparent; font:inherit; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .devtools-file:hover,.devtools-file.active { background:#178de018; color:#bdedff; }
-  .devtools-editor-column { display:flex; flex-direction:column; min-width:0; min-height:0; }
-  .devtools-editor-tabs { display:flex; min-height:34px; overflow-x:auto; background:#0d1118; border-bottom:1px solid #ffffff1a; }
-  .devtools-file-tab { display:flex; align-items:center; gap:12px; flex:0 0 auto; padding:6px 10px; color:#aeb9c7; background:#131923; border-right:1px solid #ffffff12; border-top:1px solid transparent; font:inherit; font-size:11px; cursor:pointer; }
-  .devtools-file-tab.active { color:#c8ebff; background:#090d13; border-top-color:#39aaff; }
+  .devtools-editor-column { display:flex; flex:1; flex-direction:column; min-width:0; min-height:0; }
+  .devtools-editor-tabs { display:flex; min-height:35px; overflow-x:auto; background:#25272d; border-bottom:1px solid #ffffff12; }
+  .devtools-file-tab { display:flex; align-items:center; gap:11px; flex:0 0 auto; padding:5px 10px; color:#aeb8c8; background:#25272d; border-right:1px solid #ffffff0c; border-top:1px solid transparent; font-size:11px; cursor:pointer; }
+  .devtools-file-tab.active { color:#f0f4fa; background:#1e1f22; border-top-color:#388bfd; }
   .devtools-tab-name { color:inherit; border:0; background:transparent; font:inherit; cursor:pointer; }
   .devtools-tab-close { color:#8994a2; border:0; background:transparent; cursor:pointer; font:inherit; }
   .devtools-tab-close:hover { color:#fff; }
-  .devtools-editor-wrap { display:flex; flex:1; min-width:0; min-height:0; background:#090d13; border:1px solid #ffffff1b; border-top:0; overflow:hidden; }
-  .devtools-gutter { flex:0 0 auto; width:46px; overflow:hidden; padding:12px 8px; color:#586575; text-align:right; white-space:pre; line-height:1.5; user-select:none; }
-  .devtools-editor { flex:1; min-width:0; min-height:0; resize:none; border:0; outline:0; padding:12px; color:#dbe5f0; background:transparent; font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
-  @media(max-width:720px) { .devtools-panel { inset:2vh 2vw; } .devtools-editor-layout { grid-template-columns:115px 1fr; } .devtools-subtitle { display:none; } .devtools-toolbar input { min-width:120px; } }
+  .devtools-editor-wrap { display:flex; flex:1; min-width:0; min-height:0; background:#1e1f22; overflow:hidden; }
+  .devtools-gutter { flex:0 0 auto; width:48px; overflow:hidden; padding:12px 8px; color:#737985; text-align:right; white-space:pre; line-height:1.55; user-select:none; font:12px/1.55 ui-monospace,Consolas,monospace; }
+  .devtools-editor { flex:1; min-width:0; min-height:0; resize:none; border:0; outline:0; padding:12px; color:#dce3ed; background:transparent; font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
+  .workspace-agent-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#191b20; border-left:1px solid #ffffff12; }
+  .workspace-agent-head { display:flex; align-items:center; gap:8px; min-height:41px; padding:0 12px; border-bottom:1px solid #ffffff12; color:#e5ebf4; font-size:12px; font-weight:600; }
+  .workspace-agent-dot { width:7px; height:7px; border-radius:50%; background:#3fb950; box-shadow:0 0 8px #3fb95088; }
+  .workspace-chat-messages { flex:1; min-height:0; overflow:auto; padding:13px 11px; display:flex; flex-direction:column; gap:11px; }
+  .workspace-chat-message { padding:9px 10px; border-radius:6px; white-space:pre-wrap; overflow-wrap:anywhere; color:#cbd4e0; background:#22252b; font-size:12px; line-height:1.5; }
+  .workspace-chat-message.user { color:#e0ebfa; background:#202a39; border-left:2px solid #388bfd; }
+  .workspace-chat-message.assistant { border-left:2px solid #6e7681; }
+  .workspace-chat-message.system { color:#8792a0; background:transparent; padding:2px 4px; font-size:10px; }
+  .workspace-chat-welcome { color:#8893a2; padding:5px 4px; font-size:11px; line-height:1.55; }
+  .workspace-chat-composer { padding:10px; border-top:1px solid #ffffff12; background:#1d1f24; }
+  .workspace-prompt { width:100%; min-height:86px; max-height:220px; resize:vertical; padding:10px; border:1px solid #454a55; border-radius:6px; color:#e4ebf5; background:#24272e; font:12px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; outline:none; }
+  .workspace-prompt:focus { border-color:#388bfd; box-shadow:0 0 0 1px #388bfd55; }
+  .workspace-composer-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:8px; }
+  .workspace-chat-hint { color:#7e8794; font-size:9px; }
+  .workspace-build { color:#f0f6fc; border-color:#388bfd; background:#1765ad; }
+  .workspace-build:hover { background:#1f78cc; }
+  .workspace-build:disabled { opacity:.55; cursor:wait; }
+  .workspace-statusbar { display:flex; gap:14px; align-items:center; min-height:23px; padding:3px 11px; color:#d5e8ff; background:#12689f; font-size:10px; }
+  .workspace-statusbar span:last-child { margin-left:auto; }
+  @media(max-width:1000px) { .workspace-main { grid-template-columns:185px minmax(0,1fr) 300px; } }
+  @media(max-width:780px) { .devtools-panel { inset:1vh 1vw; } .workspace-main { grid-template-columns:160px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 260px; } .workspace-explorer { grid-row:1 / 3; } .workspace-agent-pane { grid-column:2; grid-row:2; border-left:0; border-top:1px solid #ffffff12; } .workspace-editor-pane { grid-column:2; grid-row:1; } .devtools-subtitle { display:none; } }
+  @media(max-width:520px) { .workspace-main { grid-template-columns:115px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 240px; } .devtools-toolbar .run-file { display:none; } .devtools-brand { font-size:11px; } }
 `;
+
+export function createStoredZip(files) {
+  const text = new TextEncoder();
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let value = n;
+    for (let bit = 0; bit < 8; bit += 1)
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    table[n] = value >>> 0;
+  }
+  const crc32 = (bytes) => {
+    let crc = 0xffffffff;
+    for (const byte of bytes) crc = table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const localParts = [];
+  const centralParts = [];
+  let localOffset = 0;
+  let totalSize = 0;
+  if (!Array.isArray(files) || files.length > 1000)
+    throw new Error("The workspace ZIP contains too many files.");
+  for (const file of files) {
+    if (!file || typeof file.path !== "string" || typeof file.content !== "string") continue;
+    const zipPath = file.path.replaceAll("\\", "/");
+    if (
+      zipPath.startsWith("/") ||
+      zipPath.split("/").some((part) => !part || part === "." || part === "..")
+    ) {
+      throw new Error("A workspace file has an unsafe path and cannot be added to the ZIP.");
+    }
+    const name = text.encode(zipPath);
+    const data = text.encode(file.content);
+    totalSize += data.length;
+    if (totalSize > 50 * 1024 * 1024) throw new Error("The workspace ZIP is larger than 50 MB.");
+    const crc = crc32(data);
+    const local = new Uint8Array(30 + name.length);
+    const localView = new DataView(local.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0x0800, true);
+    localView.setUint16(8, 0, true);
+    localView.setUint16(10, 0, true);
+    localView.setUint16(12, 0x21, true);
+    localView.setUint32(14, crc, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
+    localView.setUint16(26, name.length, true);
+    localView.setUint16(28, 0, true);
+    local.set(name, 30);
+    localParts.push(local, data);
+
+    const central = new Uint8Array(46 + name.length);
+    const centralView = new DataView(central.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0x0800, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint16(12, 0, true);
+    centralView.setUint16(14, 0x21, true);
+    centralView.setUint32(16, crc, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, name.length, true);
+    centralView.setUint16(30, 0, true);
+    centralView.setUint16(32, 0, true);
+    centralView.setUint16(34, 0, true);
+    centralView.setUint16(36, 0, true);
+    centralView.setUint32(38, 0, true);
+    centralView.setUint32(42, localOffset, true);
+    central.set(name, 46);
+    centralParts.push(central);
+    localOffset += local.length + data.length;
+  }
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(4, 0, true);
+  endView.setUint16(6, 0, true);
+  endView.setUint16(8, centralParts.length, true);
+  endView.setUint16(10, centralParts.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, localOffset, true);
+  endView.setUint16(20, 0, true);
+  return new Blob([...localParts, ...centralParts, end], { type: "application/zip" });
+}
 
 export function mountDeveloperTools({ onPrompt = null } = {}) {
   document.querySelectorAll(".devtools-launch").forEach((button) => button.remove());
@@ -55,20 +155,28 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   panel.hidden = true;
   panel.setAttribute("aria-label", "Weronika Workspace");
   panel.innerHTML = `
-    <header class="devtools-top"><span class="devtools-brand">WERONIKA · WORKSPACE</span><span class="devtools-subtitle">CLOUD BRAIN · MULTI-LANGUAGE CODE EDITOR</span><button class="devtools-close" type="button" aria-label="Close Workspace">×</button></header>
+    <header class="devtools-top"><span class="devtools-brand">WERONIKA AI</span><span class="devtools-subtitle">WORKSPACE · CLOUD AGENT · MULTI-LANGUAGE</span><button class="devtools-close" type="button" aria-label="Close Workspace">×</button></header>
     <div class="devtools-body">
-      <section class="workspace-request" aria-label="Build code with Weronika">
-        <div class="workspace-request-heading"><span>BUILD WITH WERONIKA</span><span>Describe the app, feature, or file you want</span></div>
-        <div class="workspace-prompt-row"><textarea class="workspace-prompt" rows="2" maxlength="5000" aria-label="Workspace build prompt" placeholder="Example: Build a responsive portfolio site in React with a blue theme and contact form…"></textarea><button class="devtools-btn workspace-build" type="button">BUILD CODE</button></div>
-        <div class="devtools-status workspace-build-status" role="status">Prompts go to Weronika’s cloud brain. Generated files open as unsaved drafts.</div>
-      </section>
-      <section class="workspace-code-view">
-        <div class="devtools-toolbar"><input class="devtools-path" aria-label="Workspace file path" placeholder="src / main.py" autocomplete="off"><button class="devtools-btn new-file" type="button">NEW FILE</button><button class="devtools-btn save-file" type="button">SAVE</button><button class="devtools-btn run-file" type="button" hidden>RUN PYTHON</button><button class="devtools-btn refresh-files" type="button">REFRESH</button></div>
-        <div class="devtools-status workspace-status" role="status">Connecting to local workspace…</div>
-        <div class="devtools-editor-layout"><aside class="devtools-file-pane"><div class="devtools-file-heading"><span>EXPLORER</span><span class="devtools-project-name">WERONIKA WORKSPACE</span></div><div class="devtools-files" aria-label="Workspace files"></div></aside><div class="devtools-editor-column"><div class="devtools-editor-tabs" role="tablist" aria-label="Open files"></div><div class="devtools-editor-wrap"><pre class="devtools-gutter" aria-hidden="true">1</pre><textarea class="devtools-editor" spellcheck="false" aria-label="Code editor" placeholder="Choose a file or ask Weronika to draft code here…"></textarea></div></div></div>
-      </section>
+      <div class="workspace-main">
+        <aside class="workspace-explorer" aria-label="Project Explorer">
+          <div class="workspace-pane-heading"><span>EXPLORER</span><button class="devtools-btn download-zip" type="button" title="Download project as ZIP">ZIP ↓</button></div>
+          <div class="workspace-project-title">⌄ WERONIKA WORKSPACE</div>
+          <div class="devtools-files" aria-label="Workspace files"></div>
+        </aside>
+        <section class="workspace-editor-pane" aria-label="Code editor">
+          <div class="devtools-toolbar"><input class="devtools-path" aria-label="Workspace file path" placeholder="src / main.py" autocomplete="off"><button class="devtools-btn new-file" type="button">＋ FILE</button><button class="devtools-btn save-file" type="button">SAVE</button><button class="devtools-btn run-file" type="button" hidden>RUN PYTHON</button><button class="devtools-btn refresh-files" type="button" title="Refresh workspace files">⟳</button></div>
+          <div class="devtools-status workspace-status" role="status">Connecting to local workspace…</div>
+          <div class="devtools-editor-column"><div class="devtools-editor-tabs" role="tablist" aria-label="Open files"></div><div class="devtools-editor-wrap"><pre class="devtools-gutter" aria-hidden="true">1</pre><textarea class="devtools-editor" spellcheck="false" aria-label="Code editor" placeholder="Open a file or ask Weronika to create one…"></textarea></div></div>
+        </section>
+        <aside class="workspace-agent-pane" aria-label="Chat with Weronika">
+          <header class="workspace-agent-head"><span class="workspace-agent-dot"></span><span>WERONIKA</span><span style="margin-left:auto;color:#7e8794;font-size:10px;font-weight:400">AGENT</span></header>
+          <div class="workspace-chat-messages" role="log" aria-live="polite"><div class="workspace-chat-welcome">Describe what you want to build, change, or debug. Weronika can draft and revise files across common programming languages. Generated changes open as editable drafts.</div></div>
+          <div class="devtools-status workspace-build-status" role="status">Ready · prompts are sent to Weronika’s cloud brain. Open-file context is included; review files before sending.</div>
+          <div class="workspace-chat-composer"><textarea class="workspace-prompt" rows="3" maxlength="5000" aria-label="Message Weronika about this project" placeholder="Ask Weronika to build or edit this project…"></textarea><div class="workspace-composer-footer"><span class="workspace-chat-hint">Enter to send · Shift+Enter for a new line</span><button class="devtools-btn workspace-build" type="button">↑ Send</button></div></div>
+        </aside>
+      </div>
     </div>
-    <footer class="devtools-statusbar"><span class="devtools-connection">● LOCAL WORKSPACE</span><span class="devtools-line-count">Ln 1, Col 1</span><span class="devtools-language">Plain Text</span><span>UTF-8</span><span>SPACES: 2</span></footer>`;
+    <footer class="workspace-statusbar"><span class="devtools-connection">● LOCAL WORKSPACE</span><span class="devtools-line-count">Ln 1, Col 1</span><span class="devtools-language">Plain Text</span><span>UTF-8</span><span>Spaces: 2</span></footer>`;
   document.body.append(panel);
 
   const $ = (selector) => panel.querySelector(selector);
@@ -78,6 +186,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   const editorTabs = $(".devtools-editor-tabs");
   const codeStatus = $(".workspace-status");
   const buildStatus = $(".workspace-build-status");
+  const chatMessages = $(".workspace-chat-messages");
   const promptInput = $(".workspace-prompt");
   const buildButton = $(".workspace-build");
   const openFiles = new Map();
@@ -128,6 +237,15 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     return root;
   }
 
+  function appendWorkspaceMessage(role, message) {
+    const bubble = document.createElement("div");
+    bubble.className = `workspace-chat-message ${role}`;
+    bubble.textContent = String(message || "");
+    chatMessages.append(bubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return bubble;
+  }
+
   function status(element, message, error = false) {
     element.textContent = message;
     element.classList.toggle("error", error);
@@ -173,6 +291,25 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     if (!activePath) return;
     const state = openFiles.get(activePath);
     if (state) state.content = editor.value;
+  }
+  function getWorkspaceContext() {
+    rememberActiveFile();
+    const files = [];
+    let total = 0;
+    for (const [path, state] of openFiles) {
+      if (
+        /(?:^|\/)(?:\.env(?:\.[^/]*)?|secrets?(?:\.[^/]*)?|credentials?(?:\.[^/]*)?)(?:\/|$)/i.test(
+          path,
+        )
+      )
+        continue;
+      const content = String(state.content || "");
+      if (total + content.length > 24000) break;
+      files.push({ path, content });
+      total += content.length;
+      if (files.length >= 8) break;
+    }
+    return files;
   }
   function renderEditorTabs() {
     editorTabs.replaceChildren();
@@ -452,6 +589,75 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
       status(codeStatus, error.message, true);
     }
   }
+  async function collectWorkspaceFiles() {
+    rememberActiveFile();
+    let files = [];
+    if (browserStorageMode) {
+      files = Object.entries(readBrowserWorkspace()).map(([path, content]) => ({ path, content }));
+    } else {
+      try {
+        const result = await request("/api/workspace/files");
+        const paths = [];
+        const walk = (items) => {
+          for (const item of items || []) {
+            if (item.kind === "directory") walk(item.children);
+            else if (item.kind === "file" && supportedFilePath.test(item.path))
+              paths.push(item.path);
+          }
+        };
+        walk(result.items);
+        if (paths.length > 500)
+          throw new Error(
+            "The workspace contains more than 500 files; download smaller folders separately.",
+          );
+        for (const path of paths) {
+          const file = await request(`/api/workspace/file?path=${encodeURIComponent(path)}`);
+          files.push({ path: file.path, content: file.content });
+        }
+      } catch (error) {
+        if (!error.localApiUnavailable) throw error;
+        browserStorageMode = true;
+        files = Object.entries(readBrowserWorkspace()).map(([path, content]) => ({
+          path,
+          content,
+        }));
+      }
+    }
+    const byPath = new Map(files.map((file) => [file.path, file.content]));
+    for (const [path, state] of openFiles) {
+      if (supportedFilePath.test(path)) byPath.set(path, state.content);
+    }
+    return [...byPath].map(([path, content]) => ({ path, content }));
+  }
+
+  async function downloadWorkspaceZip() {
+    const button = $(".download-zip");
+    button.disabled = true;
+    try {
+      const files = await collectWorkspaceFiles();
+      if (!files.length) throw new Error("There are no saved or open files to download yet.");
+      const blob = createStoredZip(files);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `weronika-workspace-${new Date().toISOString().slice(0, 10)}.zip`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      status(
+        codeStatus,
+        `Downloaded ZIP · ${files.length} file${files.length === 1 ? "" : "s"} · ${(blob.size / 1024).toFixed(1)} KB`,
+      );
+    } catch (error) {
+      status(
+        codeStatus,
+        error instanceof Error ? error.message : "Could not create the workspace ZIP.",
+        true,
+      );
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   async function runPython() {
     const path = pathInput.value.trim();
     if (browserStorageMode) {
@@ -506,30 +712,40 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     }
     if (typeof onPrompt !== "function") {
       status(buildStatus, "The cloud brain is not connected to Workspace yet.", true);
+      appendWorkspaceMessage("assistant", "The cloud brain is not connected to Workspace yet.");
       return;
     }
+    appendWorkspaceMessage("user", prompt);
     buildButton.disabled = true;
-    status(buildStatus, "Weronika is planning your code with the cloud brain…");
+    status(buildStatus, "Weronika is working…");
+    const pending = appendWorkspaceMessage(
+      "system",
+      "Planning your request and preparing file changes…",
+    );
+    promptInput.value = "";
     try {
-      const reply = await onPrompt(prompt);
-      status(
-        buildStatus,
-        reply || "Draft opened. Review the files, then save them to your workspace.",
-      );
-      promptInput.value = "";
+      const reply = await onPrompt(prompt, getWorkspaceContext());
+      pending.remove();
+      const message = reply || "Draft ready. Review the editor tabs, then save the files.";
+      appendWorkspaceMessage("assistant", message);
+      status(buildStatus, "Finished · review the generated files before saving.");
     } catch (error) {
-      status(
-        buildStatus,
-        error instanceof Error ? error.message : "Weronika could not build that draft.",
-        true,
-      );
+      pending.remove();
+      const message =
+        error instanceof Error ? error.message : "Weronika could not build that draft.";
+      appendWorkspaceMessage("assistant", message);
+      status(buildStatus, message, true);
     } finally {
       buildButton.disabled = false;
+      promptInput.focus();
     }
   }
   buildButton.addEventListener("click", submitWorkspacePrompt);
   promptInput.addEventListener("keydown", (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") submitWorkspacePrompt();
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      submitWorkspacePrompt();
+    }
   });
   $(".new-file").addEventListener("click", () => {
     if (
@@ -543,6 +759,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   });
   $(".save-file").addEventListener("click", saveFile);
   $(".refresh-files").addEventListener("click", refreshFiles);
+  $(".download-zip").addEventListener("click", downloadWorkspaceZip);
   $(".run-file").addEventListener("click", runPython);
   pathInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") editor.focus();
@@ -595,6 +812,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
 
   return {
     open,
+    getWorkspaceContext,
     openDraftFiles,
     openDraftFile(path, content) {
       return openDraftFiles([{ path, content }]);

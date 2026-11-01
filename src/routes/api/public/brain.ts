@@ -227,17 +227,18 @@ export const Route = createFileRoute("/api/public/brain")({
 
         const message = typeof body.message === "string" ? body.message.trim() : "";
         if (!message) return jsonError("message is required", 400);
-        if (message.length > 8000) return jsonError("message is too long", 400);
-
-        const history = sanitizeHistory(body.history);
-        const lang = sanitizeLang(body.lang, message);
-        const addressName = sanitizeAddressName(body.addressName);
         const task =
           body.task === "media-intent" ||
           body.task === "automation-plan" ||
           body.task === "workspace-code"
             ? body.task
             : undefined;
+        const maxMessageLength = task === "workspace-code" ? 40_000 : 8_000;
+        if (message.length > maxMessageLength) return jsonError("message is too long", 400);
+
+        const history = sanitizeHistory(body.history);
+        const lang = sanitizeLang(body.lang, message);
+        const addressName = sanitizeAddressName(body.addressName);
         const input: BrainInput = {
           message,
           history,

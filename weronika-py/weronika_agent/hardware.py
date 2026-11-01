@@ -8,6 +8,8 @@ import platform
 import shutil
 import subprocess
 
+from .blueprint import blueprint_status
+
 
 def _total_memory_bytes() -> int | None:
     if os.name == "nt":
@@ -71,6 +73,7 @@ def _nvidia_gpus() -> list[dict[str, str]]:
 def detect_hardware() -> dict[str, object]:
     """Return a non-sensitive, best-effort inventory; no model is run or downloaded."""
     total_memory = _total_memory_bytes()
+    model = blueprint_status()
     return {
         "platform": platform.system(),
         "architecture": platform.machine(),
@@ -78,5 +81,6 @@ def detect_hardware() -> dict[str, object]:
         "cpu_threads": os.cpu_count() or 1,
         "memory_gb": round(total_memory / (1024**3), 1) if total_memory else None,
         "nvidia_gpus": _nvidia_gpus(),
-        "model_runtime": "not-configured",
+        "model_runtime": "triposr-cpu-ready" if model["available"] else "not-configured",
+        "blueprint_model": model,
     }

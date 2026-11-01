@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .blueprint import BlueprintError, MAX_IMAGE_BYTES, reconstruct_photo
 from .hardware import detect_hardware
 from .intents import parse_message_request
 from .models import Platform
@@ -48,6 +49,47 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(body)
+
+        def _send_bytes(self, status: int, payload: bytes, content_type: str) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def _blueprint_reconstruct(self) -> None:
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._send_json(400, {"error": "Invalid photo content length."})
+                return
+            if length <= 0 or length > MAX_IMAGE_BYTES:
+                self._send_json(413, {"error": "Photos must be 20 MB or smaller for local 3D generation."})
+                return
+            content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if not content_type.startswith("image/") and content_type != "application/octet-stream":
+                self._send_json(415, {"error": "Upload a supported image file for local 3D generation."})
+                return
+            image_bytes = self.rfile.read(length)
+            if len(image_bytes) != length:
+                self._send_json(400, {"error": "The photo upload was incomplete. Please try again."})
+                return
+            try:
+                glb, message = reconstruct_photo(image_bytes)
+            except BlueprintError as exc:
+                self._send_json(exc.status_code, {"error": str(exc)})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "model/gltf-binary")
+            self.send_header("Content-Length", str(len(glb)))
+            self.send_header("Content-Disposition", 'attachment; filename="weronika-generated-model.glb"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Weronika-Blueprint-Status", message)
+            self.end_headers()
+            self.wfile.write(glb)
 
         def _authorized_local_request(self) -> bool:
             try:
@@ -142,6 +184,9 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
                 return
             try:
                 path = urlparse(self.path).path
+                if path == "/api/blueprint/reconstruct":
+                    self._blueprint_reconstruct()
+                    return
                 workspace_routes = {
                     "/api/workspace/file",
                     "/api/workspace/run",

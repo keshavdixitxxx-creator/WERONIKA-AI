@@ -80,13 +80,13 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
   frame.position.y = 0.2;
   root.add(frame);
 
-  const keyLight = new THREE.DirectionalLight(0xfff1dc, 1.45);
+  const keyLight = new THREE.DirectionalLight(0xfff1dc, 0.9);
   keyLight.position.set(3.2, 5.4, 4.2);
-  const rimLight = new THREE.DirectionalLight(0x3ad7ff, 0.7);
+  const rimLight = new THREE.DirectionalLight(0x3ad7ff, 0.22);
   rimLight.position.set(-4, 2.2, -3);
-  const fillLight = new THREE.PointLight(0xffb23a, 0.55, 14);
+  const fillLight = new THREE.PointLight(0xffb23a, 0.12, 14);
   fillLight.position.set(0, 1.4, 2.2);
-  root.add(new THREE.AmbientLight(0x9ecfff, 0.55), keyLight, rimLight, fillLight);
+  root.add(new THREE.AmbientLight(0x9ecfff, 0.34), keyLight, rimLight, fillLight);
 
   const models = buildCatalog(THREE);
   for (const model of Object.values(models)) {
@@ -99,6 +99,7 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
   let fallback = false;
   let explodeTarget = 0;
   let explodeCurrent = 0;
+  let previousTickTime = null;
   const scratch = new THREE.Vector3();
   let customGroup = null;
 
@@ -124,7 +125,7 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
     customGroup = null;
   }
 
-  function activateCustom(object, title, kind, partName) {
+  function activateCustom(object, title, kind, partName, extra = {}) {
     discardCustom();
     for (const model of Object.values(models)) model.group.visible = false;
     customGroup = new THREE.Group();
@@ -150,7 +151,9 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
       title,
       hindi: title,
       parts: [part],
+      ...extra,
     };
+    previousTickTime = null;
     requestedLabel = title;
     fallback = false;
     root.visible = true;
@@ -165,30 +168,85 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
       throw new Error("Choose a VRM file under 100 MB.");
     }
     const data = await file.arrayBuffer();
-    const [{ GLTFLoader }, { VRMLoaderPlugin, VRMUtils }] = await Promise.all([
-      import("https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js"),
-      import("https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"),
-    ]);
+    let loaderModule;
+    let vrmModule;
+    try {
+      [loaderModule, vrmModule] = await Promise.all([
+        import("https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js"),
+        import("https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"),
+      ]);
+    } catch (error) {
+      throw new Error(
+        `Could not load VRM support modules. Check your internet connection and try again. ${error instanceof Error ? error.message : ""}`.trim(),
+      );
+    }
+    const { GLTFLoader } = loaderModule;
+    const { VRMLoaderPlugin, VRMUtils } = vrmModule;
+    if (typeof GLTFLoader !== "function" || typeof VRMLoaderPlugin !== "function") {
+      throw new Error("VRM support did not initialize correctly. Refresh the page and try again.");
+    }
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
     const gltf = await new Promise((resolve, reject) => {
-      loader.parse(data, "", resolve, (error) =>
-        reject(new Error(error?.message || "That VRM file could not be parsed.")),
-      );
+      loader.parse(data, "", resolve, (error) => {
+        reject(new Error(error?.message || "The selected file is not a readable VRM model."));
+      });
     });
     const vrm = gltf.userData?.vrm;
-    const model = vrm?.scene || gltf.scene || gltf.scenes?.[0];
-    if (!model) throw new Error("The VRM file has no 3D scene.");
-    if (vrm?.meta?.metaVersion === "0") VRMUtils.rotateVRM0(vrm);
+    if (!vrm?.scene) {
+      throw new Error(
+        "The file opened as a 3D asset but has no recognized VRM avatar. Choose a valid .vrm file.",
+      );
+    }
+    if (vrm.meta?.metaVersion === "0" || vrm.meta?.metaVersion === 0) VRMUtils.rotateVRM0(vrm);
     const title = file.name.replace(/\.vrm$/i, "").slice(0, 80) || "Uploaded VRM";
-    return activateCustom(model, title, "vrm", "VRM avatar");
+    return activateCustom(vrm.scene, title, "vrm", "VRM avatar", { vrm });
+  }
+
+  async function openGeneratedModelFile(file, title = "Generated 3D model") {
+    if (!file || typeof file.arrayBuffer !== "function" || file.size > 80 * 1024 * 1024) {
+      throw new Error("The generated model is empty or exceeds the 80 MB viewer limit.");
+    }
+    let GLTFLoader;
+    try {
+      ({ GLTFLoader } =
+        await import("https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/loaders/GLTFLoader.js"));
+    } catch (error) {
+      throw new Error(
+        `Could not load the 3D model viewer. Check your internet connection. ${error instanceof Error ? error.message : ""}`.trim(),
+      );
+    }
+    const data = await file.arrayBuffer();
+    const loader = new GLTFLoader();
+    const gltf = await new Promise((resolve, reject) => {
+      loader.parse(data, "", resolve, (error) => {
+        reject(new Error(error?.message || "The generated model could not be opened."));
+      });
+    });
+    const model = gltf.scene || gltf.scenes?.[0];
+    if (!model) throw new Error("The generated GLB did not contain a 3D scene.");
+    return activateCustom(
+      model,
+      title.slice(0, 80) || "Generated 3D model",
+      "photo-model",
+      "AI mesh",
+    );
   }
 
   async function openPhotoFile(file) {
-    if (!file || !file.type.startsWith("image/") || file.size > 25 * 1024 * 1024) {
-      throw new Error("Choose an image under 25 MB.");
+    const hasImageType = Boolean(file?.type?.startsWith("image/"));
+    const hasImageExtension = /\.(?:avif|bmp|gif|jpe?g|png|webp)$/i.test(file?.name || "");
+    if (!file || (!hasImageType && !hasImageExtension) || file.size > 25 * 1024 * 1024) {
+      throw new Error("Choose a JPG, PNG, WebP, GIF, BMP, or AVIF image under 25 MB.");
     }
-    const bitmap = await createImageBitmap(file);
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file);
+    } catch {
+      throw new Error(
+        "This image format could not be decoded by your browser. Try a JPG or PNG photo.",
+      );
+    }
     const ratio = bitmap.width / bitmap.height;
     const canvas = document.createElement("canvas");
     const maxSide = 1400;
@@ -203,8 +261,9 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
-    const width = 3.0;
-    const height = THREE.MathUtils.clamp(width / ratio, 0.7, 4.5);
+    const maxDimension = 3.2;
+    const width = ratio >= 1 ? maxDimension : maxDimension * ratio;
+    const height = ratio >= 1 ? maxDimension / ratio : maxDimension;
     const columns = 160;
     const rows = Math.max(48, Math.min(220, Math.round((columns * height) / width)));
     const geometry = new THREE.BufferGeometry();
@@ -222,7 +281,7 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
         const luminance =
           (pixels[offset] * 0.2126 + pixels[offset + 1] * 0.7152 + pixels[offset + 2] * 0.0722) /
           255;
-        positions.push((u - 0.5) * width, (0.5 - v) * height, (luminance - 0.5) * 0.24);
+        positions.push((u - 0.5) * width, (0.5 - v) * height, (luminance - 0.5) * 0.42);
         uvs.push(u, 1 - v);
       }
     }
@@ -248,10 +307,10 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
     );
     relief.name = "Photo relief";
     const frame = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.16)),
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.46)),
       new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.72 }),
     );
-    frame.position.z = -0.09;
+    frame.position.z = -0.23;
     const photo = new THREE.Group();
     photo.add(relief, frame);
     const title = file.name.replace(/\.[^.]+$/, "").slice(0, 80) || "Uploaded photo";
@@ -311,6 +370,9 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
 
   function tick(time) {
     if (!isOpen()) return null;
+    const delta = previousTickTime === null ? 0 : clamp(time - previousTickTime, 0, 0.1);
+    previousTickTime = time;
+    if (active?.vrm && delta > 0) active.vrm.update(delta);
     explodeCurrent += (explodeTarget - explodeCurrent) * 0.08;
     const amount = explodeCurrent;
     active.parts.forEach((part, index) => {
@@ -366,6 +428,7 @@ export function createTechnicalController(THREE, { scene, camera, getSize }) {
   return {
     open,
     openVRMFile,
+    openGeneratedModelFile,
     openPhotoFile,
     close,
     setExplode,
