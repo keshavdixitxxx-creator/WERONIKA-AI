@@ -195,6 +195,12 @@
       opacity: .84;
     }
 
+    .chat-guidance {
+      color: #ffd88f;
+      font: 9px/1.45 "Courier New", monospace;
+      opacity: .62;
+    }
+
     .chat-input-row {
       display: flex;
       gap: 8px;
@@ -781,6 +787,7 @@
     </div>
     <section class="chat-panel" id="chatPanel" aria-label="Chat with Weronika">
       <div class="chat-panel-heading">WERONIKA · CHAT</div>
+      <div class="chat-guidance">Try: “Send a WhatsApp message to Boss saying I’m on leave tomorrow.” Local start.bat is required; verify the contact and exact text before confirming. Calls are not supported yet.</div>
       <div class="hud-status" id="chatLog" aria-live="polite"><div class="chat-message system" data-who="system">Chat: Weronika ready.</div></div>
       <div class="chat-input-row">
         <input id="chatInput" class="chat-input" placeholder="Type to Weronika..." autocomplete="off">
@@ -801,7 +808,7 @@
 
       <div class="settings-section">
         <div class="settings-section-title">AI Brain</div>
-        <div class="settings-status">The hosted cloud brain understands requests and plans supported tasks. When this orb is opened with start.bat, the local Python worker performs supported messaging steps and reports progress here.</div>
+        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X. Open this orb with start.bat and sign in to the platform in the local browser; Weronika will show the resolved contact and exact text for your confirmation. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
         <div class="settings-status" id="automationConnectionStatus">Checking for the local Python worker…</div>
       </div>
 
