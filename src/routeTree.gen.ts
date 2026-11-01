@@ -10,15 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiGmailCallbackRouteImport } from './routes/api/gmail/callback'
+import { Route as ApiGmailConnectRouteImport } from './routes/api/gmail/connect'
+import { Route as ApiGmailDisconnectRouteImport } from './routes/api/gmail/disconnect'
+import { Route as ApiGmailPrepareSendRouteImport } from './routes/api/gmail/prepare-send'
+import { Route as ApiGmailSendRouteImport } from './routes/api/gmail/send'
+import { Route as ApiGmailStatusRouteImport } from './routes/api/gmail/status'
 import { Route as ApiPublicAnswerRouteImport } from './routes/api/public/answer'
 import { Route as ApiPublicBrainRouteImport } from './routes/api/public/brain'
 import { Route as ApiPublicImageRouteImport } from './routes/api/public/image'
 import { Route as ApiPublicSongRouteImport } from './routes/api/public/song'
 import { Route as ApiPublicVideoRouteImport } from './routes/api/public/video'
+import { Route as ApiGmailMessagesIndexRouteImport } from './routes/api/gmail/messages/index'
+import { Route as ApiGmailMessagesIdRouteImport } from './routes/api/gmail/messages/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailCallbackRoute = ApiGmailCallbackRouteImport.update({
+  id: '/api/gmail/callback',
+  path: '/api/gmail/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailConnectRoute = ApiGmailConnectRouteImport.update({
+  id: '/api/gmail/connect',
+  path: '/api/gmail/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailDisconnectRoute = ApiGmailDisconnectRouteImport.update({
+  id: '/api/gmail/disconnect',
+  path: '/api/gmail/disconnect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailPrepareSendRoute = ApiGmailPrepareSendRouteImport.update({
+  id: '/api/gmail/prepare-send',
+  path: '/api/gmail/prepare-send',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailSendRoute = ApiGmailSendRouteImport.update({
+  id: '/api/gmail/send',
+  path: '/api/gmail/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailStatusRoute = ApiGmailStatusRouteImport.update({
+  id: '/api/gmail/status',
+  path: '/api/gmail/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAnswerRoute = ApiPublicAnswerRouteImport.update({
@@ -46,66 +84,132 @@ const ApiPublicVideoRoute = ApiPublicVideoRouteImport.update({
   path: '/api/public/video',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGmailMessagesIndexRoute = ApiGmailMessagesIndexRouteImport.update({
+  id: '/api/gmail/messages/',
+  path: '/api/gmail/messages/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGmailMessagesIdRoute = ApiGmailMessagesIdRouteImport.update({
+  id: '/api/gmail/messages/$id',
+  path: '/api/gmail/messages/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/gmail/callback': typeof ApiGmailCallbackRoute
+  '/api/gmail/connect': typeof ApiGmailConnectRoute
+  '/api/gmail/disconnect': typeof ApiGmailDisconnectRoute
+  '/api/gmail/prepare-send': typeof ApiGmailPrepareSendRoute
+  '/api/gmail/send': typeof ApiGmailSendRoute
+  '/api/gmail/status': typeof ApiGmailStatusRoute
   '/api/public/answer': typeof ApiPublicAnswerRoute
   '/api/public/brain': typeof ApiPublicBrainRoute
   '/api/public/image': typeof ApiPublicImageRoute
   '/api/public/song': typeof ApiPublicSongRoute
   '/api/public/video': typeof ApiPublicVideoRoute
+  '/api/gmail/messages/$id': typeof ApiGmailMessagesIdRoute
+  '/api/gmail/messages/': typeof ApiGmailMessagesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/gmail/callback': typeof ApiGmailCallbackRoute
+  '/api/gmail/connect': typeof ApiGmailConnectRoute
+  '/api/gmail/disconnect': typeof ApiGmailDisconnectRoute
+  '/api/gmail/prepare-send': typeof ApiGmailPrepareSendRoute
+  '/api/gmail/send': typeof ApiGmailSendRoute
+  '/api/gmail/status': typeof ApiGmailStatusRoute
   '/api/public/answer': typeof ApiPublicAnswerRoute
   '/api/public/brain': typeof ApiPublicBrainRoute
   '/api/public/image': typeof ApiPublicImageRoute
   '/api/public/song': typeof ApiPublicSongRoute
   '/api/public/video': typeof ApiPublicVideoRoute
+  '/api/gmail/messages/$id': typeof ApiGmailMessagesIdRoute
+  '/api/gmail/messages': typeof ApiGmailMessagesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/gmail/callback': typeof ApiGmailCallbackRoute
+  '/api/gmail/connect': typeof ApiGmailConnectRoute
+  '/api/gmail/disconnect': typeof ApiGmailDisconnectRoute
+  '/api/gmail/prepare-send': typeof ApiGmailPrepareSendRoute
+  '/api/gmail/send': typeof ApiGmailSendRoute
+  '/api/gmail/status': typeof ApiGmailStatusRoute
   '/api/public/answer': typeof ApiPublicAnswerRoute
   '/api/public/brain': typeof ApiPublicBrainRoute
   '/api/public/image': typeof ApiPublicImageRoute
   '/api/public/song': typeof ApiPublicSongRoute
   '/api/public/video': typeof ApiPublicVideoRoute
+  '/api/gmail/messages/$id': typeof ApiGmailMessagesIdRoute
+  '/api/gmail/messages/': typeof ApiGmailMessagesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/gmail/callback'
+    | '/api/gmail/connect'
+    | '/api/gmail/disconnect'
+    | '/api/gmail/prepare-send'
+    | '/api/gmail/send'
+    | '/api/gmail/status'
     | '/api/public/answer'
     | '/api/public/brain'
     | '/api/public/image'
     | '/api/public/song'
     | '/api/public/video'
+    | '/api/gmail/messages/$id'
+    | '/api/gmail/messages/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/gmail/callback'
+    | '/api/gmail/connect'
+    | '/api/gmail/disconnect'
+    | '/api/gmail/prepare-send'
+    | '/api/gmail/send'
+    | '/api/gmail/status'
     | '/api/public/answer'
     | '/api/public/brain'
     | '/api/public/image'
     | '/api/public/song'
     | '/api/public/video'
+    | '/api/gmail/messages/$id'
+    | '/api/gmail/messages'
   id:
     | '__root__'
     | '/'
+    | '/api/gmail/callback'
+    | '/api/gmail/connect'
+    | '/api/gmail/disconnect'
+    | '/api/gmail/prepare-send'
+    | '/api/gmail/send'
+    | '/api/gmail/status'
     | '/api/public/answer'
     | '/api/public/brain'
     | '/api/public/image'
     | '/api/public/song'
     | '/api/public/video'
+    | '/api/gmail/messages/$id'
+    | '/api/gmail/messages/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiGmailCallbackRoute: typeof ApiGmailCallbackRoute
+  ApiGmailConnectRoute: typeof ApiGmailConnectRoute
+  ApiGmailDisconnectRoute: typeof ApiGmailDisconnectRoute
+  ApiGmailPrepareSendRoute: typeof ApiGmailPrepareSendRoute
+  ApiGmailSendRoute: typeof ApiGmailSendRoute
+  ApiGmailStatusRoute: typeof ApiGmailStatusRoute
   ApiPublicAnswerRoute: typeof ApiPublicAnswerRoute
   ApiPublicBrainRoute: typeof ApiPublicBrainRoute
   ApiPublicImageRoute: typeof ApiPublicImageRoute
   ApiPublicSongRoute: typeof ApiPublicSongRoute
   ApiPublicVideoRoute: typeof ApiPublicVideoRoute
+  ApiGmailMessagesIdRoute: typeof ApiGmailMessagesIdRoute
+  ApiGmailMessagesIndexRoute: typeof ApiGmailMessagesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +219,48 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/callback': {
+      id: '/api/gmail/callback'
+      path: '/api/gmail/callback'
+      fullPath: '/api/gmail/callback'
+      preLoaderRoute: typeof ApiGmailCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/connect': {
+      id: '/api/gmail/connect'
+      path: '/api/gmail/connect'
+      fullPath: '/api/gmail/connect'
+      preLoaderRoute: typeof ApiGmailConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/disconnect': {
+      id: '/api/gmail/disconnect'
+      path: '/api/gmail/disconnect'
+      fullPath: '/api/gmail/disconnect'
+      preLoaderRoute: typeof ApiGmailDisconnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/prepare-send': {
+      id: '/api/gmail/prepare-send'
+      path: '/api/gmail/prepare-send'
+      fullPath: '/api/gmail/prepare-send'
+      preLoaderRoute: typeof ApiGmailPrepareSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/send': {
+      id: '/api/gmail/send'
+      path: '/api/gmail/send'
+      fullPath: '/api/gmail/send'
+      preLoaderRoute: typeof ApiGmailSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/status': {
+      id: '/api/gmail/status'
+      path: '/api/gmail/status'
+      fullPath: '/api/gmail/status'
+      preLoaderRoute: typeof ApiGmailStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/answer': {
@@ -152,16 +298,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/gmail/messages/': {
+      id: '/api/gmail/messages/'
+      path: '/api/gmail/messages'
+      fullPath: '/api/gmail/messages/'
+      preLoaderRoute: typeof ApiGmailMessagesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/gmail/messages/$id': {
+      id: '/api/gmail/messages/$id'
+      path: '/api/gmail/messages/$id'
+      fullPath: '/api/gmail/messages/$id'
+      preLoaderRoute: typeof ApiGmailMessagesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiGmailCallbackRoute: ApiGmailCallbackRoute,
+  ApiGmailConnectRoute: ApiGmailConnectRoute,
+  ApiGmailDisconnectRoute: ApiGmailDisconnectRoute,
+  ApiGmailPrepareSendRoute: ApiGmailPrepareSendRoute,
+  ApiGmailSendRoute: ApiGmailSendRoute,
+  ApiGmailStatusRoute: ApiGmailStatusRoute,
   ApiPublicAnswerRoute: ApiPublicAnswerRoute,
   ApiPublicBrainRoute: ApiPublicBrainRoute,
   ApiPublicImageRoute: ApiPublicImageRoute,
   ApiPublicSongRoute: ApiPublicSongRoute,
   ApiPublicVideoRoute: ApiPublicVideoRoute,
+  ApiGmailMessagesIdRoute: ApiGmailMessagesIdRoute,
+  ApiGmailMessagesIndexRoute: ApiGmailMessagesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
