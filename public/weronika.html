@@ -1578,23 +1578,30 @@
     function createOrbScene(container) {
       const width = container.clientWidth;
       const height = container.clientHeight;
+      const deviceMemory = navigator.deviceMemory || 8;
+      const lowPowerDevice = (navigator.hardwareConcurrency || 8) <= 4 || deviceMemory <= 4 || window.innerWidth <= 720;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const maxPixelRatio = lowPowerDevice ? 1 : 1.35;
+      const frameInterval = lowPowerDevice || reducedMotion ? 1000 / 24 : 1000 / 30;
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 500);
       const HOME_POSITION = new THREE.Vector3(0, 0.5, 5.5);
       const MIN_DISTANCE = 0.6;
       const MAX_DISTANCE = 40;
       camera.position.copy(HOME_POSITION);
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: !lowPowerDevice });
       renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 0.8;
       container.appendChild(renderer.domElement);
 
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), 1.8, 0.4, 0.2);
-      composer.addPass(bloom);
+      const bloom = lowPowerDevice
+        ? null
+        : new UnrealBloomPass(new THREE.Vector2(width, height), 1.8, 0.4, 0.2);
+      if (bloom) composer.addPass(bloom);
 
       const chromaticShader = {
         uniforms: {
@@ -1606,8 +1613,8 @@
         vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
         fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime; uniform float uIntensity; uniform float uTech; varying vec2 vUv; void main() { vec2 dir = vUv - vec2(0.5); float d = length(dir); float offset = uIntensity * d; float flicker = 1.0 + 0.02 * sin(uTime * 30.0) * sin(uTime * 7.3); vec4 cr = texture2D(tDiffuse, vUv + dir * offset); vec4 cg = texture2D(tDiffuse, vUv); vec4 cb = texture2D(tDiffuse, vUv - dir * offset * 0.5); vec3 col = vec3(cr.r, cg.g, cb.b); if (uTech > 0.5) { gl_FragColor = vec4(col, 1.0) * flicker; } else { gl_FragColor = vec4(cr.r, cg.g * 1.05, cb.b * 0.6, 1.0) * flicker; gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * vec3(1.15, 0.85, 0.55), 0.3); } }`,
       };
-      const chromaticPass = new ShaderPass(chromaticShader);
-      composer.addPass(chromaticPass);
+      const chromaticPass = lowPowerDevice ? null : new ShaderPass(chromaticShader);
+      if (chromaticPass) composer.addPass(chromaticPass);
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
@@ -1672,7 +1679,7 @@
         const isMajor = i % 6 === 0;
         outerShell.add(new THREE.Line(meridian(R1, lon), lineMat(isMajor ? C_MID : C_FAINT, isMajor ? 0.6 : 0.1)));
       }
-      const CROSS_LINES = 18;
+      const CROSS_LINES = lowPowerDevice ? 12 : 18;
       const CROSS_SPREAD = 0.25;
       for (let i = 0; i < 4; i++) {
         const lon = (i / 4) * Math.PI * 2;
@@ -1685,7 +1692,7 @@
           outerShell.add(new THREE.Line(meridian(R1, lon + offset, 200), lineMat(color, opacity)));
         }
       }
-      const EQ_LINES = 20;
+      const EQ_LINES = lowPowerDevice ? 14 : 20;
       const EQ_SPREAD = 0.35;
       for (let j = 0; j < EQ_LINES; j++) {
         const t = (j / (EQ_LINES - 1)) * 2 - 1;
@@ -1721,7 +1728,7 @@
         }
         return group;
       }
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < (lowPowerDevice ? 18 : 30); i++) {
         const lat = (Math.random() - 0.5) * Math.PI * 0.8;
         const lon = Math.random() * Math.PI * 2;
         const size = 0.15 + Math.random() * 0.25;
@@ -1731,7 +1738,7 @@
 
       const shell2 = new THREE.Group();
       const R2 = 2.12;
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < (lowPowerDevice ? 10 : 16); i++) {
         const lat = (Math.random() - 0.5) * Math.PI * 0.85;
         const startLon = Math.random() * Math.PI * 2;
         const arcLen = 0.3 + Math.random() * 1.2;
@@ -1745,7 +1752,7 @@
         }
         shell2.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat(C_MID, 0.2 + Math.random() * 0.3)));
       }
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < (lowPowerDevice ? 8 : 12); i++) {
         const lon = Math.random() * Math.PI * 2;
         const startLat = (Math.random() - 0.5) * Math.PI * 0.8;
         const arcLen = 0.3 + Math.random() * 0.8;
@@ -1761,7 +1768,7 @@
 
       const innerCore = new THREE.Group();
       const R3 = 0.9;
-      for (let s = 0; s < 8; s++) {
+      for (let s = 0; s < (lowPowerDevice ? 6 : 8); s++) {
         const pts = [];
         const turns = 3 + Math.random() * 2;
         const segs = 300;
@@ -1840,11 +1847,11 @@
         return group;
       }
 
-      const textOuter = scatterText(1200, () => 0.04 + Math.random() * 0.04, () => R1 + 0.03 + Math.random() * 0.08, [0.0002, 0.0008]);
+      const textOuter = scatterText(lowPowerDevice ? 360 : 650, () => 0.04 + Math.random() * 0.04, () => R1 + 0.03 + Math.random() * 0.08, [0.0002, 0.0008]);
       orbGroup.add(textOuter);
-      const textInner = scatterText(100, () => 0.03 + Math.random() * 0.03, () => R3 + 0.02, [0.0005, 0.001]);
+      const textInner = scatterText(lowPowerDevice ? 35 : 60, () => 0.03 + Math.random() * 0.03, () => R3 + 0.02, [0.0005, 0.001]);
       orbGroup.add(textInner);
-      const textAmbient = scatterText(400, () => 0.03, () => R3 + 0.2 + Math.random() * (R1 - R3 - 0.3), [0.0003, 0.0006]);
+      const textAmbient = scatterText(lowPowerDevice ? 125 : 220, () => 0.03, () => R3 + 0.2 + Math.random() * (R1 - R3 - 0.3), [0.0003, 0.0006]);
       orbGroup.add(textAmbient);
 
       const debrisGeos = [
@@ -1856,7 +1863,7 @@
         new THREE.OctahedronGeometry(0.018, 0),
       ];
       const debris = [];
-      for (let i = 0; i < 250; i++) {
+      for (let i = 0; i < (lowPowerDevice ? 85 : 150); i++) {
         const geo = debrisGeos[Math.floor(Math.random() * debrisGeos.length)];
         const mat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.7 ? C_BRIGHT : C_MID, transparent: true, opacity: 0.3 + Math.random() * 0.6, blending: THREE.AdditiveBlending });
         const mesh = new THREE.Mesh(geo, mat);
@@ -1879,7 +1886,7 @@
         }
       }
 
-      const dustCount = 2000;
+      const dustCount = lowPowerDevice ? 700 : 1200;
       const dustPos = new Float32Array(dustCount * 3);
       for (let i = 0; i < dustCount; i++) {
         const rr = 0.5 + Math.pow(Math.random(), 0.6) * 7;
@@ -1906,7 +1913,7 @@
       orbGroup.add(dustPoints);
 
       function makeScanRing(radius, thickness = 0.015) {
-        const geo = new THREE.RingGeometry(radius - thickness, radius + thickness, 120);
+        const geo = new THREE.RingGeometry(radius - thickness, radius + thickness, lowPowerDevice ? 72 : 120);
         const mat = new THREE.MeshBasicMaterial({ color: C_BRIGHT, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.rotation.x = Math.PI / 2;
@@ -1960,7 +1967,7 @@
       function setTechVisual(on) {
         techMode = on;
         orbGroup.visible = !on;
-        chromaticPass.uniforms.uTech.value = on ? 1 : 0;
+        if (chromaticPass) chromaticPass.uniforms.uTech.value = on ? 1 : 0;
       }
 
       function resetView() {
@@ -1980,83 +1987,110 @@
       let flickerTimer = 0;
       let rafId = 0;
       let disposed = false;
+      let lastFrameTime = 0;
+      let lastHudSync = 0;
 
-      function animate() {
-        if (disposed) return;
+      function animate(now = performance.now()) {
+        if (disposed || document.hidden) {
+          rafId = 0;
+          return;
+        }
         rafId = requestAnimationFrame(animate);
+        if (now - lastFrameTime < frameInterval) return;
+        const deltaSeconds = lastFrameTime ? Math.min((now - lastFrameTime) / 1000, 0.1) : frameInterval / 1000;
+        const frameScale = Math.min(deltaSeconds / (1000 / 60), 3) * (reducedMotion ? 0.6 : 1);
+        lastFrameTime = now;
         const t = clock.getElapsedTime();
-        outerShell.rotation.y += 0.0015;
-        outerShell.rotation.x = Math.sin(t * 0.08) * 0.05;
-        panelGroup.rotation.y += 0.0018;
-        panelGroup.rotation.x = Math.sin(t * 0.08 + 0.5) * 0.04;
-        shell2.rotation.y -= 0.001;
-        shell2.rotation.z = Math.sin(t * 0.12) * 0.03;
-        innerCore.rotation.y -= 0.005;
-        innerCore.rotation.z += 0.002;
-        innerCore.rotation.x = Math.cos(t * 0.1) * 0.08;
-        icoWire.rotation.x += 0.008;
-        icoWire.rotation.y += 0.012;
-        const wave1 = Math.sin(t * 1.2);
-        const wave3 = Math.pow(Math.max(0, Math.sin(t * 0.4)), 5);
-        const wave4 = Math.pow(Math.max(0, Math.sin(t * 0.7 + 2)), 8);
-        const fadeOut = Math.pow(Math.max(0, Math.sin(t * 0.25)), 3);
-        const surge = wave3 * 1.5 + wave4 * 2.0;
-        const coreScale = 1 + surge + Math.sin(t * 5) * 0.05;
-        coreSphere.scale.setScalar(coreScale);
-        const coreOpacity = Math.max(0, (0.08 + wave1 * 0.05 + surge * 0.2) * (1 - fadeOut * 0.95));
-        coreSphereMat.opacity = Math.min(0.6, coreOpacity);
-        glowSphere.scale.setScalar(1 + surge * 0.8);
-        glowSphereMat.opacity = Math.max(0, (0.03 + surge * 0.08) * (1 - fadeOut * 0.9));
-        icoWire.scale.setScalar(1 + surge * 0.6);
-        icoWireMat.opacity = Math.min(1, 0.5 + surge * 0.4);
-        debris.forEach((d) => {
-          const u = d.userData;
-          const a = t * u.speed + u.phase;
-          d.position.set(u.orbitR * Math.cos(a) * Math.cos(u.tiltX), u.orbitR * Math.sin(u.tiltX) * Math.sin(a * 0.8) + Math.sin(a * 0.3 + u.tiltZ) * 0.2, u.orbitR * Math.sin(a) * Math.cos(u.tiltZ));
-          d.rotation.x += 0.015;
-          d.rotation.z += 0.01;
-        });
-        [[textOuter, 1], [textInner, 2], [textAmbient, 1.2]].forEach(([group, mult]) => {
-          group.children.forEach((sp) => {
-            const u = sp.userData;
-            u.theta += u.speed * mult;
-            sp.position.set(u.r * Math.sin(u.phi) * Math.cos(u.theta), u.r * Math.cos(u.phi), u.r * Math.sin(u.phi) * Math.sin(u.theta));
+        if (!techMode) {
+          outerShell.rotation.y += 0.0015 * frameScale;
+          outerShell.rotation.x = Math.sin(t * 0.08) * 0.05;
+          panelGroup.rotation.y += 0.0018 * frameScale;
+          panelGroup.rotation.x = Math.sin(t * 0.08 + 0.5) * 0.04;
+          shell2.rotation.y -= 0.001 * frameScale;
+          shell2.rotation.z = Math.sin(t * 0.12) * 0.03;
+          innerCore.rotation.y -= 0.005 * frameScale;
+          innerCore.rotation.z += 0.002 * frameScale;
+          innerCore.rotation.x = Math.cos(t * 0.1) * 0.08;
+          icoWire.rotation.x += 0.008 * frameScale;
+          icoWire.rotation.y += 0.012 * frameScale;
+          const wave1 = Math.sin(t * 1.2);
+          const wave3 = Math.pow(Math.max(0, Math.sin(t * 0.4)), 5);
+          const wave4 = Math.pow(Math.max(0, Math.sin(t * 0.7 + 2)), 8);
+          const fadeOut = Math.pow(Math.max(0, Math.sin(t * 0.25)), 3);
+          const surge = wave3 * 1.5 + wave4 * 2.0;
+          const coreScale = 1 + surge + Math.sin(t * 5) * 0.05;
+          coreSphere.scale.setScalar(coreScale);
+          const coreOpacity = Math.max(0, (0.08 + wave1 * 0.05 + surge * 0.2) * (1 - fadeOut * 0.95));
+          coreSphereMat.opacity = Math.min(0.6, coreOpacity);
+          glowSphere.scale.setScalar(1 + surge * 0.8);
+          glowSphereMat.opacity = Math.max(0, (0.03 + surge * 0.08) * (1 - fadeOut * 0.9));
+          icoWire.scale.setScalar(1 + surge * 0.6);
+          icoWireMat.opacity = Math.min(1, 0.5 + surge * 0.4);
+          debris.forEach((d) => {
+            const u = d.userData;
+            const a = t * u.speed + u.phase;
+            d.position.set(u.orbitR * Math.cos(a) * Math.cos(u.tiltX), u.orbitR * Math.sin(u.tiltX) * Math.sin(a * 0.8) + Math.sin(a * 0.3 + u.tiltZ) * 0.2, u.orbitR * Math.sin(a) * Math.cos(u.tiltZ));
+            d.rotation.x += 0.015 * frameScale;
+            d.rotation.z += 0.01 * frameScale;
           });
-        });
-        const scanY1 = Math.sin(t * 0.4) * R1;
-        scanRing1.position.y = scanY1;
-        const scanS1 = Math.sqrt(Math.max(0, R1 * R1 - scanY1 * scanY1)) / R1;
-        scanRing1.scale.set(scanS1, scanS1, 1);
-        scanRing1.material.opacity = 0.2 * scanS1;
-        const scanY2 = Math.sin(t * 0.6 + 2) * R3;
-        scanRing2.position.y = scanY2;
-        const scanS2 = Math.sqrt(Math.max(0, R3 * R3 - scanY2 * scanY2)) / R3;
-        scanRing2.scale.set(scanS2, scanS2, 1);
-        scanRing2.material.opacity = 0.15 * scanS2;
-        dustPoints.rotation.y += 0.0002;
+          [[textOuter, 1], [textInner, 2], [textAmbient, 1.2]].forEach(([group, mult]) => {
+            group.children.forEach((sp) => {
+              const u = sp.userData;
+              u.theta += u.speed * mult * frameScale;
+              sp.position.set(u.r * Math.sin(u.phi) * Math.cos(u.theta), u.r * Math.cos(u.phi), u.r * Math.sin(u.phi) * Math.sin(u.theta));
+            });
+          });
+          const scanY1 = Math.sin(t * 0.4) * R1;
+          scanRing1.position.y = scanY1;
+          const scanS1 = Math.sqrt(Math.max(0, R1 * R1 - scanY1 * scanY1)) / R1;
+          scanRing1.scale.set(scanS1, scanS1, 1);
+          scanRing1.material.opacity = 0.2 * scanS1;
+          const scanY2 = Math.sin(t * 0.6 + 2) * R3;
+          scanRing2.position.y = scanY2;
+          const scanS2 = Math.sqrt(Math.max(0, R3 * R3 - scanY2 * scanY2)) / R3;
+          scanRing2.scale.set(scanS2, scanS2, 1);
+          scanRing2.material.opacity = 0.15 * scanS2;
+          dustPoints.rotation.y += 0.0002 * frameScale;
+          flickerTimer += deltaSeconds;
+          if (flickerTimer > 0.1) {
+            flickerTimer = 0;
+            panelGroup.children.forEach((p) => {
+              if (Math.random() > 0.95) p.visible = !p.visible;
+            });
+          }
+        }
         if (techMode) {
           technical.tick(t);
           // VRM materials can contain bright emissive maps. Keep the blueprint
           // bloom subtle so avatars retain their original colors and silhouette.
-          bloom.strength = 0.08;
-          bloom.threshold = 0.82;
-        } else {
+          if (bloom) {
+            bloom.strength = 0.08;
+            bloom.threshold = 0.82;
+          }
+        } else if (bloom) {
           bloom.strength = 1.6 + Math.sin(t * 0.8) * 0.3;
           bloom.threshold = 0.2;
         }
-        flickerTimer += 0.016;
-        if (flickerTimer > 0.1) {
-          flickerTimer = 0;
-          panelGroup.children.forEach((p) => {
-            if (Math.random() > 0.95) p.visible = !p.visible;
-          });
+        if (techMode && t - lastHudSync >= 0.16) {
+          lastHudSync = t;
+          syncTechnicalHud();
         }
-        chromaticPass.uniforms.uTime.value = t;
+        if (chromaticPass) chromaticPass.uniforms.uTime.value = t;
         controls.update();
         composer.render();
       }
 
-      animate();
+      function onVisibilityChange() {
+        if (document.hidden) {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+          return;
+        }
+        lastFrameTime = 0;
+        if (!disposed && !rafId) rafId = requestAnimationFrame(animate);
+      }
+      document.addEventListener("visibilitychange", onVisibilityChange);
+      rafId = requestAnimationFrame(animate);
 
       function onResize() {
         const w = container.clientWidth;
@@ -2072,6 +2106,7 @@
         disposed = true;
         cancelAnimationFrame(rafId);
         window.removeEventListener("resize", onResize);
+        document.removeEventListener("visibilitychange", onVisibilityChange);
         controls.dispose();
         scene.traverse((obj) => {
           const mesh = obj;
@@ -4141,7 +4176,8 @@
       if (gmailStatus) gmailStatus.textContent = "Gmail connected. Select messages below; nothing is sent to AI unless you choose an action.";
     }
     refreshGmailStatus();
-    setInterval(syncTechnicalHud, 120);
+    // Technical HUD updates are synchronized with Blueprint rendering to avoid a
+    // separate always-running timer while the user is chatting with the orb.
 
   </script>
 

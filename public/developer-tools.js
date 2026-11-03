@@ -1,60 +1,62 @@
 const WORKSPACE_STYLE = `
-  .devtools-panel { position:fixed; z-index:55; inset:3vh 2vw; display:flex; flex-direction:column; min-width:320px; color:#dce6f2; background:#17191e; border:1px solid #343943; border-radius:8px; box-shadow:0 24px 90px #000d,0 0 35px #008cff24; font:13px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; overflow:hidden; }
+  .devtools-panel { position:fixed; z-index:55; inset:3vh 2vw; display:flex; flex-direction:column; min-width:320px; color:#d9efff; background:radial-gradient(ellipse at 48% -30%,#123f62 0%,#081a2c 48%,#050d18 100%); border:1px solid #168acb; border-radius:8px; box-shadow:0 24px 90px #000e,0 0 35px #00aaff24,inset 0 0 26px #168acb0c; font:13px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; overflow:hidden; }
   .devtools-panel[hidden] { display:none; }
-  .devtools-top { display:flex; align-items:center; gap:14px; min-height:42px; padding:6px 12px; background:#202329; border-bottom:1px solid #ffffff12; }
-  .devtools-brand { color:#e3e8f0; font-size:12px; font-weight:600; letter-spacing:.04em; margin-right:auto; }
-  .devtools-subtitle { color:#858d9b; font-size:11px; }
-  .devtools-close { border:0; border-radius:4px; color:#ccd3df; background:transparent; padding:5px 10px; cursor:pointer; font-size:18px; }
-  .devtools-close:hover { background:#ffffff13; color:#fff; }
+  .devtools-top { display:flex; align-items:center; gap:14px; min-height:42px; padding:6px 12px; background:linear-gradient(100deg,#0c2b44,#0a1d31 58%,#0b2942); border-bottom:1px solid #20b8ff55; box-shadow:0 2px 15px #008cff16; }
+  .devtools-brand { color:#e6f8ff; font-size:12px; font-weight:700; letter-spacing:.13em; margin-right:auto; text-shadow:0 0 12px #22baff66; }
+  .devtools-subtitle { color:#72b6d9; font-size:10px; letter-spacing:.13em; }
+  .devtools-close { border:1px solid #3da9d955; border-radius:4px; color:#bdeaff; background:#08233a; padding:4px 10px; cursor:pointer; font-size:18px; transition:background .15s,border-color .15s; }
+  .devtools-close:hover { background:#10486a; border-color:#5bd3ff; color:#fff; }
   .devtools-body { flex:1; min-height:0; display:flex; padding:0; }
   .workspace-main { flex:1; min-height:0; display:grid; grid-template-columns:220px minmax(0,1fr) 345px; }
-  .workspace-explorer { display:flex; flex-direction:column; min-height:0; background:#181a1f; border-right:1px solid #ffffff12; }
-  .workspace-pane-heading { display:flex; align-items:center; justify-content:space-between; min-height:35px; padding:0 10px; color:#c5cbd5; font-size:10px; font-weight:700; letter-spacing:.1em; border-bottom:1px solid #ffffff0e; }
-  .workspace-project-title { padding:9px 10px 5px; color:#bfc7d4; font-size:11px; font-weight:600; }
+  .workspace-explorer { display:flex; flex-direction:column; min-height:0; background:linear-gradient(180deg,#091b2c,#071321); border-right:1px solid #1376a744; }
+  .workspace-pane-heading { display:flex; align-items:center; justify-content:space-between; min-height:35px; padding:0 10px; color:#77c9f0; font-size:10px; font-weight:700; letter-spacing:.14em; border-bottom:1px solid #168acb30; }
+  .workspace-project-title { padding:9px 10px 5px; color:#a6d9f1; font-size:11px; font-weight:600; }
   .devtools-files { flex:1; overflow:auto; padding:5px 4px 12px; }
-  .devtools-file { display:block; width:100%; text-align:left; border:0; border-radius:3px; padding:5px 7px; color:#aeb8c8; background:transparent; font:12px/1.4 "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .devtools-file:hover,.devtools-file.active { background:#ffffff0d; color:#fff; }
-  .workspace-editor-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#1e1f22; }
-  .devtools-toolbar { display:flex; gap:6px; align-items:center; min-height:38px; flex-wrap:wrap; padding:5px 8px; background:#25272d; border-bottom:1px solid #ffffff10; }
-  .devtools-toolbar input { min-width:70px; flex:1; border:1px solid transparent; background:#1b1d22; color:#e8edf5; border-radius:4px; padding:6px 8px; font:11px ui-monospace,Consolas,monospace; }
-  .devtools-toolbar input:focus { outline:1px solid #388bfd; }
-  .devtools-btn { border:1px solid #454a55; color:#c9d2df; background:#2b2e35; border-radius:4px; padding:5px 8px; font:11px "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
-  .devtools-btn:hover { background:#363b45; color:#fff; }
-  .devtools-btn.warn { color:#ffb19b; border-color:#ff775570; }
-  .devtools-status { min-height:19px; padding:2px 9px; color:#8e98a7; background:#1e1f22; font-size:10px; }
+  .devtools-file { display:block; width:100%; text-align:left; border:0; border-left:2px solid transparent; border-radius:3px; padding:5px 7px; color:#9bb9cc; background:transparent; font:12px/1.4 "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .devtools-file:hover { background:#0b2b43; color:#e0f5ff; }
+  .devtools-file.active { background:linear-gradient(90deg,#0e4263,#0a263b); border-left-color:#36c5ff; color:#f0fbff; box-shadow:inset 0 0 14px #0a9cdc18; }
+  .workspace-editor-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#071321; }
+  .devtools-toolbar { display:flex; gap:6px; align-items:center; min-height:38px; flex-wrap:wrap; padding:5px 8px; background:#0a1c2d; border-bottom:1px solid #168acb33; }
+  .devtools-toolbar input { min-width:70px; flex:1; border:1px solid #1c4b68; background:#061522; color:#d9f1ff; border-radius:4px; padding:6px 8px; font:11px ui-monospace,Consolas,monospace; }
+  .devtools-toolbar input:focus { outline:1px solid #35bfff; box-shadow:0 0 0 2px #138bca35; }
+  .devtools-btn { border:1px solid #26658b; color:#bce8fa; background:linear-gradient(180deg,#10334d,#0a2237); border-radius:4px; padding:5px 8px; font:11px "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; transition:background .15s,border-color .15s; }
+  .devtools-btn:hover { background:#145075; border-color:#3bbcff; color:#fff; }
+  .devtools-btn.warn { color:#ffbdad; border-color:#b6525170; }
+  .devtools-status { min-height:19px; padding:2px 9px; color:#73a9c5; background:#081827; font-size:10px; }
   .devtools-status.error { color:#ff9c88; }
   .devtools-editor-column { display:flex; flex:1; flex-direction:column; min-width:0; min-height:0; }
-  .devtools-editor-tabs { display:flex; min-height:35px; overflow-x:auto; background:#25272d; border-bottom:1px solid #ffffff12; }
-  .devtools-file-tab { display:flex; align-items:center; gap:11px; flex:0 0 auto; padding:5px 10px; color:#aeb8c8; background:#25272d; border-right:1px solid #ffffff0c; border-top:1px solid transparent; font-size:11px; cursor:pointer; }
-  .devtools-file-tab.active { color:#f0f4fa; background:#1e1f22; border-top-color:#388bfd; }
+  .devtools-editor-tabs { display:flex; min-height:35px; overflow-x:auto; background:#091a2a; border-bottom:1px solid #168acb33; }
+  .devtools-file-tab { display:flex; align-items:center; gap:11px; flex:0 0 auto; padding:5px 10px; color:#91b4c9; background:#0a1b2a; border-right:1px solid #168acb20; border-top:1px solid transparent; font-size:11px; cursor:pointer; }
+  .devtools-file-tab.active { color:#e6f8ff; background:#071321; border-top-color:#38c5ff; }
   .devtools-tab-name { color:inherit; border:0; background:transparent; font:inherit; cursor:pointer; }
-  .devtools-tab-close { color:#8994a2; border:0; background:transparent; cursor:pointer; font:inherit; }
+  .devtools-tab-close { color:#74a2ba; border:0; background:transparent; cursor:pointer; font:inherit; }
   .devtools-tab-close:hover { color:#fff; }
-  .devtools-editor-wrap { display:flex; flex:1; min-width:0; min-height:0; background:#1e1f22; overflow:hidden; }
-  .devtools-gutter { flex:0 0 auto; width:48px; overflow:hidden; padding:12px 8px; color:#737985; text-align:right; white-space:pre; line-height:1.55; user-select:none; font:12px/1.55 ui-monospace,Consolas,monospace; }
-  .devtools-editor { flex:1; min-width:0; min-height:0; resize:none; border:0; outline:0; padding:12px; color:#dce3ed; background:transparent; font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
-  .workspace-agent-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#191b20; border-left:1px solid #ffffff12; }
-  .workspace-agent-head { display:flex; align-items:center; gap:8px; min-height:41px; padding:0 12px; border-bottom:1px solid #ffffff12; color:#e5ebf4; font-size:12px; font-weight:600; }
-  .workspace-agent-dot { width:7px; height:7px; border-radius:50%; background:#3fb950; box-shadow:0 0 8px #3fb95088; }
+  .devtools-editor-wrap { display:flex; flex:1; min-width:0; min-height:0; background:#071321; overflow:hidden; }
+  .devtools-gutter { flex:0 0 auto; width:48px; overflow:hidden; padding:12px 8px; color:#42657b; text-align:right; white-space:pre; line-height:1.55; user-select:none; font:12px/1.55 ui-monospace,Consolas,monospace; }
+  .devtools-editor { flex:1; min-width:0; min-height:0; resize:none; border:0; outline:0; padding:12px; color:#cce8f7; background:transparent; caret-color:#41cdff; font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
+  .workspace-agent-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:linear-gradient(180deg,#091d30,#071523); border-left:1px solid #168acb44; }
+  .workspace-agent-head { display:flex; align-items:center; gap:8px; min-height:41px; padding:0 12px; border-bottom:1px solid #168acb33; color:#dff6ff; font-size:12px; font-weight:700; letter-spacing:.1em; }
+  .workspace-agent-dot { width:7px; height:7px; border-radius:50%; background:#35d3ff; box-shadow:0 0 8px #35caffaa; }
   .workspace-chat-messages { flex:1; min-height:0; overflow:auto; padding:13px 11px; display:flex; flex-direction:column; gap:11px; }
-  .workspace-chat-message { padding:9px 10px; border-radius:6px; white-space:pre-wrap; overflow-wrap:anywhere; color:#cbd4e0; background:#22252b; font-size:12px; line-height:1.5; }
-  .workspace-chat-message.user { color:#e0ebfa; background:#202a39; border-left:2px solid #388bfd; }
-  .workspace-chat-message.assistant { border-left:2px solid #6e7681; }
-  .workspace-chat-message.system { color:#8792a0; background:transparent; padding:2px 4px; font-size:10px; }
-  .workspace-chat-welcome { color:#8893a2; padding:5px 4px; font-size:11px; line-height:1.55; }
-  .workspace-chat-composer { padding:10px; border-top:1px solid #ffffff12; background:#1d1f24; }
-  .workspace-prompt { width:100%; min-height:86px; max-height:220px; resize:vertical; padding:10px; border:1px solid #454a55; border-radius:6px; color:#e4ebf5; background:#24272e; font:12px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; outline:none; }
-  .workspace-prompt:focus { border-color:#388bfd; box-shadow:0 0 0 1px #388bfd55; }
+  .workspace-chat-message { padding:9px 10px; border-radius:6px; white-space:pre-wrap; overflow-wrap:anywhere; color:#bfdae9; background:#0c263a; border:1px solid #16436366; font-size:12px; line-height:1.5; }
+  .workspace-chat-message.user { color:#e6f7ff; background:linear-gradient(110deg,#0c3c5b,#102d47); border-left:2px solid #34c5ff; }
+  .workspace-chat-message.assistant { border-left:2px solid #31a5e3; }
+  .workspace-chat-message.system { color:#6f9bb3; background:transparent; border:0; padding:2px 4px; font-size:10px; }
+  .workspace-chat-welcome { color:#86acc2; padding:5px 4px; font-size:11px; line-height:1.55; }
+  .workspace-chat-composer { padding:10px; border-top:1px solid #168acb35; background:#081827; }
+  .workspace-prompt { width:100%; min-height:86px; max-height:220px; resize:vertical; padding:10px; border:1px solid #205372; border-radius:6px; color:#dff4ff; background:#061522; font:12px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; outline:none; }
+  .workspace-prompt:focus { border-color:#35c5ff; box-shadow:0 0 0 1px #149bd655; }
   .workspace-composer-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:8px; }
-  .workspace-chat-hint { color:#7e8794; font-size:9px; }
-  .workspace-build { color:#f0f6fc; border-color:#388bfd; background:#1765ad; }
-  .workspace-build:hover { background:#1f78cc; }
+  .workspace-chat-hint { color:#6891a7; font-size:9px; }
+  .workspace-build { color:#f0fbff; border-color:#36b8f4; background:linear-gradient(180deg,#087cb3,#075887); box-shadow:0 0 14px #00aeff20; }
+  .workspace-build:hover { background:linear-gradient(180deg,#109dd7,#0878b2); }
   .workspace-build:disabled { opacity:.55; cursor:wait; }
-  .workspace-statusbar { display:flex; gap:14px; align-items:center; min-height:23px; padding:3px 11px; color:#d5e8ff; background:#12689f; font-size:10px; }
+  .workspace-statusbar { display:flex; gap:14px; align-items:center; min-height:23px; padding:3px 11px; color:#e1f5ff; background:linear-gradient(90deg,#075b89,#0b456b); border-top:1px solid #37bbf477; font-size:10px; }
   .workspace-statusbar span:last-child { margin-left:auto; }
   @media(max-width:1000px) { .workspace-main { grid-template-columns:185px minmax(0,1fr) 300px; } }
-  @media(max-width:780px) { .devtools-panel { inset:1vh 1vw; } .workspace-main { grid-template-columns:160px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 260px; } .workspace-explorer { grid-row:1 / 3; } .workspace-agent-pane { grid-column:2; grid-row:2; border-left:0; border-top:1px solid #ffffff12; } .workspace-editor-pane { grid-column:2; grid-row:1; } .devtools-subtitle { display:none; } }
-  @media(max-width:520px) { .workspace-main { grid-template-columns:115px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 240px; } .devtools-toolbar .run-file { display:none; } .devtools-brand { font-size:11px; } }
+  @media(max-width:780px) { .devtools-panel { inset:1vh 1vw; } .workspace-main { grid-template-columns:160px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 260px; } .workspace-explorer { grid-row:1 / 3; } .workspace-agent-pane { grid-column:2; grid-row:2; border-left:0; border-top:1px solid #168acb44; } .workspace-editor-pane { grid-column:2; grid-row:1; } .devtools-subtitle { display:none; } }
+  @media(max-width:520px) { .workspace-main { grid-template-columns:115px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 240px; } .devtools-toolbar .run-file { display:none; } .devtools-brand { font-size:11px; } .workspace-statusbar { gap:7px; } }
+  @media(prefers-reduced-motion:reduce) { .devtools-btn,.devtools-close { transition:none; } }
 `;
 
 export function createStoredZip(files) {
@@ -169,7 +171,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
           <div class="devtools-editor-column"><div class="devtools-editor-tabs" role="tablist" aria-label="Open files"></div><div class="devtools-editor-wrap"><pre class="devtools-gutter" aria-hidden="true">1</pre><textarea class="devtools-editor" spellcheck="false" aria-label="Code editor" placeholder="Open a file or ask Weronika to create one…"></textarea></div></div>
         </section>
         <aside class="workspace-agent-pane" aria-label="Chat with Weronika">
-          <header class="workspace-agent-head"><span class="workspace-agent-dot"></span><span>WERONIKA</span><span style="margin-left:auto;color:#7e8794;font-size:10px;font-weight:400">AGENT</span></header>
+          <header class="workspace-agent-head"><span class="workspace-agent-dot"></span><span>WERONIKA</span><span style="margin-left:auto;color:#70a8c3;font-size:10px;font-weight:400">AGENT</span></header>
           <div class="workspace-chat-messages" role="log" aria-live="polite"><div class="workspace-chat-welcome">Describe what you want to build, change, or debug. Weronika can draft and revise files across common programming languages. Generated changes open as editable drafts.</div></div>
           <div class="devtools-status workspace-build-status" role="status">Ready · prompts are sent to Weronika’s cloud brain. Open-file context is included; review files before sending.</div>
           <div class="workspace-chat-composer"><textarea class="workspace-prompt" rows="3" maxlength="5000" aria-label="Message Weronika about this project" placeholder="Ask Weronika to build or edit this project…"></textarea><div class="workspace-composer-footer"><span class="workspace-chat-hint">Enter to send · Shift+Enter for a new line</span><button class="devtools-btn workspace-build" type="button">↑ Send</button></div></div>
