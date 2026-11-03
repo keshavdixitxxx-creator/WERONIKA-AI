@@ -70,6 +70,21 @@ assert.match(orb, /class="tech-return" id="techCloseBtn"/);
 assert.match(orb, /addEventListener\("click", returnToOrb\)/);
 assert.match(orb, /bloom\.strength = 0\.08/);
 assert.match(orb, /bloom\.threshold = 0\.82/);
+assert.match(orb, /const lowPowerDevice =/);
+assert.match(
+  orb,
+  /renderer\.setPixelRatio\(Math\.min\(window\.devicePixelRatio \|\| 1, maxPixelRatio\)\)/,
+);
+assert.match(orb, /frameInterval = lowPowerDevice \|\| reducedMotion \? 1000 \/ 24 : 1000 \/ 30/);
+assert.match(orb, /const bloom = lowPowerDevice/);
+assert.match(orb, /const chromaticPass = lowPowerDevice \? null/);
+assert.match(orb, /if \(bloom\) composer\.addPass\(bloom\)/);
+assert.match(orb, /if \(chromaticPass\) composer\.addPass\(chromaticPass\)/);
+assert.match(orb, /document\.addEventListener\("visibilitychange", onVisibilityChange\)/);
+assert.match(orb, /if \(!techMode\) \{/);
+assert.match(orb, /scatterText\(lowPowerDevice \? 360 : 650/);
+assert.match(orb, /dustCount = lowPowerDevice \? 700 : 1200/);
+assert.doesNotMatch(orb, /setInterval\(syncTechnicalHud/);
 assert.match(orb, /GENERATE 3D MODEL/);
 assert.match(orb, /RELIEF PREVIEW/);
 assert.match(orb, /\/api\/blueprint\/reconstruct/);
@@ -82,6 +97,9 @@ const developerTools = readFileSync(
   "utf8",
 );
 assert.match(developerTools, /WORKSPACE/);
+assert.match(developerTools, /radial-gradient\(ellipse at 48% -30%,#123f62/);
+assert.match(developerTools, /border:1px solid #168acb/);
+assert.match(developerTools, /#35c5ff/);
 assert.match(developerTools, /workspace-build/);
 assert.match(developerTools, /openDraftFiles/);
 assert.match(developerTools, /RUN PYTHON/);
