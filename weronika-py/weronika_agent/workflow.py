@@ -9,7 +9,14 @@ from dataclasses import dataclass
 from typing import Callable, Protocol
 
 from .contacts import rank_candidates, unique_exact_match
-from .models import MessageDraft, Platform, RecipientCandidate, VisibleContact, WorkflowStage
+from .models import (
+    MessageDraft,
+    Platform,
+    RecipientCandidate,
+    VisibleContact,
+    WorkflowStage,
+    platform_display,
+)
 
 
 class MessagingError(RuntimeError):
@@ -56,6 +63,19 @@ class MessagingService:
         self._drafts: dict[str, MessageDraft] = {}
         self._lock = threading.RLock()
 
+    def has_unsettled_draft(self) -> bool:
+        """True while a draft the user has not finished is holding the visible app."""
+        unsettled = {
+            WorkflowStage.NEEDS_RECIPIENT,
+            WorkflowStage.AWAITING_RECIPIENT_CHOICE,
+            WorkflowStage.PREPARING,
+            WorkflowStage.AWAITING_CONFIRMATION,
+            WorkflowStage.SENDING,
+        }
+        with self._lock:
+            self._expire_old_drafts(time.time())
+            return any(draft.stage in unsettled for draft in self._drafts.values())
+
     @staticmethod
     def _notify(progress: Callable[[str], None] | None, message: str) -> None:
         if progress is None:
@@ -83,7 +103,7 @@ class MessagingService:
 
         self._notify(progress, "Step 1 of 4 · Validating the requested platform and message.")
         adapter = self._adapter_for(platform)
-        self._notify(progress, f"Step 2 of 4 · Searching visible {platform.value.title()} chats for “{recipient}”.")
+        self._notify(progress, f"Step 2 of 4 · Searching visible {platform_display(platform)} chats for “{recipient}”.")
         names = adapter.find_recipients(recipient)
         candidates = rank_candidates(recipient, names)
         now = time.time()
@@ -258,13 +278,13 @@ class MessagingService:
             for candidate in draft.candidates
         )
         return (
-            f"I found several or similar {draft.platform.value.title()} chats for “{draft.requested_recipient}”. "
+            f"I found several or similar {platform_display(draft.platform)} chats for “{draft.requested_recipient}”. "
             f"Choose the correct chat by number:\n{options}\nNo message has been typed or sent."
         )
 
     @staticmethod
     def _confirmation_prompt(draft: MessageDraft) -> str:
         return (
-            f"I opened {draft.platform.value.title()} chat “{draft.selected_recipient}” and prepared this message:\n\n"
+            f"I opened {platform_display(draft.platform)} chat “{draft.selected_recipient}” and prepared this message:\n\n"
             f"{draft.message}\n\nIt has NOT been sent. Reply ‘confirm send’ or ‘send it’ to send, or ‘cancel’ to clear it."
         )
