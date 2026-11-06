@@ -29,13 +29,14 @@ The cloud brain credentials remain on the server. The browser sends conversation
 
 ## Reply watch (WhatsApp / Telegram)
 
-The orb has a **◎ REPLY WATCH** panel and a matching chat vocabulary. Weronika reads
+The orb has a **◎ REPLY WATCH** panel (⚙ SETTINGS → Tools) and a matching chat vocabulary. Weronika reads
 only the chats you name, in the same local browser window you sign in to, and notices
 when someone messaged you and you have not answered. She then either asks you what to
 reply or drafts a suggested reply — and still waits for `confirm send` before the
 exact text is typed and sent. Replies can also use a file from the local workspace
 (for example a leave policy) or a one-time code you want to forward. A **✧ SKILLS**
-panel lists exactly what the local worker implements and the gaps it will not fake.
+panel, next to it under ⚙ SETTINGS → Tools, lists exactly what the local worker
+implements and the gaps it will not fake.
 
 This needs the local Python worker (`weronika-py`, started with `start.bat`), because
 the browser sessions stay on your computer. The hosted web page alone cannot read

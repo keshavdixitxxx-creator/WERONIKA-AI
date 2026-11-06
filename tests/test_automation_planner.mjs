@@ -22,7 +22,10 @@ assert.match(prompt, /Use intent "write_code"/);
 assert.match(prompt, /Use intent "browse"/);
 assert.match(prompt, /"play_video" \(open YouTube and start the first result/);
 assert.match(prompt, /always need approval/);
-assert.match(prompt, /Put the subject that words like "this", "it", or "the first result" refer to in context/);
+assert.match(
+  prompt,
+  /Put the subject that words like "this", "it", or "the first result" refer to in context/,
+);
 assert.match(prompt, /1 to 10 objects/);
 assert.match(prompt, /JavaScript\/TypeScript/);
 assert.match(prompt, /whatsapp, telegram, instagram, facebook \(Messenger\), or x/);

@@ -31,7 +31,10 @@ assert.match(orb, /\/api\/task\/cancel/);
 assert.match(orb, /\/api\/browse\/open/);
 assert.match(orb, /\/api\/browse\/capabilities/);
 assert.match(orb, /function browseSystemTarget\(text\)/);
-assert.match(orb, /if \(isBrowserTaskRequest\(text\)\) return await planAndRunBrowserTask\(text, languageOverride\);/);
+assert.match(
+  orb,
+  /if \(isBrowserTaskRequest\(text\)\) return await planAndRunBrowserTask\(text, languageOverride\);/,
+);
 assert.match(orb, /pendingBrowserTask/);
 // plain "open YouTube, Spotify, GitHub" must keep using the existing tab launcher.
 assert.match(orb, /function browseSiteOnly\(text\)/);
@@ -49,7 +52,10 @@ assert.match(planner, /Use intent "browse"/);
 assert.match(planner, /"play_video" \(open YouTube and start the first result/);
 assert.match(planner, /"comment" or "reply"/);
 assert.match(planner, /Split conjunctions into separate steps/);
-assert.match(planner, /Opening a browser application itself \(Edge, Chrome, Firefox\) is not a step/);
+assert.match(
+  planner,
+  /Opening a browser application itself \(Edge, Chrome, Firefox\) is not a step/,
+);
 
 // --- worker -----------------------------------------------------------------------
 assert.match(server, /"\/api\/task\/start"/);

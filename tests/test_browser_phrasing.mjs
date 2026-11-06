@@ -15,12 +15,12 @@ const constants = slice("const BROWSE_SITE_LIST_RE", "function browseSiteOnly(te
 const functions = [
   slice("function browseSiteOnly(text) {", "function isBrowserTaskRequest(text) {"),
   slice("function isBrowserTaskRequest(text) {", "async function readWorkerJson"),
-  slice("function browsePlanFromPrompt(text) {", "async function runBrowserTask(path, payload) {"),
+  slice("const BROWSE_SITE_URLS", "async function runBrowserTask(path, payload) {"),
   slice("const BROWSE_BROWSERS", "async function openInOwnBrowser(target) {"),
 ].join("\n");
 
 const api = new Function(
-  `${constants}\n${functions}\nreturn { browseSiteOnly, isBrowserTaskRequest, browsePlanFromPrompt, browseSystemTarget };`,
+  `${constants}\n${functions}\nreturn { browseSiteOnly, isBrowserTaskRequest, browsePlanFromPrompt, browseSystemTarget, browseSplitClauses };`,
 )();
 
 // --- a plain list of sites must keep using the existing tab launcher --------------
@@ -58,7 +58,10 @@ for (const text of [
 const cases = [
   ["open youtube and play kesariya song", [{ action: "play_video", target: "kesariya" }]],
   ["play despacito", [{ action: "play_video", target: "despacito" }]],
-  ["search for today's weather in ghaziabad", [{ action: "search", target: "today's weather in ghaziabad" }]],
+  [
+    "search for today's weather in ghaziabad",
+    [{ action: "search", target: "today's weather in ghaziabad" }],
+  ],
   ["open github", [{ action: "open_url", target: "https://github.com/" }]],
   ["comment: nice explanation", [{ action: "comment", target: "nice explanation" }]],
 ];
@@ -71,6 +74,66 @@ for (const [text, expected] of cases) {
     text,
   );
 }
+// --- complex commands are split into ordered sub-steps ---------------------------
+const complex = [
+  [
+    "search for today's weather in ghaziabad and open the first result",
+    [
+      { action: "search", target: "today's weather in ghaziabad" },
+      { action: "open_result", target: "" },
+    ],
+  ],
+  [
+    "search for laptops then open the first result and summarize it",
+    [
+      { action: "search", target: "laptops" },
+      { action: "open_result", target: "" },
+      { action: "read_page", target: "" },
+    ],
+  ],
+  ["open youtube and play kesariya", [{ action: "play_video", target: "kesariya" }]],
+  [
+    "open droid then search for pune weather and comment nice",
+    [
+      { action: "search", target: "droid" },
+      { action: "search", target: "pune weather" },
+      { action: "comment", target: "nice" },
+    ],
+  ],
+  ["open chrome and search for this website github", [{ action: "search", target: "github" }]],
+  [
+    "open the first result and summarize it",
+    [
+      { action: "open_result", target: "" },
+      { action: "read_page", target: "" },
+    ],
+  ],
+];
+for (const [text, expected] of complex) {
+  const plan = api.browsePlanFromPrompt(text);
+  assert.ok(plan, `no plan for ${text}`);
+  assert.deepEqual(
+    plan.steps.map((step) => ({ action: step.action, target: step.target })),
+    expected,
+    text,
+  );
+}
+
+// "and" inside a single subject must never be split into two commands.
+assert.deepEqual(api.browseSplitClauses("search for salt and pepper"), [
+  "search for salt and pepper",
+]);
+const saltPlan = api.browsePlanFromPrompt("search for salt and pepper");
+assert.deepEqual(
+  saltPlan.steps.map((step) => step.action),
+  ["search"],
+);
+assert.equal(saltPlan.steps[0].target, "salt and pepper");
+
+// An unknown “open X” must search for it rather than claim a site was opened.
+const droid = api.browsePlanFromPrompt("open droid");
+assert.deepEqual(droid.steps, [{ action: "search", target: "droid" }]);
+
 assert.equal(api.browsePlanFromPrompt("what is the capital of australia"), null);
 
 // --- "in chrome" is routed to the user's own browser ------------------------------

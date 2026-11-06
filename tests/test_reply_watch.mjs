@@ -12,6 +12,35 @@ const server = readFileSync(
 assert.match(orb, /id="watchOpenBtn"/);
 assert.match(orb, /◎ REPLY WATCH/);
 assert.match(orb, /id="skillsOpenBtn"/);
+
+// Both launchers belong to Settings, never to the main-screen launcher row.
+const settingsPanelStart = orb.indexOf('<div class="settings-panel" id="settingsPanel">');
+const settingsPanelMarkup = orb.slice(
+  settingsPanelStart,
+  orb.indexOf("<style>", settingsPanelStart),
+);
+assert.ok(
+  settingsPanelMarkup.includes('id="watchOpenBtn"'),
+  "reply watch button must live in Settings",
+);
+assert.ok(
+  settingsPanelMarkup.includes('id="skillsOpenBtn"'),
+  "skills button must live in Settings",
+);
+const launcherRow = orb.slice(
+  orb.indexOf('<div class="orb-feature-launchers"'),
+  orb.indexOf('<section class="chat-panel"'),
+);
+assert.ok(
+  !launcherRow.includes('id="watchOpenBtn"'),
+  "reply watch button must not sit on the main screen",
+);
+assert.ok(
+  !launcherRow.includes('id="skillsOpenBtn"'),
+  "skills button must not sit on the main screen",
+);
+assert.match(launcherRow, /id="blueprintOpenBtn"/);
+assert.match(launcherRow, /id="workspaceOpenBtn"/);
 assert.match(orb, /id="watchPanel"/);
 assert.match(orb, /id="skillsPanel"/);
 assert.match(orb, /id="watchPlatform"/);
@@ -30,7 +59,10 @@ assert.match(orb, /\/api\/watch\/reply/);
 assert.match(orb, /\/api\/watch\/confirm/);
 assert.match(orb, /\/api\/watch\/leave/);
 assert.match(orb, /\/api\/skills/);
-assert.match(orb, /if \(hasWatchIntent\(text\)\) return await runReplyWatchPlan\(text, languageOverride\);/);
+assert.match(
+  orb,
+  /if \(hasWatchIntent\(text\)\) return await runReplyWatchPlan\(text, languageOverride\);/,
+);
 assert.match(orb, /if \(hasWatchIntent\(value\)\) return true;/);
 assert.match(orb, /watchSuspectUnsupportedPlan/);
 assert.match(orb, /document\.hidden \|\| !localAutomationConnected/);

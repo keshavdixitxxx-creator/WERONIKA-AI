@@ -789,8 +789,6 @@
     <div class="orb-feature-launchers" aria-label="Weronika tools">
       <button type="button" class="hud-btn orb-feature-btn" id="blueprintOpenBtn">◇ BLUEPRINT</button>
       <button type="button" class="hud-btn orb-feature-btn" id="workspaceOpenBtn">▣ WORKSPACE</button>
-      <button type="button" class="hud-btn orb-feature-btn" id="watchOpenBtn">◎ REPLY WATCH</button>
-      <button type="button" class="hud-btn orb-feature-btn" id="skillsOpenBtn">✧ SKILLS</button>
     </div>
     <section class="chat-panel" id="chatPanel" aria-label="Chat with Weronika">
       <div class="chat-panel-heading">WERONIKA · CHAT</div>
@@ -907,6 +905,15 @@
         <div class="settings-section-title">AI Brain</div>
         <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X, and can prepare up to 10 public websites to open from this browser. Site opening needs only your click on OPEN ALL; messaging still needs start.bat and your sign-in in the local browser. Weronika shows the resolved contact and exact message for your confirmation. REPLY WATCH lets her read the chats you name and ask, or suggest a reply, when someone is left waiting — still with your confirmation before anything is typed. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
         <div class="settings-status" id="automationConnectionStatus">Checking for the local Python worker…</div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Tools</div>
+        <div class="settings-controls">
+          <button type="button" class="hud-btn settings-mini-btn" id="watchOpenBtn" aria-pressed="false">◎ REPLY WATCH</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="skillsOpenBtn" aria-pressed="false">✧ SKILLS</button>
+        </div>
+        <div class="settings-status">Reply watch reads only the chats you name and asks before anything is sent. Skills lists what runs on this computer, what each one needs, and the honest gaps.</div>
       </div>
 
       <div class="settings-section gmail-section">
@@ -1315,6 +1322,7 @@
     }
 
     .gmail-controls { display: flex; gap: 7px; }
+    .settings-controls { display: flex; gap: 7px; }
     .gmail-message-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
     .gmail-message-card { text-align: left; padding: 8px; border: 1px solid rgba(255,170,48,.24); border-radius: 4px; background: rgba(0,0,0,.35); color: #ffd88f; font: 10px/1.45 "Courier New", monospace; overflow-wrap: anywhere; }
     .gmail-message-card.selected { border-color: #ffcc66; background: rgba(255,170,48,.12); }
@@ -4177,39 +4185,112 @@
       browserTaskActions.append(confirm, cancel);
     }
 
-    function browsePlanFromPrompt(text) {
+    const BROWSE_SITE_URLS = { youtube: "https://www.youtube.com/", google: "https://www.google.com/", wikipedia: "https://www.wikipedia.org/", github: "https://github.com/", gmail: "https://mail.google.com/", instagram: "https://www.instagram.com/", spotify: "https://open.spotify.com/", reddit: "https://www.reddit.com/", linkedin: "https://www.linkedin.com/", amazon: "https://www.amazon.in/", flipkart: "https://www.flipkart.com/", netflix: "https://www.netflix.com/", x: "https://x.com/", twitter: "https://x.com/", chatgpt: "https://chat.openai.com/", telegram: "https://web.telegram.org/", whatsapp: "https://web.whatsapp.com/" };
+    const BROWSE_CLAUSE_SPLIT_RE = /\s*(?:,|;|\bthen\b|\bafter that\b|\band\b)\s*/gi;
+    const BROWSE_CLAUSE_VERB_RE = /^(?:please\s+|now\s+)?(?:search|google|look up|look for|browse|find|open|launch|visit|go to|play|put on|start playing|comment|write a comment|post a comment|like|subscribe|follow|read|summari[sz]e|click|show)\b/i;
+
+    // Split "search for X and open the first result" into two commands, but keep
+    // "search for salt and pepper" as one search: a split only happens when a new
+    // command verb follows the joining word.
+    function browseSplitClauses(text) {
       const value = String(text || "").split(/\s+/).filter(Boolean).join(" ");
-      const steps = [];
-      let context = "";
-      const play = value.match(/\b(?:play|put on)\s+(?:the\s+|a\s+|an\s+)?(.+?)(?:\s+(?:on|in)\s+(?:youtube|spotify))?\s*$/i);
+      const parts = [];
+      let rest = value;
+      while (rest) {
+        BROWSE_CLAUSE_SPLIT_RE.lastIndex = 0;
+        let cut = null;
+        let match;
+        while ((match = BROWSE_CLAUSE_SPLIT_RE.exec(rest))) {
+          const tail = rest.slice(match.index + match[0].length).trim();
+          if (BROWSE_CLAUSE_VERB_RE.test(tail)) {
+            cut = match;
+            break;
+          }
+        }
+        if (!cut) {
+          parts.push(rest);
+          break;
+        }
+        parts.push(rest.slice(0, cut.index));
+        rest = rest.slice(cut.index + cut[0].length).trim();
+      }
+      return parts.map((part) => part.trim().replace(/^[\s.,;:]+|[\s.,;:]+$/g, "")).filter(Boolean);
+    }
+
+    function browsePlanClause(clause) {
+      const value = String(clause || "").split(/\s+/).filter(Boolean).join(" ");
+      if (!value) return null;
+      const cleaned = value.replace(/^(?:and|then|also)\s+/i, "").trim();
+
+      const play = cleaned.match(/\b(?:play|put on|start playing)\s+(?:me\s+)?(?:the\s+|a\s+|an\s+)?(.+?)(?:\s+(?:on|in)\s+(?:youtube|spotify))?\s*$/i);
       if (play) {
-        const target = play[1].replace(/\b(?:song|video|track|music)\b\s*$/i, "").trim();
-        if (target) {
-          steps.push({ action: "play_video", target });
-          context = target;
-        }
+        const target = play[1].replace(/\b(?:song|video|track|music|clip|trailer|bhajan|gaana)\b\s*$/i, "").trim();
+        if (target) return { steps: [{ action: "play_video", target }], context: target };
       }
-      const search = value.match(/\b(?:search|google|look up|browse|find)\b(?:\s+(?:for|about|on the web|the web|online))?\s+(.+?)(?:\s+(?:on|in)\s+(?:youtube|edge|chrome|firefox|my browser))?\s*$/i);
+
+      const search = cleaned.match(/\b(?:search|google|look up|look for|browse|find)\b(?:\s+(?:for|about|on the web|the web|online))?\s+(.+?)(?:\s+(?:on|in)\s+(?:youtube|edge|chrome|firefox|my browser))?\s*$/i);
       if (search) {
-        const target = search[1].replace(/^(?:for|about)\s+/i, "").trim();
-        if (target && !steps.length) {
-          steps.push({ action: "search", target });
-          context = target;
-        }
+        const raw = search[1];
+        let target = raw
+          .replace(/^(?:for|about|on the web|the web|online|this|that)\s+/i, "")
+          .replace(/^(?:website|site|page|question|statement|topic|thing)\s+(?:called\s+|named\s+)?/i, "")
+          .replace(/^(?:about\s+|for\s+)/i, "")
+          .replace(/\s+(?:on|in)\s+(?:youtube|spotify|google|edge|chrome|firefox|my browser)\b.*$/i, "")
+          .trim();
+        if (target) return { steps: [{ action: "search", target }], context: target };
       }
-      const comment = value.match(/\b(?:comment|write a comment|post a comment)\b(?:\s+(?:of|on|for)\s+(?:this|that)?\s*(?:video|post|page|song)?)?(?:\s+(?:saying|that|with))?\s*[:\-]?\s*(.+)$/i);
-      if (comment && comment[1].trim()) steps.push({ action: "comment", target: comment[1].trim() });
-      const opened = value.match(/\b(?:open|go to|visit|launch)\s+(?:the\s+)?([^,]+?)(?:\s+(?:on|in)\s+(?:edge|chrome|firefox|my browser))?\s*$/i);
+
+      const comment = cleaned.match(/\b(?:comment|write a comment|post a comment)\b(?:\s+(?:of|on|for)\s+(?:this|that)?\s*(?:video|post|page|song)?)?(?:\s+(?:saying|that|with))?\s*[:\-]?\s*(.+)$/i);
+      if (comment && comment[1].trim()) return { steps: [{ action: "comment", target: comment[1].trim() }], context: "" };
+
+      if (/\b(?:like|subscribe)\b/i.test(cleaned) && /\b(?:this|that|the)\s+(?:video|post|page|song)\b/i.test(cleaned)) {
+        return { steps: [{ action: /\blike\b/i.test(cleaned) ? "like" : "subscribe", target: "" }], context: "" };
+      }
+
+      if (/^(?:open|click|view|show)\s+(?:the\s+)?(?:first|top|1st|number one)\s+(?:result|link|match|one|hit)\b/i.test(cleaned)) {
+        return { steps: [{ action: "open_result", target: "" }], context: "" };
+      }
+      if (/^(?:open|click|view)\s+(?:it|this|that|the\s+(?:site|page|link|result|website))\b/i.test(cleaned)) {
+        return { steps: [{ action: "open_result", target: "" }], context: "" };
+      }
+      if (/^(?:read|summari[sz]e|explain)\s+(?:this|that|it|the\s+(?:page|article|result|site|website)|the\s+(?:first|top)\s+result)\b/i.test(cleaned)) {
+        return { steps: [{ action: "read_page", target: "" }], context: "" };
+      }
+
+      const opened = cleaned.match(/\b(?:open|go to|visit|launch)\s+(?:the\s+)?([^,]+?)(?:\s+(?:on|in)\s+(?:edge|chrome|firefox|my browser))?\s*$/i);
       if (opened) {
         const target = opened[1].trim();
-        if (target && !steps.length) {
-          const known = { youtube: "https://www.youtube.com/", google: "https://www.google.com/", wikipedia: "https://www.wikipedia.org/", github: "https://github.com/", gmail: "https://mail.google.com/", instagram: "https://www.instagram.com/", spotify: "https://open.spotify.com/", reddit: "https://www.reddit.com/", linkedin: "https://www.linkedin.com/", amazon: "https://www.amazon.in/", netflix: "https://www.netflix.com/", x: "https://x.com/", twitter: "https://x.com/", chatgpt: "https://chat.openai.com/" }[target.toLowerCase()];
-          if (known) steps.push({ action: "open_url", target: known });
-          else if (/^(?:https?:\/\/)?[\w-]+\.(?:com|org|net|io|ai|in|co|dev|app)/i.test(target)) steps.push({ action: "open_url", target });
-          context = target;
+        if (target) {
+          const known = BROWSE_SITE_URLS[target.toLowerCase()];
+          if (known) return { steps: [{ action: "open_url", target: known }], context: target };
+          if (/^(?:https?:\/\/)?[\w-]+\.(?:com|org|net|io|ai|in|co|dev|app)/i.test(target)) {
+            return { steps: [{ action: "open_url", target }], context: target };
+          }
+          if (target.split(/\s+/).length <= 4 && !/\b(?:browser|edge|chrome|firefox|brave|opera|tab|window|app|application|settings|folder|file)\b/i.test(target)) {
+            // “open droid” with no brain: search for it instead of inventing a URL.
+            return { steps: [{ action: "search", target }], context: target };
+          }
         }
       }
-      return steps.length ? { steps, context } : null;
+      return null;
+    }
+
+    function browsePlanFromPrompt(text) {
+      const clauses = browseSplitClauses(text);
+      if (!clauses.length) return null;
+      const steps = [];
+      let context = "";
+      for (const clause of clauses) {
+        const planned = browsePlanClause(clause);
+        if (!planned) continue;
+        steps.push(...planned.steps);
+        if (planned.context) context = planned.context;
+      }
+      if (!steps.length) return null;
+      // “open youtube and play X” should play, not open an empty YouTube first.
+      const siteUrls = new Set(Object.values(BROWSE_SITE_URLS));
+      const pruned = steps.filter((step, index) => !(step.action === "open_url" && siteUrls.has(step.target) && steps[index + 1] && steps[index + 1].action === "play_video"));
+      return { steps: pruned.slice(0, 8), context };
     }
 
     async function runBrowserTask(path, payload) {
@@ -4760,9 +4841,19 @@
       }
     }
 
-    if (watchOpenBtn) watchOpenBtn.addEventListener("click", () => setWatchOpen());
+    // Both launchers live inside Settings, so opening one closes the settings sheet
+    // instead of leaving it stacked behind the panel.
+    if (watchOpenBtn) watchOpenBtn.addEventListener("click", () => {
+      toggleSettingsPanel(false);
+      setSkillsOpen(false);
+      setWatchOpen(true);
+    });
     if (watchCloseBtn) watchCloseBtn.addEventListener("click", () => setWatchOpen(false));
-    if (skillsOpenBtn) skillsOpenBtn.addEventListener("click", () => setSkillsOpen());
+    if (skillsOpenBtn) skillsOpenBtn.addEventListener("click", () => {
+      toggleSettingsPanel(false);
+      setWatchOpen(false);
+      setSkillsOpen(true);
+    });
     if (skillsCloseBtn) skillsCloseBtn.addEventListener("click", () => setSkillsOpen(false));
     if (watchAllChats) watchAllChats.addEventListener("change", () => { if (watchChat) watchChat.disabled = watchAllChats.checked; });
     if (watchAddBtn) watchAddBtn.addEventListener("click", async () => {

@@ -11,7 +11,7 @@ This package is the local Python worker behind Weronika's **existing animated or
 5. The worker opens and verifies the chat, prepares the exact message, and shows it in the orb. It does not send during preparation.
 6. Sending requires your separate `confirm send` / `send it` reply. The worker reports whether the send was verified.
 
-The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X, reply watch for WhatsApp Web and Telegram Web, plus four dedicated feature panels: BLUEPRINT, WORKSPACE, REPLY WATCH and SKILLS. Workspace accepts a natural-language build prompt through the hosted cloud brain, then opens up to ten multilingual code/text files as unsaved editor drafts; files are written only when you choose Save. The general-purpose browser tab UI has been removed. Chromium remains an internal requirement for visible messaging automation.
+The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X, reply watch for WhatsApp Web and Telegram Web, plus four dedicated feature panels — BLUEPRINT and WORKSPACE on the main screen, REPLY WATCH and SKILLS under ⚙ SETTINGS → Tools. Workspace accepts a natural-language build prompt through the hosted cloud brain, then opens up to ten multilingual code/text files as unsaved editor drafts; files are written only when you choose Save. The general-purpose browser tab UI has been removed. Chromium remains an internal requirement for visible messaging automation.
 
 ## Reply watch (new)
 

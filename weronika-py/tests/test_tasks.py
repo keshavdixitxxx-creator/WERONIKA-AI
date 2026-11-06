@@ -206,6 +206,46 @@ class WebIntentTests(unittest.TestCase):
             self.assertIsNotNone(plan, text)
             self.assertEqual((plan.steps[0].action, plan.steps[0].target), expected, text)
 
+    def test_complex_requests_become_ordered_sub_steps(self):
+        cases = {
+            "search for today's weather in Ghaziabad and open the first result": [
+                ("search", "today's weather in Ghaziabad"),
+                ("open_result", ""),
+            ],
+            "search for laptops then open the first result and summarize it": [
+                ("search", "laptops"),
+                ("open_result", ""),
+                ("read_page", ""),
+            ],
+            "open youtube and play kesariya": [("play_video", "kesariya")],
+            "open droid then search for pune weather and comment nice": [
+                ("search", "droid"),
+                ("search", "pune weather"),
+                ("comment", "nice"),
+            ],
+            "open the first result and summarize it": [
+                ("open_result", ""),
+                ("read_page", ""),
+            ],
+        }
+        for text, expected in cases.items():
+            plan = plan_local(text)
+            self.assertIsNotNone(plan, text)
+            self.assertEqual(
+                [(step.action, step.target) for step in plan.steps], expected, text
+            )
+
+    def test_conjunctions_inside_a_subject_are_not_split(self):
+        plan = plan_local("search for salt and pepper")
+        self.assertIsNotNone(plan)
+        self.assertEqual([step.action for step in plan.steps], ["search"])
+        self.assertEqual(plan.steps[0].target, "salt and pepper")
+
+    def test_unknown_site_open_searches_instead_of_inventing_a_url(self):
+        plan = plan_local("open droid")
+        self.assertIsNotNone(plan)
+        self.assertEqual([(step.action, step.target) for step in plan.steps], [("search", "droid")])
+
     def test_local_planner_leaves_other_requests_alone(self):
         for text in ("send a WhatsApp message to Boss saying hi", "watch my telegram chat with Rahul"):
             self.assertIsNone(plan_local(text), text)
