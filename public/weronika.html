@@ -789,10 +789,12 @@
     <div class="orb-feature-launchers" aria-label="Weronika tools">
       <button type="button" class="hud-btn orb-feature-btn" id="blueprintOpenBtn">◇ BLUEPRINT</button>
       <button type="button" class="hud-btn orb-feature-btn" id="workspaceOpenBtn">▣ WORKSPACE</button>
+      <button type="button" class="hud-btn orb-feature-btn" id="watchOpenBtn">◎ REPLY WATCH</button>
+      <button type="button" class="hud-btn orb-feature-btn" id="skillsOpenBtn">✧ SKILLS</button>
     </div>
     <section class="chat-panel" id="chatPanel" aria-label="Chat with Weronika">
       <div class="chat-panel-heading">WERONIKA · CHAT</div>
-      <div class="chat-guidance">Try: “Send a WhatsApp message to Boss saying I’m on leave tomorrow.” Or “Open YouTube, Spotify, Wikipedia, and GitHub.” Verify the contact/text before sending; click OPEN ALL to launch site tabs. Calls are not supported yet.</div>
+      <div class="chat-guidance">Try: “Send a WhatsApp message to Boss saying I’m on leave tomorrow.” · “Watch my Telegram chat with Boss.” · “Play Kesariya on YouTube.” · “Search for today’s weather and open the first result.” · “Comment on this video: great explanation.” Verify before anything is sent or posted. Calls are not supported yet.</div>
       <div class="hud-status" id="chatLog" aria-live="polite"><div class="chat-message system" data-who="system">Chat: Weronika ready.</div></div>
       <div class="chat-input-row">
         <input id="chatInput" class="chat-input" placeholder="Type to Weronika..." autocomplete="off">
@@ -801,6 +803,96 @@
     </section>
   </div>
   <div class="hud-error" id="hudError"></div>
+
+  <div class="watch-panel" id="watchPanel" aria-hidden="true">
+    <div class="watch-panel-header">
+      <span>WERONIKA · REPLY WATCH</span>
+      <button type="button" class="settings-close-btn" id="watchCloseBtn" aria-label="Close reply watch">×</button>
+    </div>
+    <div class="watch-panel-body">
+      <div class="settings-status">
+        Weronika reads only the chats you name, in the same Weronika browser window you sign in to.
+        She asks you (or suggests a reply, if you choose that) when someone messages you there and you have not
+        answered. Nothing is typed or sent until you give the exact text and reply <strong>confirm send</strong>.
+      </div>
+      <div class="settings-status" id="watchStatusLine" role="status" aria-live="polite">Checking the local worker…</div>
+
+      <div class="watch-form">
+        <label class="settings-label" for="watchPlatform">Platform</label>
+        <select id="watchPlatform" class="settings-input">
+          <option value="whatsapp">WhatsApp</option>
+          <option value="telegram">Telegram</option>
+        </select>
+
+        <label class="settings-label" for="watchChat">Chat, person, or group</label>
+        <input id="watchChat" class="settings-input" maxlength="80" autocomplete="off" placeholder="Boss · Family group · Rahul">
+        <label class="watch-check"><input type="checkbox" id="watchAllChats"> Watch every visible chat on this platform</label>
+
+        <label class="settings-label" for="watchMode">When someone is waiting</label>
+        <select id="watchMode" class="settings-input">
+          <option value="ask">Ask me what to reply</option>
+          <option value="propose">Suggest a reply in the orb</option>
+        </select>
+
+        <label class="settings-label" for="watchRule">Interrupt me for</label>
+        <select id="watchRule" class="settings-input">
+          <option value="unanswered">Any message I have not answered</option>
+          <option value="urgent">Only messages that look urgent</option>
+        </select>
+
+        <label class="settings-label" for="watchDelay">Wait before asking</label>
+        <select id="watchDelay" class="settings-input">
+          <option value="0">Immediately</option>
+          <option value="300" selected>5 minutes</option>
+          <option value="600">10 minutes</option>
+          <option value="1800">30 minutes</option>
+        </select>
+
+        <button type="button" class="hud-btn settings-mini-btn" id="watchAddBtn">START WATCHING</button>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Browser tasks · search, open, play, post</div>
+        <div class="settings-status">
+          Ask in the chat box and Weronika breaks it into steps in the Weronika browser window:
+          <em>“Search for today’s weather and open the first result”</em>,
+          <em>“Play Kesariya on YouTube”</em>,
+          <em>“Comment on this video: great explanation”</em> (that one waits for your approval).
+          Say <em>“open github in chrome”</em> to use your own Edge or Chrome instead.
+        </div>
+        <div class="settings-status" id="browseCapsLine">Checking the browser task support…</div>
+        <div class="settings-status" id="browserTaskStatusLine" role="status" aria-live="polite"></div>
+        <div class="watch-actions" id="browserTaskActions"></div>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Watched chats</div>
+        <div class="watch-list" id="watchList"><div class="settings-status">No chats watched yet.</div></div>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Waiting for your reply</div>
+        <div class="watch-items" id="watchItems"><div class="settings-status">Nobody waiting.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="watch-panel skills-panel" id="skillsPanel" aria-hidden="true">
+    <div class="watch-panel-header">
+      <span>WERONIKA · SKILLS</span>
+      <button type="button" class="settings-close-btn" id="skillsCloseBtn" aria-label="Close skills">×</button>
+    </div>
+    <div class="watch-panel-body">
+      <div class="settings-status">
+        Everything listed here runs on this computer through the local worker. Each card says what it needs and
+        which confirmation it asks for. Nothing on this list sends a message without you.
+      </div>
+      <div class="settings-status" id="skillsStatusLine" role="status" aria-live="polite">Checking skills…</div>
+      <div class="skills-list" id="skillsList"></div>
+      <div class="settings-section-title">Honest gaps</div>
+      <div class="skills-gaps" id="skillsGaps"></div>
+    </div>
+  </div>
 
   <button type="button" class="hud-btn settings-toggle-btn" id="settingsToggleBtn" aria-pressed="false" title="Settings">⚙ SETTINGS</button>
 
@@ -813,7 +905,7 @@
 
       <div class="settings-section">
         <div class="settings-section-title">AI Brain</div>
-        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X, and can prepare up to 10 public websites to open from this browser. Site opening needs only your click on OPEN ALL; messaging still needs start.bat and your sign-in in the local browser. Weronika shows the resolved contact and exact message for your confirmation. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
+        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X, and can prepare up to 10 public websites to open from this browser. Site opening needs only your click on OPEN ALL; messaging still needs start.bat and your sign-in in the local browser. Weronika shows the resolved contact and exact message for your confirmation. REPLY WATCH lets her read the chats you name and ask, or suggest a reply, when someone is left waiting — still with your confirmation before anything is typed. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
         <div class="settings-status" id="automationConnectionStatus">Checking for the local Python worker…</div>
       </div>
 
@@ -930,6 +1022,160 @@
       right: 24px;
       z-index: 21;
       font-size: 11px;
+    }
+
+    .watch-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100%;
+      width: 380px;
+      max-width: 92vw;
+      z-index: 21;
+      background: rgba(8, 4, 0, 0.92);
+      border-left: 1px solid rgba(255, 170, 48, 0.4);
+      backdrop-filter: blur(6px);
+      color: #ffd88f;
+      font-family: "Courier New", monospace;
+      transform: translateX(105%);
+      transition: transform 0.28s ease;
+      box-shadow: -12px 0 34px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .watch-panel.open {
+      transform: translateX(0);
+    }
+
+    .watch-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid rgba(255, 170, 48, 0.25);
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      color: #ffaa30;
+      text-shadow: 0 0 6px rgba(255, 170, 48, 0.55);
+    }
+
+    .watch-panel-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .watch-form,
+    .watch-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 170, 48, 0.15);
+    }
+
+    .watch-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #ffcc66;
+      opacity: 0.9;
+    }
+
+    .watch-check input {
+      accent-color: #ffaa30;
+    }
+
+    .watch-list,
+    .watch-items,
+    .skills-list,
+    .skills-gaps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .watch-card,
+    .skill-card,
+    .skill-gap {
+      border: 1px solid rgba(255, 170, 48, 0.28);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: rgba(255, 170, 48, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .watch-card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      color: #ffe4b0;
+      font-size: 12px;
+    }
+
+    .watch-card-meta,
+    .skill-card-meta,
+    .skill-gap-why {
+      font-size: 11px;
+      color: rgba(255, 216, 143, 0.72);
+      line-height: 1.45;
+    }
+
+    .watch-card-quote {
+      border-left: 2px solid rgba(255, 170, 48, 0.5);
+      padding-left: 8px;
+      color: #ffd88f;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .watch-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .watch-actions .hud-btn {
+      font-size: 10px;
+      padding: 6px 9px;
+    }
+
+    .skill-card-title {
+      color: #ffe4b0;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .skill-card-cmd {
+      font-size: 11px;
+      color: rgba(255, 216, 143, 0.85);
+      white-space: pre-wrap;
+    }
+
+    .watch-pill {
+      border: 1px solid rgba(255, 170, 48, 0.45);
+      border-radius: 999px;
+      padding: 1px 7px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: #ffcc66;
+      white-space: nowrap;
+    }
+
+    .watch-pill.urgent {
+      border-color: rgba(255, 96, 72, 0.7);
+      color: #ff9b83;
     }
 
     .settings-panel {
@@ -2257,6 +2503,38 @@
     let selectedGmailMessage = null;
     let reviewedGmailReply = null;
 
+    // ---- Reply watch + skills -------------------------------------------------------
+    const watchOpenBtn = document.getElementById("watchOpenBtn");
+    const watchPanel = document.getElementById("watchPanel");
+    const watchCloseBtn = document.getElementById("watchCloseBtn");
+    const watchStatusLine = document.getElementById("watchStatusLine");
+    const watchPlatform = document.getElementById("watchPlatform");
+    const watchChat = document.getElementById("watchChat");
+    const watchAllChats = document.getElementById("watchAllChats");
+    const watchMode = document.getElementById("watchMode");
+    const watchRule = document.getElementById("watchRule");
+    const watchDelay = document.getElementById("watchDelay");
+    const watchAddBtn = document.getElementById("watchAddBtn");
+    const watchList = document.getElementById("watchList");
+    const watchItems = document.getElementById("watchItems");
+    const skillsOpenBtn = document.getElementById("skillsOpenBtn");
+    const skillsPanel = document.getElementById("skillsPanel");
+    const skillsCloseBtn = document.getElementById("skillsCloseBtn");
+    const skillsStatusLine = document.getElementById("skillsStatusLine");
+    const skillsList = document.getElementById("skillsList");
+    const skillsGaps = document.getElementById("skillsGaps");
+    const browserTaskStatusLine = document.getElementById("browserTaskStatusLine");
+    const browserTaskActions = document.getElementById("browserTaskActions");
+    const browseCapsLine = document.getElementById("browseCapsLine");
+    let pendingBrowserTask = null;
+    let browserTaskBusy = false;
+    let watchFocusItemId = "";
+    let watchPollTimer = null;
+    let watchScanInFlight = false;
+    let watchScanQueued = false;
+    let watchLastScanAt = 0;
+    let skillsLoadedAt = 0;
+
     const SETTINGS_KEYS = {
       brightness: "weronika_brightness",
       hue: "weronika_theme_hue",
@@ -2610,6 +2888,11 @@
         if (localAutomationConnected) {
           if (automationConnectionStatus) automationConnectionStatus.textContent = "Connected to this device’s local Python worker.";
           if (automationHudStatus) automationHudStatus.textContent = "connected";
+          void loadWatchState();
+          startReplyWatchPolling();
+          void readWorkerJson("/api/browse/capabilities", null).then((caps) => {
+            if (browseCapsLine) browseCapsLine.textContent = browseCapabilityLabel(caps);
+          });
         } else {
           markOffline();
         }
@@ -3180,6 +3463,7 @@
     const AUTOMATION_CODE_PATTERN = /\b(?:write|create|generate|build|implement|edit|fix|make|develop)\b/i;
     const AUTOMATION_CODE_TARGET_PATTERN = /\b(?:code|script|program|file|function|app|application|component|website|webpage|python|javascript|typescript|react|java|c\+\+|csharp|go|rust|ruby|php|sql|swift|kotlin|dart|shell|game|api)\b/i;
     const AUTOMATION_CONFIRM_PATTERN = /^(?:confirm send|send it|send the message)[.! ]*$/i;
+    const WATCH_LEAVE_IT = /^(?:leave it|leave that|never mind|nevermind|skip it|skip|no reply|don['’]?t reply|do not reply|i replied|i have replied|i already replied|i answered|i have answered|i['’]ll reply myself|i will reply myself|let it be|chhod do|mat bhejo|main reply kar dunga|main kar dunga|छोड़ दो|मत भेजो)\b/i;
     const AUTOMATION_CANCEL_PATTERN = /^cancel[.! ]*$/i;
 
     function parseAutomationPlan(raw) {
@@ -3326,6 +3610,11 @@
       let plan;
       try { plan = parseAutomationPlan(planningReply); }
       catch (error) { return error.message; }
+      if (hasWatchIntent(message) && plan.intent === "open_sites" && watchSuspectUnsupportedPlan(message)) {
+        watchForgetHistory(message);
+        appendChat("system", "That reply looked like a misread of your watch request, so I discarded it. Retrying with the watch planner.", { banner: false });
+        return await runReplyWatchPlan(message, languageOverride);
+      }
       if (plan.intent === "chat") {
         if (planningTask === "workspace-code") {
           return "Weronika couldn’t create a code draft from that prompt. Try describing the desired language, files, and behavior more directly.";
@@ -3574,8 +3863,471 @@
     });
     }
 
+    // ---------------------------------------------------------------------------
+    // Reply watch: watch named chats, notice unanswered messages, ask or propose.
+    // Every send still goes through the local worker's confirmation step.
+    // ---------------------------------------------------------------------------
+    const WATCH_PLATFORM_LABELS = { whatsapp: "WhatsApp", telegram: "Telegram", instagram: "Instagram", facebook: "Messenger", x: "X" };
+    const WATCH_POLL_MS = 4000;
+    const WATCH_SCAN_MS = 12000;
+    const WATCH_KEEP_LIMIT = 4;
+    const WATCH_STATE_LABELS = {
+      new: "watching",
+      awaiting_review: "reply prepared",
+      awaiting_user: "waiting for you",
+      held: "held open",
+      sent: "sent",
+      sent_unverified: "send unverified",
+      declined: "left alone",
+      expired: "expired",
+      failed: "could not prepare",
+    };
+    const watchNotified = new Set();
+
+    function watchPlatformLabel(value) {
+      return WATCH_PLATFORM_LABELS[value] || String(value || "").replace(/^./, (letter) => letter.toUpperCase());
+    }
+
+    function watchPanelOpen() {
+      return Boolean(watchPanel && watchPanel.classList.contains("open"));
+    }
+
+    function setWatchCondition(id, condition) {
+      const node = document.getElementById(id);
+      if (node) node.hidden = !condition;
+    }
+
+    function setWatchOpen(open) {
+      if (!watchPanel) return;
+      const shouldOpen = typeof open === "boolean" ? open : !watchPanel.classList.contains("open");
+      watchPanel.classList.toggle("open", shouldOpen);
+      watchPanel.setAttribute("aria-hidden", String(!shouldOpen));
+      if (watchOpenBtn) watchOpenBtn.setAttribute("aria-pressed", String(shouldOpen));
+      if (shouldOpen) void refreshWatchPanel();
+    }
+
+    function setSkillsOpen(open) {
+      if (!skillsPanel) return;
+      const shouldOpen = typeof open === "boolean" ? open : !skillsPanel.classList.contains("open");
+      skillsPanel.classList.toggle("open", shouldOpen);
+      skillsPanel.setAttribute("aria-hidden", String(!shouldOpen));
+      if (skillsOpenBtn) skillsOpenBtn.setAttribute("aria-pressed", String(shouldOpen));
+      if (shouldOpen) void loadSkills();
+    }
+
+    function watchWorkerHint() {
+      return "The local worker is offline. Open Weronika with start.bat, keep the Weronika browser window signed in to WhatsApp or Telegram, and try again. Nothing was read.";
+    }
+
+    async function watchStatus() {
+      const response = await fetch("/api/watch/status", { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not read the reply-watch status.");
+      return data;
+    }
+
+    async function watchAction(path, payload) {
+      let response;
+      try {
+        response = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload || {}),
+          cache: "no-store",
+        });
+      } catch {
+        throw new Error(watchWorkerHint());
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "The local worker rejected that reply-watch request. Nothing was sent.");
+      }
+      if (!response.body) throw new Error("The local worker returned no progress stream.");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() || "";
+        for (const block of blocks) {
+          const raw = block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+          if (!raw) continue;
+          let event;
+          try { event = JSON.parse(raw); } catch { continue; }
+          if (event.type === "error") throw new Error(event.message || "The local worker stopped safely.");
+          if (event.type === "result") result = event.workflow;
+        }
+      }
+      if (!result) throw new Error("The local worker stopped before returning a result.");
+      return result;
+    }
+
+    const WATCH_AUTOMATION = /^(?:\d{1,2}|make it|say|reply|use|change it to|send the current|hold on|leave it|skip it|no reply)\b/i;
+    const WATCH_URL_SLUG_RE = /(?:^|\s)([\w-]+)\.(?:com|org|net|io|co|ai|app|dev|in|edu|gov|me)(?:$|\s)/i;
+    const WATCH_NATURAL_RE = /\b(?:watch|keep (?:a )?(?:an )?eye on|monitor|keep track(?: of)?|look after)\b|\bif i (?:don['’]?t|do not|can['’]?t|cannot|am not able to) (?:reply|respond|answer)\b|\bwhenever someone (?:messages?|texts?|dms?)\b|\bwho(?:['’]s| is| has)? (?:waiting|pending)\b|\bpending repl(?:y|ies)\b|\breply watch\b/i;
+
+    function hasWatchIntent(text) {
+      const value = String(text || "");
+      return WATCH_NATURAL_RE.test(value);
+    }
+
+    function watchForgetHistory(digest) {
+      const entries = conversationHistory.filter((entry) => entry && entry.content !== digest);
+      if (entries.length === conversationHistory.length) return;
+      conversationHistory = entries;
+      try { localStorage.setItem("weronika.conversationHistory.v2", JSON.stringify(conversationHistory)); } catch { /* storage may be unavailable */ }
+    }
+
+    function watchSuspectUnsupportedPlan(text) {
+      const value = String(text || "");
+      if (!WATCH_URL_SLUG_RE.test(value)) return false;
+      const asked = conversationHistory.filter((entry) => entry && entry.role === "user").slice(-1)[0];
+      return Boolean(asked) && asked.content === value;
+    }
+
+    async function runReplyWatchPlan(text, languageOverride) {
+      appendChat("assistant", "Let me check the local worker and the chats you named…", { banner: false });
+      const planning = await callBuiltinBrain(text, null, languageOverride, {
+        task: "automation-plan",
+        includeHistory: true,
+        recordHistory: false,
+      });
+      if (planning && planning.error) return planning.error;
+      let plan;
+      try { plan = parseAutomationPlan(planning); } catch (error) { return error.message; }
+      if (plan.intent && plan.intent !== "message") {
+        const question = String(plan.question || plan.acknowledgement || "").trim();
+        if (question) return question.slice(0, 500);
+      }
+      if (plan.intent !== "message" || typeof plan.platform !== "string" || typeof plan.recipient !== "string") {
+        return "I could not map that to a chat. Say it as, for example, “Watch my WhatsApp chat with Boss.” Nothing was watched or sent.";
+      }
+      await checkLocalAutomationWorker();
+      if (!localAutomationConnected) return watchWorkerHint();
+      const propose = /\b(?:you (?:can |could )?(?:reply|answer|send|respond)|reply for me|respond for me|you reply|suggest|propose|answer for me)\b/i.test(text);
+      const urgent = /\b(?:urgent|important|asap|emergency)\b/i.test(text);
+      const delayMatch = text.match(/\b(\d{1,3})\s*(?:min|mins|minute|minutes)\b/i);
+      try {
+        const result = await watchAction("/api/watch/add", {
+          platform: plan.platform,
+          chat: plan.recipient,
+          mode: propose ? "propose" : "ask",
+          rule: urgent ? "urgent" : "unanswered",
+          delay_seconds: delayMatch ? Math.min(86400, Number(delayMatch[1]) * 60) : 0,
+        });
+        await refreshWatchPanel();
+        return result.prompt || "Reply watch is on for that chat.";
+      } catch (error) {
+        return error instanceof Error ? error.message : "The local worker stopped safely.";
+      }
+    }
+
+    async function loadSkills() {
+      if (!skillsList || !skillsStatusLine) return;
+      if (!localAutomationConnected) {
+        skillsStatusLine.textContent = watchWorkerHint();
+        return;
+      }
+      try {
+        const response = await fetch("/api/skills", { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Could not read the skill list.");
+        skillsList.replaceChildren();
+        skillsGaps.replaceChildren();
+        for (const skill of data.skills || []) {
+          const card = document.createElement("div");
+          card.className = "skill-card";
+          const title = document.createElement("div");
+          title.className = "skill-card-title";
+          title.textContent = `${skill.name} · ${skill.used ? skill.used + "×" : "unused"}`;
+          const summary = document.createElement("div");
+          summary.className = "skill-card-meta";
+          summary.textContent = skill.summary;
+          card.append(title, summary);
+          if (Array.isArray(skill.commands) && skill.commands.length) {
+            const commands = document.createElement("div");
+            commands.className = "skill-card-cmd";
+            commands.textContent = `Try: “${skill.commands[0]}”`;
+            card.appendChild(commands);
+          }
+          if (Array.isArray(skill.needs) && skill.needs.length) {
+            const needs = document.createElement("div");
+            needs.className = "skill-card-meta";
+            needs.textContent = `Needs: ${skill.needs.join(" · ")}`;
+            card.appendChild(needs);
+          }
+          if (skill.safety) {
+            const safety = document.createElement("div");
+            safety.className = "skill-card-meta";
+            safety.textContent = skill.safety;
+            card.appendChild(safety);
+          }
+          skillsList.appendChild(card);
+        }
+        for (const gap of data.unavailable || []) {
+          const card = document.createElement("div");
+          card.className = "skill-gap";
+          const title = document.createElement("div");
+          title.className = "skill-card-title";
+          title.textContent = gap.name;
+          const why = document.createElement("div");
+          why.className = "skill-gap-why";
+          why.textContent = gap.why;
+          card.append(title, why);
+          skillsGaps.appendChild(card);
+        }
+        skillsLoadedAt = Date.now();
+        skillsStatusLine.textContent = "Skills run on this computer only. Every send needs your confirmation.";
+      } catch (error) {
+        skillsStatusLine.textContent = error instanceof Error ? error.message : "Could not read the skill list.";
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Browser tasks: search, open, read, play, and approved posting, run by the
+    // local worker in its visible browser window. Multi-step plans are shown first.
+    // ---------------------------------------------------------------------------
+    const BROWSE_ACTION_LABELS = {
+      search: "Search the web",
+      open_result: "Open a search result",
+      open_url: "Open a website",
+      play_video: "Play a video or song",
+      read_page: "Read the open page",
+      comment: "Post a comment",
+      reply: "Post a reply",
+      like: "Like",
+      subscribe: "Subscribe",
+    };
+    const BROWSE_SITE_LIST_RE = /^(?:open|launch|visit|go to)\s+(.{1,300})$/i;
+    const BROWSE_KNOWN_SITE_RE = /\b(?:youtube|spotify|wikipedia|github|gmail|google(?:\s+maps)?|instagram|facebook|messenger|telegram|whatsapp|x|twitter|linkedin|reddit|amazon|flipkart|netflix|chatgpt|stackoverflow|stack overflow)\b/i;
+    const BROWSE_TASK_RE = /\b(?:search|google|look up|browse|play|watch|comment|subscribe|read (?:this|the) page|summari[sz]e (?:this|the|it)|open the (?:first|top|second|\d(?:st|nd|rd|th)) result|the (?:first|top) result|open the result|in (?:edge|chrome|firefox)|with (?:edge|chrome|firefox)|my (?:own )?browser)\b/i;
+    const BROWSE_CONFIRM_RE = /^(?:confirm|confirm action|post it|do it|go ahead|approve)[.! ]*$/i;
+    const BROWSE_CANCEL_RE = /^(?:cancel task|stop task|cancel the task|stop the automation|never mind|nevermind)[.! ]*$/i;
+
+    function browseSiteOnly(text) {
+      const match = String(text || "").trim().match(BROWSE_SITE_LIST_RE);
+      if (!match) return false;
+      const body = match[1];
+      if (BROWSE_TASK_RE.test(body)) return false;
+      return !body.split(/,|\band\b/i).some((part) => /\b(?:search|google|play|comment|browser)\b/i.test(part));
+    }
+
+    function isBrowserTaskRequest(text) {
+      const value = String(text || "").trim();
+      if (!value || value.length < 3) return false;
+      if (browseSiteOnly(value)) return false;
+      if (/\b(?:whats\s?app|telegram|instagram|facebook|messenger|twitter)\b/i.test(value) && /\b(?:send|message|text|dm|watch|keep an eye)\b/i.test(value)) return false;
+      if (BROWSE_TASK_RE.test(value)) return true;
+      if (BROWSE_SITE_LIST_RE.test(value) && BROWSE_KNOWN_SITE_RE.test(value) && !BROWSE_SITE_LIST_RE.exec(value)[1].includes(",")) return true;
+      return false;
+    }
+
+    async function readWorkerJson(path, fallback) {
+      try {
+        const response = await fetch(path, { cache: "no-store" });
+        if (!response.ok) return fallback;
+        return await response.json();
+      } catch {
+        return fallback;
+      }
+    }
+
+    function browseCapabilityLabel(caps) {
+      if (!caps || !Array.isArray(caps.actions) || !caps.actions.length) return "The local worker is offline, so browser tasks cannot run yet.";
+      const browsers = Array.isArray(caps.system_browsers) && caps.system_browsers.length
+        ? caps.system_browsers.map((entry) => entry.label).join(", ")
+        : "none detected";
+      return `Worker ready · ${caps.actions.length} action types · your own browser: ${browsers}.`;
+    }
+
+    function renderBrowserTask(task) {
+      if (!browserTaskStatusLine) return;
+      if (!task) {
+        browserTaskStatusLine.textContent = "";
+        if (browserTaskActions) browserTaskActions.replaceChildren();
+        return;
+      }
+      const steps = Array.isArray(task.steps) ? task.steps : [];
+      const done = Array.isArray(task.outcomes) ? task.outcomes : [];
+      const lines = [`${task.stage} · ${done.filter((o) => o.status === "done").length}/${steps.length} steps`];
+      for (const outcome of done.slice(-4)) {
+        lines.push(`✓ ${BROWSE_ACTION_LABELS[outcome.action] || outcome.action}: ${outcome.detail}`);
+      }
+      if (task.pending) {
+        lines.push(`⏸ Waiting for approval — ${BROWSE_ACTION_LABELS[task.pending.action] || task.pending.action}: “${task.pending.target}”`);
+      }
+      browserTaskStatusLine.textContent = lines.join("\n");
+      if (!browserTaskActions) return;
+      browserTaskActions.replaceChildren();
+      if (!task.pending) return;
+      const confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "hud-btn settings-mini-btn";
+      confirm.textContent = "CONFIRM ACTION";
+      confirm.addEventListener("click", () => runBrowserTask("/api/task/approve", { task_id: task.task_id, confirmation: "confirm" }));
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "hud-btn settings-mini-btn";
+      cancel.textContent = "CANCEL TASK";
+      cancel.addEventListener("click", () => runBrowserTask("/api/task/cancel", { task_id: task.task_id }));
+      browserTaskActions.append(confirm, cancel);
+    }
+
+    function browsePlanFromPrompt(text) {
+      const value = String(text || "").split(/\s+/).filter(Boolean).join(" ");
+      const steps = [];
+      let context = "";
+      const play = value.match(/\b(?:play|put on)\s+(?:the\s+|a\s+|an\s+)?(.+?)(?:\s+(?:on|in)\s+(?:youtube|spotify))?\s*$/i);
+      if (play) {
+        const target = play[1].replace(/\b(?:song|video|track|music)\b\s*$/i, "").trim();
+        if (target) {
+          steps.push({ action: "play_video", target });
+          context = target;
+        }
+      }
+      const search = value.match(/\b(?:search|google|look up|browse|find)\b(?:\s+(?:for|about|on the web|the web|online))?\s+(.+?)(?:\s+(?:on|in)\s+(?:youtube|edge|chrome|firefox|my browser))?\s*$/i);
+      if (search) {
+        const target = search[1].replace(/^(?:for|about)\s+/i, "").trim();
+        if (target && !steps.length) {
+          steps.push({ action: "search", target });
+          context = target;
+        }
+      }
+      const comment = value.match(/\b(?:comment|write a comment|post a comment)\b(?:\s+(?:of|on|for)\s+(?:this|that)?\s*(?:video|post|page|song)?)?(?:\s+(?:saying|that|with))?\s*[:\-]?\s*(.+)$/i);
+      if (comment && comment[1].trim()) steps.push({ action: "comment", target: comment[1].trim() });
+      const opened = value.match(/\b(?:open|go to|visit|launch)\s+(?:the\s+)?([^,]+?)(?:\s+(?:on|in)\s+(?:edge|chrome|firefox|my browser))?\s*$/i);
+      if (opened) {
+        const target = opened[1].trim();
+        if (target && !steps.length) {
+          const known = { youtube: "https://www.youtube.com/", google: "https://www.google.com/", wikipedia: "https://www.wikipedia.org/", github: "https://github.com/", gmail: "https://mail.google.com/", instagram: "https://www.instagram.com/", spotify: "https://open.spotify.com/", reddit: "https://www.reddit.com/", linkedin: "https://www.linkedin.com/", amazon: "https://www.amazon.in/", netflix: "https://www.netflix.com/", x: "https://x.com/", twitter: "https://x.com/", chatgpt: "https://chat.openai.com/" }[target.toLowerCase()];
+          if (known) steps.push({ action: "open_url", target: known });
+          else if (/^(?:https?:\/\/)?[\w-]+\.(?:com|org|net|io|ai|in|co|dev|app)/i.test(target)) steps.push({ action: "open_url", target });
+          context = target;
+        }
+      }
+      return steps.length ? { steps, context } : null;
+    }
+
+    async function runBrowserTask(path, payload) {
+      if (browserTaskBusy) return null;
+      browserTaskBusy = true;
+      if (browserTaskStatusLine) browserTaskStatusLine.textContent = "Working in the Weronika browser window…";
+      try {
+        const task = await postLocalAutomation(path, payload);
+        pendingBrowserTask = task && task.stage === "awaiting_approval" ? task : null;
+        renderBrowserTask(task);
+        if (task && task.stage === "awaiting_approval") {
+          appendChat("assistant", task.result || "This step needs your approval.", { banner: false });
+        }
+        return task;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "The browser task stopped.";
+        if (browserTaskStatusLine) browserTaskStatusLine.textContent = message;
+        appendChat("assistant", message, { banner: false });
+        return null;
+      } finally {
+        browserTaskBusy = false;
+      }
+    }
+
+    const BROWSE_BROWSERS = ["edge", "chrome", "firefox", "brave", "opera"];
+    const BROWSE_SITE_MAP = { youtube: "https://www.youtube.com/", google: "https://www.google.com/", wikipedia: "https://www.wikipedia.org/", github: "https://github.com/", gmail: "https://mail.google.com/", instagram: "https://www.instagram.com/", spotify: "https://open.spotify.com/", reddit: "https://www.reddit.com/", linkedin: "https://www.linkedin.com/", amazon: "https://www.amazon.in/", netflix: "https://www.netflix.com/", x: "https://x.com/", twitter: "https://x.com/", chatgpt: "https://chat.openai.com/", whatsapp: "https://web.whatsapp.com/", telegram: "https://web.telegram.org/" };
+    const BROWSE_VERBS = ["open", "launch", "start", "use", "go", "search", "show", "visit"];
+    const BROWSE_FILLERS = ["and", "go", "to", "open", "search", "for", "about", "the", "in", "on", "at", "with"];
+
+    function browseSystemTarget(text) {
+      const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+      if (words.length < 2) return null;
+      if (!BROWSE_VERBS.includes(words[0].toLowerCase())) return null;
+      const rest = words.slice(1);
+      let browser = "";
+      let searched = false;
+      // "in chrome" / "with edge" / "using firefox"
+      const prep = rest.findIndex(
+        (word, index) =>
+          ["in", "with", "on", "using", "via", "through"].includes(word.toLowerCase()) &&
+          BROWSE_BROWSERS.includes(String(rest[index + 1] || "").toLowerCase()),
+      );
+      if (prep >= 0 && rest[prep + 1]) {
+        browser = rest[prep + 1].toLowerCase();
+        rest.splice(prep, 2);
+      } else if (BROWSE_BROWSERS.includes(String(rest[0] || "").toLowerCase())) {
+        // "open chrome and search for laptops"
+        browser = rest.shift().toLowerCase();
+      } else if (/\bmy (?:own )?browser\b/i.test(text)) {
+        // "open github in my browser": let the worker pick whatever is installed
+        browser = "";
+        const index = rest.findIndex((word) => /^browser$/i.test(word));
+        if (index >= 0) rest.splice(Math.max(0, index - 2), 4);
+      } else {
+        return null;
+      }
+      while (rest.length && BROWSE_FILLERS.includes(rest[0].toLowerCase())) rest.shift();
+      const spoken = rest.join(" ").replace(/[.!?]+$/, "").trim();
+      if (!spoken) return null;
+      if (rest.some((word) => /^(?:search|google|look)$/i.test(word))) searched = true;
+      const explicit = /^https?:\/\//i.test(spoken) ? spoken : "";
+      const hostish = /^[\w-]+(?:\.[\w-]+)+(?:\/.*)?$/.test(spoken) ? `https://${spoken}` : "";
+      const known = BROWSE_SITE_MAP[spoken.toLowerCase()] || "";
+      const url = explicit || hostish || known;
+      if (url) return { browser, url, searched };
+      return { browser, url: `https://duckduckgo.com/?q=${encodeURIComponent(spoken)}`, search: spoken, searched: true };
+    }
+
+    async function openInOwnBrowser(target) {
+      await checkLocalAutomationWorker();
+      if (!localAutomationConnected) return watchWorkerHint();
+      const task = await runBrowserTask("/api/browse/open", { url: target.url, browser: target.browser });
+      if (!task) return "I could not open your browser. Nothing else was changed.";
+      const label = target.search ? `Searched in ${target.browser}: “${target.search}”.` : `Opened ${target.url} in ${target.browser}.`;
+      return task.result || label;
+    }
+
+    async function planAndRunBrowserTask(text, languageOverride) {
+      const own = browseSystemTarget(text);
+      if (own) return await openInOwnBrowser(own);
+      appendChat("assistant", "Planning this as browser steps…", { banner: false });
+      let steps = [];
+      let context = "";
+      const planning = await callBuiltinBrain(text, null, languageOverride, {
+        task: "automation-plan",
+        includeHistory: true,
+        recordHistory: false,
+      });
+      if (planning && !planning.error) {
+        try {
+          const plan = parseAutomationPlan(planning);
+          if (plan.intent === "browse" && Array.isArray(plan.steps) && plan.steps.length) {
+            steps = plan.steps.filter((step) => step && typeof step.action === "string").map((step) => ({ action: step.action, target: String(step.target || ""), note: String(step.note || "") }));
+            context = String(plan.context || "");
+          } else if (plan.intent === "needs_info" && plan.question) {
+            return String(plan.question).slice(0, 400);
+          }
+        } catch { /* fall back to the local plan below */ }
+      }
+      if (!steps.length) {
+        const local = browsePlanFromPrompt(text);
+        if (!local) {
+          return "I could not turn that into browser steps. Try “search for X”, “play Y on YouTube”, or “open the first result and summarize it”. Nothing was opened.";
+        }
+        steps = local.steps;
+        context = local.context;
+      }
+      await checkLocalAutomationWorker();
+      if (!localAutomationConnected) return watchWorkerHint();
+      const task = await runBrowserTask("/api/task/start", { message: text, steps, context });
+      if (!task) return "The browser task stopped safely. Nothing else was changed.";
+      const first = task.result || "Browser task finished.";
+      return task.stage === "awaiting_approval" ? first : `${first}`;
+    }
+
     function isAutomationRequest(text) {
       const value = String(text || "");
+      if (hasWatchIntent(value)) return true;
       const hasPlatform = AUTOMATION_PLATFORM_PATTERN.test(value);
       if (AUTOMATION_OPEN_SITE_PATTERN.test(value) && AUTOMATION_SITE_TARGET_PATTERN.test(value)) return true;
       if (AUTOMATION_MESSAGE_PATTERN.test(value) && (hasPlatform || AUTOMATION_TARGET_PATTERN.test(value))) return true;
@@ -3596,6 +4348,18 @@
       }
       const identityReply = creatorIdentityReply(text);
       if (identityReply) return identityReply;
+      try {
+        const watched = await continueReplyWatch(text);
+        if (watched.handled) return watched.reply;
+      } catch (error) {
+        return error instanceof Error ? error.message : "Reply watch stopped safely.";
+      }
+      if (hasWatchIntent(text)) return await runReplyWatchPlan(text, languageOverride);
+      if (pendingBrowserTask) {
+        if (BROWSE_CONFIRM_RE.test(text)) return (await runBrowserTask("/api/task/approve", { task_id: pendingBrowserTask.task_id, confirmation: "confirm" }))?.result || "Approved.";
+        if (BROWSE_CANCEL_RE.test(text)) return (await runBrowserTask("/api/task/cancel", { task_id: pendingBrowserTask.task_id }))?.result || "Cancelled. Nothing was submitted.";
+      }
+      if (isBrowserTaskRequest(text)) return await planAndRunBrowserTask(text, languageOverride);
       if (isAutomationRequest(text)) return await runAutomationPlan(text, languageOverride);
       const reply = await answerWithBrain(text, languageOverride);
       if (responseToken !== assistantTurnToken) return null;
@@ -3608,6 +4372,426 @@
       return await generateChatReply(text, languageOverride)
         || "I couldn't reach my cloud brain just now. Please try again in a moment.";
     }
+
+    async function appendWatchPrompt(prompt) {
+      const line = String(prompt || "Reply needed.").trim();
+      appendChat("assistant", line, { banner: false });
+      return line;
+    }
+
+    const watchCardsState = { watches: [], items: [], busy: false };
+
+    function renderWatchCards() {
+      if (!watchList || !watchItems) return;
+      watchList.replaceChildren();
+      watchItems.replaceChildren();
+      const watches = Array.isArray(watchCardsState.watches) ? watchCardsState.watches : [];
+      const items = Array.isArray(watchCardsState.items) ? watchCardsState.items : [];
+      if (!watches.length) {
+        const empty = document.createElement("div");
+        empty.className = "settings-status";
+        empty.textContent = "No chats watched yet. Add one above, or say “Watch my WhatsApp chat with Boss.”";
+        watchList.appendChild(empty);
+      }
+      for (const watch of watches) {
+        const card = document.createElement("div");
+        card.className = "watch-card";
+        const head = document.createElement("div");
+        head.className = "watch-card-head";
+        const name = document.createElement("span");
+        name.textContent = `${watchPlatformLabel(watch.platform)} · ${watch.chat_name}`;
+        const modePill = document.createElement("span");
+        modePill.className = "watch-pill";
+        modePill.textContent = watch.mode === "propose" ? "SUGGEST" : "ASK ME";
+        head.append(name, modePill);
+        const meta = document.createElement("div");
+        meta.className = "watch-card-meta";
+        meta.textContent = `${watch.rule === "urgent" ? "Urgent messages only" : "Any unanswered message"}${watch.is_group ? " · group chat" : ""} · ${WATCH_STATE_LABELS[watch.state] || watch.state}`;
+        const actions = document.createElement("div");
+        actions.className = "watch-actions";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "hud-btn settings-mini-btn";
+        remove.textContent = "STOP WATCHING";
+        remove.addEventListener("click", async () => {
+          try {
+            await watchAction("/api/watch/stop", { draft_id: watch.watch_id || watch.item_id || "" });
+            await refreshWatchPanel();
+            appendChat("system", `Stopped watching ${watchPlatformLabel(watch.platform)} · ${watch.chat_name}.`, { banner: false });
+          } catch (error) {
+            appendChat("assistant", error instanceof Error ? error.message : "Could not stop that watch.", { banner: false });
+          }
+        });
+        actions.appendChild(remove);
+        card.append(head, meta, actions);
+        watchList.appendChild(card);
+      }
+
+      const waiting = items.filter((item) => ["awaiting_user", "held", "awaiting_review"].includes(item.state));
+      if (!waiting.length) {
+        const empty = document.createElement("div");
+        empty.className = "settings-status";
+        empty.textContent = "Nobody is waiting for a reply right now.";
+        watchItems.appendChild(empty);
+      }
+      for (const item of waiting) {
+        const card = document.createElement("div");
+        card.className = "watch-card";
+        card.dataset.itemId = item.item_id;
+        const head = document.createElement("div");
+        head.className = "watch-card-head";
+        const who = document.createElement("span");
+        who.textContent = `${watchPlatformLabel(item.platform)} · ${item.chat_name}`;
+        const pill = document.createElement("span");
+        pill.className = `watch-pill${item.rule === "urgent" ? " urgent" : ""}`;
+        pill.textContent = item.rule === "urgent" ? "URGENT" : "WAITING";
+        head.append(who, pill);
+        const meta = document.createElement("div");
+        meta.className = "watch-card-meta";
+        const age = item.message && item.message.age_seconds ? ` · ${Math.max(1, Math.round(item.message.age_seconds / 60))} min ago` : "";
+        meta.textContent = `${item.reason || "Waiting for your answer"}${age}`;
+        card.append(head, meta);
+        if (item.message && item.message.text) {
+          const quote = document.createElement("div");
+          quote.className = "watch-card-quote";
+          quote.textContent = `${item.message.from || item.chat_name}: “${item.message.text}”`;
+          card.appendChild(quote);
+        }
+        if (item.suggestion) {
+          const suggestion = document.createElement("div");
+          suggestion.className = "watch-card-meta";
+          suggestion.textContent = `Suggested: “${item.suggestion}”`;
+          card.appendChild(suggestion);
+        }
+        const candidates = Array.isArray(item.candidates) ? item.candidates : [];
+        if (item.draft_stage === "awaiting_recipient_choice" && candidates.length) {
+          const chooser = document.createElement("div");
+          chooser.className = "watch-actions";
+          for (const candidate of candidates) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "hud-btn settings-mini-btn";
+            button.textContent = `${candidate.id}. ${candidate.display_name}`;
+            button.addEventListener("click", async () => {
+              try {
+                const staged = await watchAction("/api/watch/choose", { draft_id: item.item_id, candidate_id: candidate.id });
+                await appendWatchPrompt(staged.prompt || "Prepared. It has NOT been sent.");
+                await refreshWatchPanel();
+              } catch (error) {
+                appendChat("assistant", error instanceof Error ? error.message : "Could not open that chat.", { banner: false });
+              }
+            });
+            chooser.appendChild(button);
+          }
+          card.appendChild(chooser);
+        }
+        const actions = document.createElement("div");
+        actions.className = "watch-actions";
+        const ask = document.createElement("button");
+        ask.type = "button";
+        ask.className = "hud-btn settings-mini-btn";
+        ask.textContent = "WHAT SHOULD I SAY?";
+        ask.addEventListener("click", async () => {
+          try {
+            const detail = await watchAction("/api/watch/hold", { draft_id: item.item_id });
+            const prompt = await appendWatchPrompt(detail.prompt || "What should I tell them?");
+            watchFocusItemId = item.item_id;
+            chatInput.value = "";
+            appendChat("system", `Reply with your words (for example “make it: I won’t be able to come today”), or say “leave it”. ${prompt ? "" : ""}`.trim(), { banner: false });
+            chatInput.focus();
+          } catch (error) {
+            appendChat("assistant", error instanceof Error ? error.message : "Could not open that chat.", { banner: false });
+          }
+        });
+        actions.appendChild(ask);
+        if (item.suggestion) {
+          const send = document.createElement("button");
+          send.type = "button";
+          send.className = "hud-btn settings-mini-btn";
+          send.textContent = "PREPARE SUGGESTION";
+          send.addEventListener("click", async () => {
+            try {
+              const prepared = await watchAction("/api/watch/reply", { draft_id: item.item_id, reply: item.suggestion });
+              watchFocusItemId = item.item_id;
+              await appendWatchPrompt(prepared.prompt || "Prepared. It has NOT been sent.");
+              await refreshWatchPanel();
+            } catch (error) {
+              appendChat("assistant", error instanceof Error ? error.message : "Could not prepare that reply.", { banner: false });
+            }
+          });
+          actions.appendChild(send);
+        }
+        if (item.state === "awaiting_review") {
+          const confirm = document.createElement("button");
+          confirm.type = "button";
+          confirm.className = "hud-btn settings-mini-btn";
+          confirm.textContent = "CONFIRM SEND";
+          confirm.addEventListener("click", async () => {
+            try {
+              const sent = await watchAction("/api/watch/confirm", { draft_id: item.item_id, confirmation: "confirm send" });
+              await appendWatchPrompt(sent.prompt || sent.reason || "Sent.");
+              await refreshWatchPanel();
+            } catch (error) {
+              appendChat("assistant", error instanceof Error ? error.message : "Could not send that reply.", { banner: false });
+            }
+          });
+          actions.appendChild(confirm);
+          const cancel = document.createElement("button");
+          cancel.type = "button";
+          cancel.className = "hud-btn settings-mini-btn";
+          cancel.textContent = "CLEAR DRAFT";
+          cancel.addEventListener("click", async () => {
+            try {
+              const detail = await postLocalAutomation("/api/automation/cancel", { draft_id: item.draft_id || "" });
+              appendChat("system", detail || "Cleared the unsent draft.", { banner: false });
+              await refreshWatchPanel();
+            } catch (error) {
+              appendChat("assistant", error instanceof Error ? error.message : "Could not clear that draft.", { banner: false });
+            }
+          });
+          actions.appendChild(cancel);
+        }
+        const leave = document.createElement("button");
+        leave.type = "button";
+        leave.className = "hud-btn settings-mini-btn";
+        leave.textContent = "LEAVE IT";
+        leave.addEventListener("click", async () => {
+          try {
+            const result = await watchAction("/api/watch/leave", { draft_id: item.item_id });
+            await appendWatchPrompt(result.prompt || "Left alone. Nothing was sent.");
+            await refreshWatchPanel();
+          } catch (error) {
+            appendChat("assistant", error instanceof Error ? error.message : "Could not update that chat.", { banner: false });
+          }
+        });
+        actions.appendChild(leave);
+        card.appendChild(actions);
+        watchItems.appendChild(card);
+      }
+    }
+
+    async function refreshWatchPanel() {
+      if (!watchStatusLine) return;
+      if (!localAutomationConnected) {
+        watchStatusLine.textContent = watchWorkerHint();
+        renderWatchCards();
+        return;
+      }
+      try {
+        const data = await watchStatus();
+        watchCardsState.watches = Array.isArray(data.watches) ? data.watches : [];
+        watchCardsState.items = Array.isArray(data.items) ? data.items : [];
+        watchCardsState.busy = data.busy === true;
+        watchStatusLine.textContent = !watchCardsState.watches.length
+          ? "No chats watched yet. Add a WhatsApp or Telegram chat below."
+          : `Watching ${watchCardsState.watches.length} chat(s)${watchCardsState.busy ? " · paused while a draft is open in the orb" : ""}.`;
+        renderWatchCards();
+      } catch (error) {
+        watchStatusLine.textContent = error instanceof Error ? error.message : "Could not read the reply-watch status.";
+      }
+    }
+
+    async function scanReplyWatch(manual = false) {
+      if (!localAutomationConnected || watchScanInFlight) {
+        if (manual) appendChat("system", "Reply watch needs the local worker. Start Weronika with start.bat first.", { banner: false });
+        return;
+      }
+      if (Date.now() - watchLastScanAt < WATCH_SCAN_MS && !manual) return;
+      watchScanInFlight = true;
+      watchLastScanAt = Date.now();
+      try {
+        const scan = await watchAction("/api/watch/scan", {});
+        const detected = Array.isArray(scan.detected) ? scan.detected : [];
+        const reminders = Array.isArray(scan.reminders) ? scan.reminders : [];
+        for (const item of detected) {
+          const key = `detect:${item.item_id}`;
+          if (watchNotified.has(key)) continue;
+          watchNotified.add(key);
+          const heading = document.createElement("div");
+          heading.className = "chat-message assistant";
+          heading.dataset.who = "assistant";
+          const label = document.createElement("span");
+          label.className = "chat-message-label";
+          label.textContent = "Weronika: ";
+          const body = document.createElement("span");
+          body.className = "chat-message-text";
+          const message = item.message || {};
+          body.textContent = `${item.reason} — ${message.from || item.chat_name}: “${message.text || ""}”`;
+          heading.append(label, body);
+          if (chatLog) {
+            chatLog.appendChild(heading);
+            while (chatLog.children.length > 36) chatLog.removeChild(chatLog.firstElementChild);
+            chatLog.scrollTop = chatLog.scrollHeight;
+          }
+          speak(`Reply needed from ${message.from || item.chat_name} on ${watchPlatformLabel(item.platform)}.`);
+          watchFocusItemId = item.item_id;
+          if (item.mode === "propose") {
+            if (item.suggestion) {
+              appendChat("assistant", `Suggested reply: “${item.suggestion}”. Say “send it” to prepare that exact text, type your own reply, or say “leave it”.`, { banner: false });
+            } else {
+              appendChat("assistant", "What should I tell them? Say “reply: your words”, or say “leave it”.", { banner: false });
+            }
+          } else {
+            appendChat("assistant", "What should I tell them? Say “make it: your words”, or say “leave it”.", { banner: false });
+          }
+        }
+        for (const reminder of reminders) {
+          const key = `remind:${reminder.item_id}`;
+          if (watchNotified.has(key)) continue;
+          watchNotified.add(key);
+          appendChat("assistant", reminder.text || "Still waiting on a reply.", { banner: false });
+          speak(reminder.text || "Still waiting on a reply.");
+        }
+        if (scan.prompt && (detected.length || reminders.length)) {
+          watchStatusLine && (watchStatusLine.textContent = scan.prompt);
+        }
+        await refreshWatchPanel();
+      } catch (error) {
+        if (manual) appendChat("system", error instanceof Error ? error.message : "Reply watch could not check the chats.", { banner: false });
+      } finally {
+        watchScanInFlight = false;
+      }
+    }
+
+    function startReplyWatchPolling() {
+      if (watchPollTimer) return;
+      watchPollTimer = setInterval(() => {
+        if (document.hidden || !localAutomationConnected || !watchCardsState.watches.length) return;
+        void scanReplyWatch(false);
+        if (watchPanelOpen()) void refreshWatchPanel();
+      }, WATCH_POLL_MS);
+    }
+
+    async function loadWatchState() {
+      if (!localAutomationConnected) return;
+      try {
+        const data = await watchStatus();
+        watchCardsState.watches = Array.isArray(data.watches) ? data.watches : [];
+        watchCardsState.items = Array.isArray(data.items) ? data.items : [];
+        watchCardsState.busy = data.busy === true;
+        if (watchPanelOpen()) renderWatchCards();
+        if (watchStatusLine) {
+          watchStatusLine.textContent = watchCardsState.watches.length
+            ? `Watching ${watchCardsState.watches.length} chat(s).`
+            : "No chats watched yet. Add a WhatsApp or Telegram chat below.";
+        }
+      } catch { /* the worker may not implement reply watch yet */ }
+    }
+
+    function watchFocusTarget() {
+      if (watchFocusItemId) return watchFocusItemId;
+      const waiting = watchCardsState.items.filter((item) => ["awaiting_user", "held", "awaiting_review"].includes(item.state));
+      return waiting.length ? waiting[waiting.length - 1].item_id : "";
+    }
+
+    async function continueReplyWatch(text) {
+      const value = String(text || "").trim();
+      if (!value || !localAutomationConnected) return { handled: false };
+      const waiting = watchCardsState.items.filter((item) => ["awaiting_user", "held", "awaiting_review"].includes(item.state));
+      if (!waiting.length && !WATCH_AUTOMATION.test(value)) return { handled: false };
+      const current = watchFocusTarget();
+      if (!current) return { handled: false };
+      if (/^(?:confirm send|send it|send the message)[.! ]*$/i.test(value)) {
+        try {
+          const sent = await watchAction("/api/watch/confirm", { draft_id: current, confirmation: value });
+          await refreshWatchPanel();
+          return { handled: true, reply: await appendWatchPrompt(sent.prompt || sent.reason || "Sent.") };
+        } catch (error) {
+          return { handled: true, reply: error instanceof Error ? error.message : "Could not send that reply." };
+        }
+      }
+      if (/^cancel[.! ]*$/i.test(value)) {
+        const item = watchCardsState.items.find((entry) => entry.item_id === current);
+        if (item && item.state === "awaiting_review" && item.draft_id) {
+          try {
+            const detail = await postLocalAutomation("/api/automation/cancel", { draft_id: item.draft_id });
+            await refreshWatchPanel();
+            return { handled: true, reply: detail || "Cleared the unsent draft." };
+          } catch (error) {
+            return { handled: true, reply: error instanceof Error ? error.message : "Could not clear that draft." };
+          }
+        }
+        return { handled: false };
+      }
+      if (WATCH_LEAVE_IT.test(value)) {
+        try {
+          const result = await watchAction("/api/watch/leave", { draft_id: current, reason: value });
+          watchFocusItemId = "";
+          await refreshWatchPanel();
+          return { handled: true, reply: result.prompt || "Okay — nothing will be sent." };
+        } catch (error) {
+          return { handled: true, reply: error instanceof Error ? error.message : "Could not update that chat." };
+        }
+      }
+      if (/^(?:hold on|wait|tell them i['’]?m busy|say i['’]?m busy|i['’]?ll reply later)[.! ]*$/i.test(value)) {
+        try {
+          const result = await watchAction("/api/watch/hold", { draft_id: current });
+          await refreshWatchPanel();
+          return { handled: true, reply: result.prompt || "Holding that chat open." };
+        } catch (error) {
+          return { handled: true, reply: error instanceof Error ? error.message : "Could not update that chat." };
+        }
+      }
+      const currentItem = watchCardsState.items.find((entry) => entry.item_id === current);
+      const options = currentItem && Array.isArray(currentItem.candidates) ? currentItem.candidates : [];
+      if (currentItem && currentItem.draft_stage === "awaiting_recipient_choice" && options.length) {
+        const choice = value.match(/^#?\s*(\d{1,2})[.!]?$/);
+        if (!choice) return { handled: true, reply: "Several chats match that name. Reply with one of the numbers Weronika showed." };
+        const picked = options.find((candidate) => candidate.id === choice[1]);
+        if (!picked) return { handled: true, reply: "That number is not in the list Weronika showed. Nothing was typed or sent." };
+        try {
+          const staged = await watchAction("/api/watch/choose", { draft_id: current, candidate_id: picked.id });
+          await refreshWatchPanel();
+          return { handled: true, reply: await appendWatchPrompt(staged.prompt || "Prepared. It has NOT been sent.") };
+        } catch (error) {
+          return { handled: true, reply: error instanceof Error ? error.message : "Could not open that chat." };
+        }
+      }
+      const explicit = value.match(/^(?:reply|make it|say|use|tell them|tell him|tell her|change it to|write)\s*[:\-]?\s*(.+)$/i);
+      const plain = !explicit && WATCH_AUTOMATION.test(value) ? value : "";
+      const replyText = String((explicit ? explicit[1] : plain) || "").trim();
+      if (!replyText) return { handled: false };
+      try {
+        const prepared = await watchAction("/api/watch/reply", { draft_id: current, reply: replyText });
+        await refreshWatchPanel();
+        return { handled: true, reply: await appendWatchPrompt(prepared.prompt || "Prepared. It has NOT been sent.") };
+      } catch (error) {
+        return { handled: true, reply: error instanceof Error ? error.message : "Could not prepare that reply." };
+      }
+    }
+
+    if (watchOpenBtn) watchOpenBtn.addEventListener("click", () => setWatchOpen());
+    if (watchCloseBtn) watchCloseBtn.addEventListener("click", () => setWatchOpen(false));
+    if (skillsOpenBtn) skillsOpenBtn.addEventListener("click", () => setSkillsOpen());
+    if (skillsCloseBtn) skillsCloseBtn.addEventListener("click", () => setSkillsOpen(false));
+    if (watchAllChats) watchAllChats.addEventListener("change", () => { if (watchChat) watchChat.disabled = watchAllChats.checked; });
+    if (watchAddBtn) watchAddBtn.addEventListener("click", async () => {
+      const chat = watchAllChats && watchAllChats.checked ? "" : (watchChat ? watchChat.value.trim() : "");
+      if (!chat && !(watchAllChats && watchAllChats.checked)) {
+        watchStatusLine && (watchStatusLine.textContent = "Name the chat or person to watch first.");
+        return;
+      }
+      watchAddBtn.disabled = true;
+      try {
+        const result = await watchAction("/api/watch/add", {
+          platform: watchPlatform ? watchPlatform.value : "whatsapp",
+          chat,
+          all_chats: Boolean(watchAllChats && watchAllChats.checked),
+          mode: watchMode ? watchMode.value : "ask",
+          rule: watchRule ? watchRule.value : "unanswered",
+          delay_seconds: watchDelay ? Number(watchDelay.value) || 0 : 0,
+        });
+        if (watchStatusLine) watchStatusLine.textContent = result.prompt || "Watching that chat.";
+        appendChat("system", result.prompt || "Watching that chat.", { banner: false });
+        if (watchChat) watchChat.value = "";
+        await refreshWatchPanel();
+        await loadWatchState();
+      } catch (error) {
+        if (watchStatusLine) watchStatusLine.textContent = error instanceof Error ? error.message : "Could not start that watch.";
+      } finally {
+        watchAddBtn.disabled = false;
+      }
+    });
 
     function isWakeActivationPhrase(text) {
       return /^\s*(?:hey\s+)?(?:weronika|veronika|वेरोनिका)[,;:\s]+(?:please\s+)?(?:listen|start listening|activate voice control)\s*[.!?]*$/iu.test(String(text || ""));

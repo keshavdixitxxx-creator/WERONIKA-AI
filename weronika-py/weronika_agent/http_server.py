@@ -15,7 +15,11 @@ from .blueprint import BlueprintError, MAX_IMAGE_BYTES, reconstruct_photo
 from .hardware import detect_hardware
 from .intents import parse_message_request
 from .models import Platform
+from .reply_watch import ReplyWatchError
 from .service import create_messaging_service
+from .tasks import ACTIONS, TaskError
+from .web_intents import plan_local, url_for_system_open, wants_system_browser
+from .watch_intents import has_watch_intent, parse_watch_request
 from .workflow import MessagingError
 from .workspace import LocalWorkspace, WorkspaceError
 
@@ -30,7 +34,14 @@ class LocalServer(HTTPServer):
     allow_reuse_address = True
 
 
-def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
+def make_handler(
+    service,
+    adapters,
+    workspace: LocalWorkspace | None = None,
+    watch=None,
+    skills=None,
+    tasks=None,
+):
     local_workspace = workspace or LocalWorkspace()
 
     class Handler(BaseHTTPRequestHandler):
@@ -140,7 +151,25 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
                 self._send_json(200, {"ok": True, "mode": "local-only"})
                 return
             if parsed.path == "/api/automation/status":
-                self._send_json(200, {"connected": True, "worker": "weronika-py", "mode": "loopback-only"})
+                self._send_json(200, self._status_payload())
+                return
+            if parsed.path == "/api/watch/status":
+                if watch is None:
+                    self._send_json(200, {"watched": 0, "items": [], "watches": [], "busy": False})
+                    return
+                self._send_json(200, self._watch_status())
+                return
+            if parsed.path == "/api/watch/item":
+                self._watch_item(parse_qs(parsed.query).get("draft_id", [""])[0])
+                return
+            if parsed.path == "/api/task/status":
+                self._task_status(parse_qs(parsed.query).get("task_id", [""])[0])
+                return
+            if parsed.path == "/api/browse/capabilities":
+                self._send_json(200, self._browse_capabilities())
+                return
+            if parsed.path == "/api/skills":
+                self._send_json(200, skills.catalog() if skills is not None else {"skills": [], "unavailable": []})
                 return
             if parsed.path == "/api/blueprint/capabilities":
                 self._send_json(200, detect_hardware())
@@ -200,6 +229,19 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
                     "/api/automation/recipient",
                     "/api/automation/confirm",
                     "/api/automation/cancel",
+                    "/api/watch/add",
+                    "/api/watch/scan",
+                    "/api/watch/reply",
+                    "/api/watch/choose",
+                    "/api/watch/confirm",
+                    "/api/watch/leave",
+                    "/api/watch/hold",
+                    "/api/watch/stop",
+                    "/api/task/start",
+                    "/api/task/approve",
+                    "/api/task/cancel",
+                    "/api/task/retry",
+                    "/api/browse/open",
                 }:
                     self._automation_stream(path, data)
                     return
@@ -245,7 +287,7 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
                     self._send_json(404, {"error": "Unknown local API route."})
                     return
                 self._send_json(200, result)
-            except (ValueError, MessagingError, WorkspaceError) as exc:
+            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError) as exc:
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})
@@ -297,13 +339,216 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
                         self._text(data, "confirmation"),
                         progress=progress,
                     )
+                elif path.startswith("/api/watch/"):
+                    result = self._watch_stream(path, data, progress)
+                elif path.startswith("/api/task/") or path == "/api/browse/open":
+                    result = self._task_stream(path, data, progress)
                 else:
                     result = service.cancel(self._text(data, "draft_id"), progress=progress)
-                emit({"type": "result", "workflow": result.to_dict()})
-            except (ValueError, MessagingError) as exc:
+                payload = result.to_dict() if hasattr(result, "to_dict") else result
+                emit({"type": "result", "workflow": payload})
+            except (ValueError, MessagingError, ReplyWatchError, TaskError) as exc:
                 emit({"type": "error", "message": str(exc)})
             except Exception:
                 emit({"type": "error", "message": "The local automation worker encountered an unexpected error."})
+
+        def _status_payload(self) -> dict[str, object]:
+            payload: dict[str, object] = {
+                "connected": True,
+                "worker": "weronika-py",
+                "mode": "loopback-only",
+                "reply_watch": watch is not None,
+                "skills": skills is not None,
+                "browser_tasks": tasks is not None,
+            }
+            if skills is not None:
+                payload["skill_count"] = len(skills.catalog()["skills"])
+            return payload
+
+        def _watch_status(self) -> dict[str, object]:
+            state = watch.list_state()
+            return {
+                "watched": len(state["watches"]),
+                "watches": state["watches"],
+                "items": state["items"],
+                "busy": state["busy"],
+            }
+
+        def _watch_item(self, item_id: str) -> None:
+            if watch is None or not item_id:
+                self._send_json(400, {"error": "Choose a reply-watch item first."})
+                return
+            try:
+                self._send_json(
+                    200,
+                    {
+                        "item_id": item_id,
+                        "prompt": watch.review_hint(item_id),
+                    },
+                )
+            except ReplyWatchError as exc:
+                self._send_json(400, {"error": str(exc)})
+
+        def _browse_capabilities(self) -> dict[str, object]:
+            payload: dict[str, object] = {
+                "worker": "weronika-py",
+                "engine": "visible browser automation",
+                "actions": [spec.__dict__ for spec in ACTIONS.values()],
+                "system_browsers": adapters.system_browsers() if hasattr(adapters, "system_browsers") else [],
+                "local_planning": True,
+            }
+            return payload
+
+        def _task_status(self, task_id: str) -> None:
+            if tasks is None:
+                self._send_json(400, {"error": "Browser automation is not available in this worker."})
+                return
+            try:
+                if task_id:
+                    task = tasks.get(task_id)
+                else:
+                    task = tasks.live()
+                self._send_json(200, {"task": task.to_dict() if task else None})
+            except TaskError as exc:
+                self._send_json(400, {"error": str(exc)})
+
+        def _task_stream(self, path: str, data: dict[str, object], progress) -> object:
+            if tasks is None:
+                raise TaskError("Browser automation is not available in this worker.")
+            if path == "/api/browse/open":
+                url = str(data.get("url") or "").strip()
+                preferred = str(data.get("browser") or "").strip()
+                if not url:
+                    raise TaskError("Which address should Weronika open?")
+                detail = tasks.open_in_own_browser(url, preferred)
+                if skills is not None:
+                    skills.mark_used("browse")
+                return {"stage": "done", "result": detail, "steps": [], "outcomes": [], "pending": None}
+            if path == "/api/task/start":
+                if skills is not None:
+                    skills.mark_used("browse")
+                task = tasks.start(data, progress=progress)
+                return task.to_dict()
+            if path == "/api/task/approve":
+                phrase = self._text(data, "confirmation") or "confirm"
+                task = tasks.approve(self._text(data, "task_id"), phrase, progress=progress)
+                return task.to_dict()
+            if path == "/api/task/retry":
+                return self._retry_task(data, progress)
+            return tasks.cancel(self._text(data, "task_id")).to_dict()
+
+        def _retry_task(self, data: dict[str, object], progress) -> dict[str, object]:
+            task = tasks.cancel(self._text(data, "task_id"))
+            original = task.message
+            plan = plan_local(original)
+            if plan is None or not plan.steps:
+                raise TaskError(
+                    "That request needs the cloud brain to re-plan. Say it again and Weronika will ask the brain."
+                )
+            rebuilt = tasks.start(
+                {
+                    "message": original,
+                    "steps": [step.to_dict() for step in plan.steps],
+                    "context": plan.context,
+                },
+                progress=progress,
+            )
+            return rebuilt.to_dict()
+
+        def _watch_stream(self, path: str, data: dict[str, object], progress) -> object:
+            if watch is None:
+                raise ReplyWatchError("Reply watch is not available in this worker.")
+            if path == "/api/watch/add":
+                result = watch.add_watch(data, progress=progress)
+            elif path == "/api/watch/scan":
+                scan = watch.scan(progress=progress)
+                for note in scan.get("notes", []):
+                    progress(f"Watch note · {note}")
+                if skills is not None:
+                    skills.mark_used("reply-watch-ask")
+                return {
+                    "stage": "scan",
+                    **scan,
+                    "prompt": _scan_prompt(scan),
+                }
+            elif path == "/api/watch/reply":
+                reply = data.get("reply")
+                if not isinstance(reply, str):
+                    raise ReplyWatchError("Give Weronika the exact reply text first.")
+                result = watch.propose(self._text(data, "draft_id"), reply, progress=progress)
+                if skills is not None:
+                    skills.mark_used("reply-watch-propose")
+            elif path == "/api/watch/choose":
+                result = watch.choose(
+                    self._text(data, "draft_id"),
+                    self._text(data, "candidate_id"),
+                    progress=progress,
+                )
+            elif path == "/api/watch/confirm":
+                result = watch.confirm(
+                    self._text(data, "draft_id"),
+                    self._text(data, "confirmation"),
+                    progress=progress,
+                )
+            elif path == "/api/watch/leave":
+                result = watch.decline(self._text(data, "draft_id"), self._text(data, "reason"))
+            elif path == "/api/watch/hold":
+                result = watch.hold(self._text(data, "draft_id"))
+            else:
+                result = watch.remove_watch(self._text(data, "draft_id"))
+            return result
+
+        def _watch_route(self, data: dict[str, object]) -> dict[str, object]:
+            intent = parse_watch_request(self._text(data, "text"))
+            if watch is None or intent.action == "unhandled":
+                return {"handled": False}
+            if intent.prompt:
+                return {"handled": True, "prompt": intent.prompt}
+            if intent.action == "add_watch":
+                result = watch.add_watch(
+                    {
+                        "platform": intent.platform.value if intent.platform else "",
+                        "chat": intent.chat,
+                        "all_chats": intent.all_chats,
+                        "mode": intent.mode,
+                        "rule": intent.rule,
+                        "delay_seconds": intent.delay_seconds,
+                        "reminder_seconds": intent.reminder_seconds,
+                        "unanswered_after_seconds": intent.unanswered_after_seconds,
+                    }
+                )
+                return {"handled": True, "kind": "watch", **result.to_dict()}
+            if intent.action == "status":
+                state = watch.list_state()
+                return {
+                    "handled": True,
+                    "kind": "status",
+                    "prompt": _status_prompt(state),
+                    "items": state["items"],
+                }
+            if intent.action == "scan":
+                scan = watch.scan()
+                if skills is not None:
+                    skills.mark_used("reply-watch-ask")
+                return {"handled": True, "kind": "scan", **scan, "prompt": _scan_prompt(scan)}
+            if intent.action == "stop_watch":
+                return {"handled": True, "kind": "watch", **watch.remove_watch().to_dict()}
+            # reply / leave_it / hold refer to the item Weronika last showed.
+            item_id = self._text(data, "draft_id")
+            if not item_id:
+                return {
+                    "handled": True,
+                    "prompt": "I need the chat I flagged first. Say ‘who is waiting’ and choose one.",
+                }
+            if intent.action == "leave_it":
+                return {"handled": True, "kind": "watch", **watch.decline(item_id, intent.reply).to_dict()}
+            if intent.action == "hold":
+                return {"handled": True, "kind": "watch", **watch.hold(item_id).to_dict()}
+            return {
+                "handled": True,
+                "kind": "watch",
+                **watch.propose(item_id, intent.reply).to_dict(),
+            }
 
         @staticmethod
         def _text(data: dict[str, object], key: str) -> str:
@@ -314,6 +559,10 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
             text = self._text(data, "text")
             if not text:
                 raise ValueError("Enter a message request first.")
+            if has_watch_intent(text):
+                watched = self._watch_route(data)
+                if watched.get("handled"):
+                    return watched
             parsed = parse_message_request(text)
             if not parsed.handled:
                 return {
@@ -328,20 +577,71 @@ def make_handler(service, adapters, workspace: LocalWorkspace | None = None):
     return Handler
 
 
+def _scan_prompt(scan: dict[str, object]) -> str:
+    detected = scan.get("detected") or []
+    if isinstance(detected, list) and detected:
+        return f"{len(detected)} chat(s) are waiting for your reply. Here is the first one."
+    notes = scan.get("notes") or []
+    if notes:
+        return "Weronika could not read every watched chat. " + str(notes[0])
+    return "Nobody is waiting on the chats you asked me to watch."
+
+
+def _status_prompt(state: dict[str, object]) -> str:
+    watches = state.get("watches") or []
+    items = state.get("items") or []
+    if not watches:
+        return (
+            "No chats are being watched yet. Say, for example, "
+            "“Watch my WhatsApp chat with Boss.”"
+        )
+    lines = [
+        f"Watching {len(watches)} chat(s): "
+        + ", ".join(f"{entry['platform'].title()} · {entry['chat_name']}" for entry in watches)
+    ]
+    waiting = [
+        entry
+        for entry in items
+        if isinstance(entry, dict) and entry.get("state") == "awaiting_user"
+    ]
+    if not waiting:
+        lines.append("Nobody is waiting for a reply right now.")
+        return "\n".join(lines)
+    for entry in waiting:
+        message = entry.get("message") or {}
+        text = message.get("text") if isinstance(message, dict) else ""
+        lines.append(f"— {entry.get('platform', '').title()} · {entry.get('chat_name')}: “{text}”")
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run Weronika's local, confirmation-first messaging UI.")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--profile-dir", type=Path, default=None, help="Override the local persistent browser-profile directory.")
     parser.add_argument("--open-browser", action="store_true", help="Open the local messaging page in the default browser.")
+    parser.add_argument(
+        "--brain-endpoint",
+        default=None,
+        help=(
+            "Cloud-brain URL used only to suggest reply-watch wording. "
+            "Use 'off' to keep every suggestion on this device."
+        ),
+    )
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
 
-    service, adapters = create_messaging_service(args.profile_dir)
-    server = LocalServer(("127.0.0.1", args.port), make_handler(service, adapters))
+    service, adapters, watch, skills, tasks = create_messaging_service(
+        args.profile_dir, brain_endpoint=args.brain_endpoint
+    )
+    server = LocalServer(
+        ("127.0.0.1", args.port),
+        make_handler(service, adapters, watch=watch, skills=skills, tasks=tasks),
+    )
     url = f"http://127.0.0.1:{args.port}/"
     print(f"Weronika local messaging is running at {url}")
     print("It is loopback-only; browser sessions and message drafts stay on this device.")
+    print("Reply watch reads only the chats you name, and every send still needs your confirmation.")
     if args.open_browser:
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
     try:

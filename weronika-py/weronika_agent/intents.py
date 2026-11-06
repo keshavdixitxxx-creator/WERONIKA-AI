@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from .models import IntentParseResult, Platform
+from .models import IntentParseResult, Platform, platform_display
 
 PLATFORM_PATTERNS: tuple[tuple[Platform, re.Pattern[str]], ...] = (
     (Platform.WHATSAPP, re.compile(r"\b(?:whats\s?app|wa)\b", re.I)),
@@ -89,7 +89,7 @@ def parse_message_request(text: str) -> IntentParseResult:
             handled=True,
             platform=platform,
             message=body,
-            prompt=f"Who should I message on {platform.value.title()}? Please give the chat or account name.",
+            prompt=f"Who should I message on {platform_display(platform)}? Please give the chat or account name.",
         )
     if len(recipient) > 120:
         return IntentParseResult(
