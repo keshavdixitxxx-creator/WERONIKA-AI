@@ -179,6 +179,10 @@ class BrowserManager:
         pages = context.pages
         return pages[0] if pages else context.new_page()
 
+    def workspace_browser(self):
+        """Public accessor for the user-visible managed browser."""
+        return self._workspace_browser()
+
     def _workspace_browser(self):
         try:
             from playwright.sync_api import sync_playwright

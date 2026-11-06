@@ -6,7 +6,7 @@ Weronika is a voice-and-text assistant. Her conversation UI is served by the web
 
 - **Cloud-brain chat:** text and voice conversations use the hosted brain endpoint (`/api/public/brain`).
 - **Browser-only chat history:** saved in this browser's local storage.
-- **No local automation agent:** the Python agent, desktop/app integrations, Google account controls, call controls, project workspace, and their frontend connections have been removed so automation can be rebuilt separately.
+- **Local worker for device automation:** messaging and reply watch run through `weronika-py` on your own computer because they use your signed-in browser session. Without it, the orb stays a cloud-brain chat and nothing is read, typed, or sent.
 - **Orb controls:** visual orb settings and camera gestures affect only the orb; they do not control the computer.
 
 ## Run the web app
@@ -26,6 +26,35 @@ npm run preview
 ```
 
 The cloud brain credentials remain on the server. The browser sends conversation requests to `/api/public/brain`; it does not call a local Python service.
+
+## Reply watch (WhatsApp / Telegram)
+
+The orb has a **◎ REPLY WATCH** panel (⚙ SETTINGS → Tools) and a matching chat vocabulary. Weronika reads
+only the chats you name, in the same local browser window you sign in to, and notices
+when someone messaged you and you have not answered. She then either asks you what to
+reply or drafts a suggested reply — and still waits for `confirm send` before the
+exact text is typed and sent. Replies can also use a file from the local workspace
+(for example a leave policy) or a one-time code you want to forward. A **✧ SKILLS**
+panel, next to it under ⚙ SETTINGS → Tools, lists exactly what the local worker
+implements and the gaps it will not fake.
+
+This needs the local Python worker (`weronika-py`, started with `start.bat`), because
+the browser sessions stay on your computer. The hosted web page alone cannot read
+messages, and no platform API is used: WhatsApp has no personal-account chat API and
+Telegram user accounts should use the official Bot API, so the worker reads the visible
+web session you already signed in to. Instagram's web app has no dependable message
+list, so reading DMs is refused there rather than guessed. See
+[weronika-py/README.md](weronika-py/README.md) for the full flow and limits.
+
+## Browser tasks (search, open, play, post)
+
+The orb can also plan and run browser steps: search the web, open a specific result,
+read the page back, play a video or song on YouTube, and — only after your explicit
+`confirm` — type and submit a comment, like, or subscribe. Complex phrasing is broken
+into ordered steps by the hosted brain and shown before anything runs. Naming Edge or
+Chrome (“open github in chrome”) opens the address in your own browser instead.
+These run through the local worker; see [weronika-py/README.md](weronika-py/README.md)
+for the step list and limits.
 
 ## Gmail (optional OAuth integration)
 

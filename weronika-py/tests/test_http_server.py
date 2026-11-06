@@ -10,6 +10,10 @@ from unittest.mock import patch
 from weronika_agent.blueprint import BlueprintError
 from weronika_agent.http_server import LocalServer, make_handler
 from weronika_agent.models import Platform, VisibleContact
+from weronika_agent.reply_watch import ChatReading, ChatSnapshot, IncomingMessage, ReplyWatchService
+from weronika_agent.task_service import TaskService
+from weronika_agent.tasks import PageReading
+from weronika_agent.watch_skills import SkillRegistry
 from weronika_agent.workflow import MessagingService
 from weronika_agent.workspace import LocalWorkspace
 
@@ -30,6 +34,79 @@ class FakeAdapter:
 
     def clear_draft_if_unchanged(self, message):
         return True
+
+
+class FakeActivity:
+    """Stands in for the visible WhatsApp/Telegram browser window."""
+
+    def __init__(self):
+        self.chats = [ChatSnapshot(Platform.WHATSAPP, "Boss")]
+        self.last = ""
+
+    def list_chats(self, platform):
+        return list(self.chats)
+
+    def read_latest(self, platform, chat_name):
+        return getattr(self, "reading", ChatReading(chat_name=chat_name, messages=(), last_is_incoming=None))
+
+    def deliver(self, text, sender="Boss"):
+        self.last = text
+        self.reading = ChatReading(
+            chat_name="Boss",
+            messages=(
+                IncomingMessage(
+                    platform=Platform.WHATSAPP,
+                    chat_name="Boss",
+                    message_id="m1",
+                    text=text,
+                    sender=sender,
+                ),
+            ),
+            last_is_incoming=True,
+        )
+
+    def __call__(self, platform):
+        return self
+
+
+class FakeWeb:
+    """Stands in for the visible Chromium window used for web tasks."""
+
+    def __init__(self):
+        self.calls = []
+        self.submitted = []
+
+    def search(self, query):
+        self.calls.append(("search", query))
+        return f"https://duckduckgo.com/?q={query}"
+
+    def open_url(self, url):
+        self.calls.append(("open_url", url))
+        return url
+
+    def click_result(self, index=0):
+        self.calls.append(("open_result", str(index)))
+        return "Example — https://example.com/"
+
+    def read_page(self):
+        self.calls.append(("read_page", ""))
+        return PageReading("https://example.com/", "Example", "Example article text.")
+
+    def play(self, query, *, context=""):
+        self.calls.append(("play_video", query))
+        return f"Playing on YouTube: “{query}”", "https://www.youtube.com/watch?v=1"
+
+    def prepare_account_action(self, action, text, context):
+        self.calls.append(("prepare", f"{action}:{text}"))
+        return f"{action} typed: {text}"
+
+    def submit_account_action(self, action, text):
+        self.submitted.append(text)
+        return SimpleNamespace(submitted=True, detail=f"{action} submitted")
+
+    def open_in_system_browser(self, url, preferred=""):
+        self.calls.append(("system", f"{preferred}|{url}"))
+        return f"Opened in Microsoft Edge: {url}"
 
 
 class FakeBrowser:
@@ -60,7 +137,22 @@ class LocalHttpServerTests(unittest.TestCase):
         self.browser = FakeBrowser()
         self.service = MessagingService(lambda _: self.adapter)
         self.adapters = SimpleNamespace(browser=self.browser)
-        self.server = LocalServer(("127.0.0.1", 0), make_handler(self.service, self.adapters, self.workspace))
+        self.activity = FakeActivity()
+        self.watch = ReplyWatchService(self.activity, self.service, suggester=lambda chat, text: "")
+        self.skills = SkillRegistry()
+        self.web = FakeWeb()
+        self.tasks = TaskService(lambda: self.web)
+        self.server = LocalServer(
+            ("127.0.0.1", 0),
+            make_handler(
+                self.service,
+                self.adapters,
+                self.workspace,
+                watch=self.watch,
+                skills=self.skills,
+                tasks=self.tasks,
+            ),
+        )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.base = f"http://127.0.0.1:{self.server.server_port}"
@@ -189,6 +281,179 @@ class LocalHttpServerTests(unittest.TestCase):
             self.assertTrue(json.load(response)["activated"])
         with self.request("/api/workspace/browser/close", {"tab_id": "0"}, origin=self.base) as response:
             self.assertTrue(json.load(response)["closed"])
+
+    def test_status_reports_reply_watch_and_skills(self):
+        with self.request("/api/automation/status") as response:
+            status = json.load(response)
+        self.assertTrue(status["reply_watch"])
+        self.assertTrue(status["skills"])
+        self.assertGreaterEqual(status["skill_count"], 5)
+
+    def test_skills_catalog_lists_only_implemented_capabilities(self):
+        with self.request("/api/skills") as response:
+            catalog = json.load(response)
+        ids = {skill["id"] for skill in catalog["skills"]}
+        self.assertIn("reply-watch-propose", ids)
+        self.assertIn("send-message", ids)
+        reasons = {entry["id"] for entry in catalog["unavailable"]}
+        self.assertIn("auto-send", reasons)
+        self.assertIn("calls", reasons)
+
+    def test_reply_watch_adds_scans_and_prepares_a_confirmed_reply(self):
+        with self.request(
+            "/api/watch/add",
+            {"platform": "whatsapp", "chat": "Boss", "mode": "ask", "unanswered_after_seconds": 0},
+            origin=self.base,
+        ) as response:
+            added = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertEqual(added["state"], "new")
+        self.assertIn("Watching", added["prompt"])
+
+        self.activity.deliver("Are you coming today?")
+        with self.request("/api/watch/scan", {}, origin=self.base) as response:
+            scan = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
+        self.assertEqual(len(scan["detected"]), 1)
+        item_id = scan["detected"][0]["item_id"]
+        self.assertEqual(self.adapter.sent, [])
+
+        with self.request(
+            "/api/watch/reply",
+            {"draft_id": item_id, "reply": "I won't be able to come today"},
+            origin=self.base,
+        ) as response:
+            prepared = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertEqual(prepared["state"], "awaiting_review")
+        self.assertIn("NOT been sent", prepared["prompt"])
+        self.assertEqual(self.adapter.sent, [])
+
+        with self.request(
+            "/api/watch/confirm",
+            {"draft_id": item_id, "confirmation": "confirm send"},
+            origin=self.base,
+        ) as response:
+            sent = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
+        self.assertEqual(sent["state"], "sent")
+        self.assertEqual(self.adapter.sent, ["I won't be able to come today"])
+
+    def test_watch_status_and_leave_it_routes(self):
+        with self.request(
+            "/api/watch/add",
+            {"platform": "whatsapp", "chat": "Boss", "mode": "ask", "unanswered_after_seconds": 0},
+            origin=self.base,
+        ) as response:
+            self.events(response)
+        self.activity.deliver("Hello?")
+        with self.request("/api/watch/scan", {}, origin=self.base) as response:
+            scan = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
+        item_id = scan["detected"][0]["item_id"]
+
+        with self.request("/api/watch/status") as response:
+            status = json.load(response)
+        self.assertEqual(status["watched"], 1)
+        self.assertEqual(status["items"][0]["state"], "awaiting_user")
+
+        with self.request(
+            "/api/watch/leave", {"draft_id": item_id}, origin=self.base
+        ) as response:
+            left = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
+        self.assertEqual(left["state"], "declined")
+        self.assertEqual(self.adapter.sent, [])
+
+    def test_plain_message_route_routes_watch_phrases(self):
+        with self.request(
+            "/api/message", {"text": "Watch my WhatsApp chat with Boss"}, origin=self.base
+        ) as response:
+            result = json.load(response)
+        self.assertTrue(result["handled"])
+        self.assertEqual(result["kind"], "watch")
+        self.assertEqual(result["chat_name"], "Boss")
+
+    def test_browse_capabilities_lists_actions_and_browsers(self):
+        with self.request("/api/browse/capabilities") as response:
+            caps = json.load(response)
+        actions = {action["kind"] for action in caps["actions"]}
+        self.assertIn("play_video", actions)
+        self.assertIn("comment", actions)
+        self.assertTrue(any(action["needs_approval"] for action in caps["actions"]))
+        self.assertTrue(caps["local_planning"])
+
+    def test_multi_step_task_runs_search_open_and_read(self):
+        task = result = None
+        with self.request(
+            "/api/task/start",
+            {
+                "message": "search and summarize",
+                "steps": [
+                    {"action": "search", "target": "best laptop"},
+                    {"action": "open_result", "target": ""},
+                    {"action": "read_page", "target": ""},
+                ],
+            },
+            origin=self.base,
+        ) as response:
+            result = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertEqual(result["stage"], "done")
+        self.assertEqual([call[0] for call in self.web.calls], ["search", "open_result", "read_page"])
+        self.assertIn("Example", result["result"])
+
+    def test_comment_waits_for_approval_then_submits(self):
+        with self.request(
+            "/api/task/start",
+            {"message": "comment", "steps": [{"action": "comment", "target": "Great explanation"}]},
+            origin=self.base,
+        ) as response:
+            pending = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertEqual(pending["stage"], "awaiting_approval")
+        self.assertEqual(self.web.submitted, [])
+
+        with self.request(
+            "/api/task/approve",
+            {"task_id": pending["task_id"], "confirmation": "confirm"},
+            origin=self.base,
+        ) as response:
+            done = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertEqual(done["stage"], "done")
+        self.assertEqual(self.web.submitted, ["Great explanation"])
+
+    def test_task_status_and_cancel(self):
+        with self.request(
+            "/api/task/start",
+            {"message": "comment", "steps": [{"action": "comment", "target": "hi"}]},
+            origin=self.base,
+        ) as response:
+            pending = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        with self.request(f"/api/task/status?task_id={pending['task_id']}") as response:
+            self.assertEqual(json.load(response)["task"]["stage"], "awaiting_approval")
+        with self.request(
+            "/api/task/cancel", {"task_id": pending["task_id"]}, origin=self.base
+        ) as response:
+            cancelled = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertEqual(cancelled["stage"], "cancelled")
+        self.assertEqual(self.web.submitted, [])
+
+    def test_open_in_own_browser_route(self):
+        with self.request(
+            "/api/browse/open", {"url": "https://github.com", "browser": "edge"}, origin=self.base
+        ) as response:
+            opened = next(
+                event["workflow"] for event in self.events(response) if event["type"] == "result"
+            )
+        self.assertIn("Microsoft Edge", opened["result"])
+        self.assertEqual(self.web.calls[-1], ("system", "edge|https://github.com"))
 
     def test_cross_origin_is_rejected(self):
         request = urllib.request.Request(

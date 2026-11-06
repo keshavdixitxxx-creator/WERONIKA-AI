@@ -26,6 +26,59 @@ class Platform(str, Enum):
             raise ValueError(f"Unsupported platform. Choose one of: {supported}.") from exc
 
 
+PLATFORM_DISPLAY: dict["Platform", str] = {
+    "whatsapp": "WhatsApp",
+    "telegram": "Telegram",
+    "instagram": "Instagram",
+    "facebook": "Messenger",
+    "x": "X",
+}
+
+
+def platform_display(platform: "Platform") -> str:
+    return PLATFORM_DISPLAY.get(platform.value, platform.value.title())
+
+
+class WatchMode(str, Enum):
+    """What Weronika does with an incoming message she is watching."""
+
+    ASK = "ask"
+    PROPOSE = "propose"
+
+
+class WatchRule(str, Enum):
+    """Which incoming messages count as waiting for the user's reply."""
+
+    UNANSWERED = "unanswered"
+    URGENT = "urgent"
+
+
+class WatchState(str, Enum):
+    NEW = "new"
+    AWAITING_REVIEW = "awaiting_review"
+    AWAITING_USER = "awaiting_user"
+    HELD = "held"
+    SENT = "sent"
+    SENT_UNVERIFIED = "sent_unverified"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+    FAILED = "failed"
+
+
+def parse_watch_mode(value: str) -> WatchMode:
+    try:
+        return WatchMode(value.strip().casefold())
+    except ValueError as exc:
+        raise ValueError("Reply watch has two modes: ask or propose.") from exc
+
+
+def parse_watch_rule(value: str) -> WatchRule:
+    try:
+        return WatchRule(value.strip().casefold())
+    except ValueError as exc:
+        raise ValueError("Reply watch can watch for unanswered or urgent messages.") from exc
+
+
 class WorkflowStage(str, Enum):
     NEEDS_RECIPIENT = "needs_recipient"
     AWAITING_RECIPIENT_CHOICE = "awaiting_recipient_choice"
