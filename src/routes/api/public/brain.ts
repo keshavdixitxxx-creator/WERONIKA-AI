@@ -9,7 +9,6 @@ import {
   buildAutomationPlanInstructions,
   buildInstructions,
   buildGmailAssistInstructions,
-  buildMediaIntentInstructions,
   buildWorkspaceCodeInstructions,
   buildResponsesBody,
   isTransientStatus,
@@ -30,11 +29,10 @@ type BrainInput = {
   history: HistoryItem[];
   lang: string;
   addressName: string;
-  task?: "media-intent" | "automation-plan" | "workspace-code" | "gmail-assist";
+  task?: "automation-plan" | "workspace-code" | "gmail-assist";
 };
 
 function instructionsFor(input: Pick<BrainInput, "lang" | "addressName" | "task">) {
-  if (input.task === "media-intent") return buildMediaIntentInstructions();
   if (input.task === "automation-plan") return buildAutomationPlanInstructions();
   if (input.task === "workspace-code") return buildWorkspaceCodeInstructions();
   if (input.task === "gmail-assist") return buildGmailAssistInstructions();
@@ -230,7 +228,6 @@ export const Route = createFileRoute("/api/public/brain")({
         const message = typeof body.message === "string" ? body.message.trim() : "";
         if (!message) return jsonError("message is required", 400);
         const task =
-          body.task === "media-intent" ||
           body.task === "automation-plan" ||
           body.task === "workspace-code" ||
           body.task === "gmail-assist"

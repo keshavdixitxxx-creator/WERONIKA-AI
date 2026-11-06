@@ -769,8 +769,6 @@
   <div class="hud-left-controls" id="leftControls">
     <div class="hud-row" style="flex-direction:column; gap:8px; align-items:flex-start;">
       <button type="button" class="hud-btn" id="voiceBtn">VOICE CHAT</button>
-      <button type="button" class="hud-btn" id="wakeWordBtn" aria-pressed="false" title="Opt in to keep the microphone open for the Weronika wake word">WAKE WORD OFF</button>
-      <div class="voice-wake-hint" id="wakeWordHint">One-turn voice closes the mic after you speak. Wake-word mode is optional and keeps it open.</div>
       <button type="button" class="hud-btn" id="gesturesBtn" aria-pressed="false">GESTURES OFF</button>
       <div class="hud-row zoom-control-row" aria-label="Orb view controls">
         <button type="button" class="hud-btn" id="zoomInBtn" aria-label="Zoom in">+</button>
@@ -914,6 +912,13 @@
           <button type="button" class="hud-btn settings-mini-btn" id="skillsOpenBtn" aria-pressed="false">✧ SKILLS</button>
         </div>
         <div class="settings-status">Reply watch reads only the chats you name and asks before anything is sent. Skills lists what runs on this computer, what each one needs, and the honest gaps.</div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Open tabs</div>
+        <div class="settings-status" id="siteTabsStatus">Checking the Weronika browser window…</div>
+        <div class="site-tabs" id="siteTabsList"></div>
+        <div class="settings-status">Say “open radio garden” or “open gmail, drive, and keep”. Weronika opens them in her own window; these buttons close or switch tabs.</div>
       </div>
 
       <div class="settings-section gmail-section">
@@ -1323,6 +1328,10 @@
 
     .gmail-controls { display: flex; gap: 7px; }
     .settings-controls { display: flex; gap: 7px; }
+    .site-tabs { display: flex; flex-direction: column; gap: 6px; }
+    .site-tab { display: flex; align-items: center; gap: 6px; padding: 6px 7px; border: 1px solid rgba(255,170,48,.22); border-radius: 4px; background: rgba(0,0,0,.35); }
+    .site-tab-name { flex: 1; min-width: 0; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-tab button { font-size: 9px; padding: 3px 6px; }
     .gmail-message-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
     .gmail-message-card { text-align: left; padding: 8px; border: 1px solid rgba(255,170,48,.24); border-radius: 4px; background: rgba(0,0,0,.35); color: #ffd88f; font: 10px/1.45 "Courier New", monospace; overflow-wrap: anywhere; }
     .gmail-message-card.selected { border-color: #ffcc66; background: rgba(255,170,48,.12); }
@@ -2468,8 +2477,6 @@
     const hudError = document.getElementById("hudError");
     const gesturesBtn = document.getElementById("gesturesBtn");
     const voiceBtn = document.getElementById("voiceBtn");
-    const wakeWordBtn = document.getElementById("wakeWordBtn");
-    const wakeWordHint = document.getElementById("wakeWordHint");
     const voiceLog = document.getElementById("voiceLog");
     const zoomInBtn = document.getElementById("zoomInBtn");
     const zoomOutBtn = document.getElementById("zoomOutBtn");
@@ -2638,6 +2645,7 @@
       const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !settingsPanel.classList.contains("open");
       settingsPanel.classList.toggle("open", shouldOpen);
       if (settingsToggleBtn) settingsToggleBtn.setAttribute("aria-pressed", String(shouldOpen));
+      if (shouldOpen) void refreshSiteTabs();
     }
 
     if (settingsToggleBtn) settingsToggleBtn.addEventListener("click", () => toggleSettingsPanel());
@@ -3896,6 +3904,61 @@
       return WATCH_PLATFORM_LABELS[value] || String(value || "").replace(/^./, (letter) => letter.toUpperCase());
     }
 
+    // ------------------------------------------------------------- site tabs
+    function renderSiteTabs(tabs) {
+      const list = document.getElementById("siteTabsList");
+      const status = document.getElementById("siteTabsStatus");
+      if (!list) return;
+      list.replaceChildren();
+      const items = Array.isArray(tabs) ? tabs : [];
+      if (status) status.textContent = items.length ? `${items.length} tab(s) open in the Weronika window.` : "No tabs open yet. Say “open youtube”.";
+      for (const tab of items) {
+        const row = document.createElement("div");
+        row.className = "site-tab";
+        const name = document.createElement("span");
+        name.className = "site-tab-name";
+        name.textContent = tab.title || tab.url || "tab";
+        name.title = tab.url || "";
+        const focus = document.createElement("button");
+        focus.type = "button";
+        focus.className = "hud-btn";
+        focus.textContent = "SHOW";
+        focus.addEventListener("click", () => void siteTabAction("/api/sites/focus", { tab_id: tab.id }));
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "hud-btn";
+        close.textContent = "×";
+        close.setAttribute("aria-label", `Close ${tab.title || tab.url || "tab"}`);
+        close.addEventListener("click", () => void siteTabAction("/api/sites/close", { tab_id: tab.id }));
+        row.append(name, focus, close);
+        list.append(row);
+      }
+    }
+
+    async function refreshSiteTabs() {
+      const status = document.getElementById("siteTabsStatus");
+      try {
+        const response = await fetch("/api/sites/tabs", { cache: "no-store" });
+        if (!response.ok) throw new Error("worker offline");
+        const data = await response.json();
+        renderSiteTabs(data.tabs);
+      } catch {
+        if (status) status.textContent = "The local worker is offline, so no tabs are listed.";
+        renderSiteTabs([]);
+      }
+    }
+
+    async function siteTabAction(path, payload) {
+      const status = document.getElementById("siteTabsStatus");
+      try {
+        const result = await postLocalAutomation(path, payload);
+        if (status && result && result.message) status.textContent = result.message;
+      } catch (error) {
+        if (status) status.textContent = error instanceof Error ? error.message : "That tab action failed.";
+      }
+      await refreshSiteTabs();
+    }
+
     function watchPanelOpen() {
       return Boolean(watchPanel && watchPanel.classList.contains("open"));
     }
@@ -4406,6 +4469,42 @@
       return task.stage === "awaiting_approval" ? first : `${first}`;
     }
 
+    // ------------------------------------------------------------------ sites
+    // Plain "open <site>" requests are handled by the local worker's site registry,
+    // never by the cloud planner. A named site needs no brain, so this path keeps
+    // working when the brain is unreachable.
+    const SITE_OPEN_RE = /^\s*(?:please\s+)?(?:open|launch|start|visit|go\s+to|show(?:\s+me)?|take\s+me\s+to)\s+(?!the\b)(.{1,120})$/i;
+    const SITE_LIST_SPLIT_RE = /\s*(?:,|\band\b|\bthen\b)\s*/i;
+    const SITE_NON_SITE_RE = /\b(?:search|google(?!\s+(?:drive|docs|maps|keep|calendar|photos|meet|classroom|earth|translate|scholar|sheets|slides))|look\s+up|play|comment|subscribe|read|summari[sz]e|result|page|video|song|browser|chrome|edge|firefox|app|file|folder)\b/i;
+
+    function browseSiteNames(text) {
+      const match = String(text || "").trim().match(SITE_OPEN_RE);
+      if (!match) return null;
+      const body = match[1].trim().replace(/[.!?]+$/, "");
+      if (!body || SITE_NON_SITE_RE.test(body)) return null;
+      if (/\b(?:whats\s?app|telegram|instagram|facebook|messenger|twitter)\b/i.test(body) && /\b(?:send|message|text|dm|watch|keep an eye)\b/i.test(body)) return null;
+      const names = body
+        .split(SITE_LIST_SPLIT_RE)
+        .map((part) => part.trim().replace(/^the\s+/i, "").replace(/\s+(?:website|site|page|app)$/i, "").trim())
+        .filter(Boolean);
+      if (!names.length || names.length > 10) return null;
+      return names;
+    }
+
+    async function runSiteOpen(names) {
+      await checkLocalAutomationWorker();
+      if (!localAutomationConnected) {
+        return "Opening a named site needs the local worker. Start Weronika with start.bat on this device, then try again. Nothing was opened.";
+      }
+      const result = await postLocalAutomation("/api/sites/open", { names });
+      if (!result) return "Weronika could not open that site. Nothing else was changed.";
+      if (result.error) return result.error;
+      const opened = Array.isArray(result.opened) ? result.opened : [];
+      const label = opened.map((tab) => tab.name || tab.url).join(", ");
+      if (browserTaskStatusLine) browserTaskStatusLine.textContent = label ? `Open: ${label}` : "";
+      return result.message || (label ? `Opened ${label}.` : "Opened in the Weronika browser window.");
+    }
+
     function isAutomationRequest(text) {
       const value = String(text || "");
       if (hasWatchIntent(value)) return true;
@@ -4440,6 +4539,10 @@
         if (BROWSE_CONFIRM_RE.test(text)) return (await runBrowserTask("/api/task/approve", { task_id: pendingBrowserTask.task_id, confirmation: "confirm" }))?.result || "Approved.";
         if (BROWSE_CANCEL_RE.test(text)) return (await runBrowserTask("/api/task/cancel", { task_id: pendingBrowserTask.task_id }))?.result || "Cancelled. Nothing was submitted.";
       }
+      // A plain "open <site>" is answered by the local site registry first: no brain
+      // round-trip, so it still works when the cloud planner is unreachable.
+      const siteNames = browseSiteNames(text);
+      if (siteNames) return await runSiteOpen(siteNames);
       if (isBrowserTaskRequest(text)) return await planAndRunBrowserTask(text, languageOverride);
       if (isAutomationRequest(text)) return await runAutomationPlan(text, languageOverride);
       const reply = await answerWithBrain(text, languageOverride);
@@ -4893,23 +4996,10 @@
       return match ? { addressed: true, command: String(match[1] || "").trim() } : { addressed: false, command: "" };
     }
 
-    function updateWakeWordButton(active) {
-      if (wakeWordBtn) {
-        wakeWordBtn.textContent = active ? "WAKE WORD ON" : "WAKE WORD OFF";
-        wakeWordBtn.setAttribute("aria-pressed", String(active));
-      }
-      if (wakeWordHint) {
-        wakeWordHint.textContent = active
-          ? 'Wake-word mic is open. Say “Weronika” to interrupt or give a command; click to turn it off.'
-          : 'One-turn voice closes the mic after you speak. Wake-word mode is optional and keeps it open.';
-      }
-    }
-
     function activateWakeWordOnCurrentSession() {
       wakeWordEnabled = true;
       voiceSessionMode = "wake";
       if (recognition) recognition.continuous = true;
-      updateWakeWordButton(true);
       if (voiceBtn) voiceBtn.textContent = "VOICE ON";
       logVoice('Wake-word mode active. The microphone stays on until you switch it off.');
     }
@@ -4929,28 +5019,9 @@
       voiceEnabled = false;
       voiceSessionMode = "off";
       wakeWordEnabled = false;
-      updateWakeWordButton(false);
       try { recognition?.stop(); } catch (error) { console.warn("voice stop failed", error); }
       if (voiceBtn) voiceBtn.textContent = "VOICE CHAT";
       logVoice(reason);
-    }
-
-    function toggleWakeWord() {
-      if (!speechRecognitionAvailable) {
-        showError("Wake-word listening needs browser speech recognition in a secure context.");
-        return;
-      }
-      if (wakeWordEnabled && voiceSessionMode === "wake") {
-        stopVoiceSession("Wake-word listening stopped. The microphone is closed.");
-        return;
-      }
-      wakeWordEnabled = true;
-      updateWakeWordButton(true);
-      voiceEnabled = false;
-      voiceSessionMode = "wake";
-      if (voiceBtn) voiceBtn.textContent = "VOICE ON";
-      logVoice('Starting wake-word mode. The microphone will stay open until you switch it off.');
-      void startVoiceRecognition({ chat: false, continuous: true, mode: "wake" });
     }
 
     function handleWakeActivationRequest(text) {
@@ -4961,7 +5032,6 @@
       } else {
         if (!speechRecognitionAvailable) return "Wake-word voice control is unavailable in this browser. You can still use one-turn voice chat.";
         wakeWordEnabled = true;
-        updateWakeWordButton(true);
         voiceSessionMode = "wake";
         logVoice('Starting wake-word mode. The microphone stays open until you switch it off.');
         void startVoiceRecognition({ chat: false, continuous: true, mode: "wake" });
@@ -4992,7 +5062,6 @@
         voiceSessionMode = "off";
         if (requestedMode === "wake") {
           wakeWordEnabled = false;
-          updateWakeWordButton(false);
         }
         if (voiceBtn) voiceBtn.textContent = "VOICE CHAT";
       };
@@ -5025,7 +5094,6 @@
         voiceSessionMode = requestedMode;
         if (requestedMode === "wake") {
           wakeWordEnabled = true;
-          updateWakeWordButton(true);
         }
         if (recognition) {
           try { recognition.abort(); } catch (error) { /* ignore an inactive recognizer */ }
@@ -5211,7 +5279,6 @@
           voiceSessionMode = "off";
           if (requestedMode === "wake") {
             wakeWordEnabled = false;
-            updateWakeWordButton(false);
           }
           showError(`Voice init failed: ${error && error.message ? error.message : String(error)}`);
         }
@@ -5237,7 +5304,6 @@
         return;
       }
       wakeWordEnabled = false;
-      updateWakeWordButton(false);
       void startVoiceRecognition({ chat: true, continuous: false, mode: "turn" });
     }
 
@@ -5327,7 +5393,6 @@
 
     gesturesBtn.addEventListener("click", toggleGestures);
     voiceBtn.addEventListener("click", toggleVoice);
-    if (wakeWordBtn) wakeWordBtn.addEventListener("click", toggleWakeWord);
     if (sendChatBtn) sendChatBtn.addEventListener('click', sendChatMessage);
     if (chatInput) chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChatMessage(); });
     zoomInBtn.addEventListener("click", () => sceneApi.zoomIn());
