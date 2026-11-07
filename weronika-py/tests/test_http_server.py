@@ -129,6 +129,159 @@ class FakeBrowser:
         return len(self.tabs) < before
 
 
+class SiteRouteTests(unittest.TestCase):
+    """The site registry endpoints on a real loopback server with a fake browser."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.workspace = LocalWorkspace(self.temp.name)
+        self.adapter = FakeAdapter()
+        self.browser = FakeBrowser()
+        self.service = MessagingService(lambda _: self.adapter)
+        self.adapters = SimpleNamespace(browser=self.browser)
+        self.activity = FakeActivity()
+        self.watch = ReplyWatchService(self.activity, self.service, suggester=lambda chat, text: "")
+        self.skills = SkillRegistry()
+        self.web = FakeWeb()
+        self.tasks = TaskService(lambda: self.web)
+        self.server = LocalServer(
+            ("127.0.0.1", 0),
+            make_handler(
+                self.service,
+                self.adapters,
+                self.workspace,
+                watch=self.watch,
+                skills=self.skills,
+                tasks=self.tasks,
+            ),
+        )
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_port}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.temp.cleanup()
+
+    def get(self, path):
+        with urllib.request.urlopen(f"{self.base}{path}", timeout=5) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+
+    def post(self, path, payload):
+        data = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.base}{path}",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            body = response.read().decode("utf-8")
+        events = [
+            line[len("data: "):]
+            for line in body.splitlines()
+            if line.startswith("data: ")
+        ]
+        return [json.loads(event) for event in events]
+
+    def test_catalog_lists_sites_and_refusals(self):
+        status, data = self.get("/api/sites/catalog")
+        self.assertEqual(status, 200)
+        self.assertGreaterEqual(data["count"], 80)
+        self.assertTrue(data["refused"])
+        self.assertIn("google", data["categories"])
+        self.assertEqual(data["tabs"], [])
+
+    def test_search_returns_matching_sites(self):
+        status, data = self.get("/api/sites/search?q=drive")
+        self.assertEqual(status, 200)
+        names = [site["name"] for site in data["sites"]]
+        self.assertIn("Google Drive", names)
+        self.assertIn("OneDrive", names)
+
+    def test_open_creates_tabs_in_the_managed_browser(self):
+        events = self.post("/api/sites/open", {"names": ["radio garden", "github"]})
+        result = next(event for event in events if event["type"] == "result")["workflow"]
+        self.assertEqual(result["count"], 2)
+        self.assertEqual(len(self.browser.tabs), 2)
+        status, data = self.get("/api/sites/tabs")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(data["tabs"]), 2)
+
+    def test_open_accepts_a_single_name_string(self):
+        events = self.post("/api/sites/open", {"site": "youtube"})
+        result = next(event for event in events if event["type"] == "result")["workflow"]
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(self.browser.tabs[0]["url"], "https://www.youtube.com/")
+
+    def test_refused_site_returns_a_stated_reason(self):
+        events = self.post("/api/sites/open", {"names": ["vegamovies"]})
+        error = next(event for event in events if event["type"] == "error")
+        self.assertIn("will not automate", error["message"])
+        self.assertEqual(self.browser.tabs, [])
+
+    def test_close_then_tabs_reflects_it(self):
+        self.post("/api/sites/open", {"names": ["github"]})
+        tab_id = self.browser.tabs[0]["id"]
+        self.post("/api/sites/close", {"tab_id": tab_id})
+        self.assertEqual(self.browser.tabs, [])
+
+    def test_close_without_a_target_is_an_error(self):
+        events = self.post("/api/sites/close", {})
+        self.assertEqual(events[-1]["type"], "error")
+
+    def test_focus_switches_a_tab(self):
+        self.post("/api/sites/open", {"names": ["github"]})
+        tab_id = self.browser.tabs[0]["id"]
+        events = self.post("/api/sites/focus", {"tab_id": tab_id})
+        result = next(event for event in events if event["type"] == "result")["workflow"]
+        self.assertEqual(result["focused"], tab_id)
+
+    def test_vrm_export_wraps_a_glb(self):
+        from weronika_agent.blueprint import _read_glb_chunks, _write_glb
+
+        glb = _write_glb({"asset": {"version": "2.0"}, "scene": 0}, b"")
+        request = urllib.request.Request(
+            f"{self.base}/api/blueprint/vrm",
+            data=glb,
+            headers={"Content-Type": "application/octet-stream", "X-Weronika-Title": "Hero"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            body = response.read()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get("X-Weronika-VRM-Static"), "1")
+            self.assertIn("weronika-avatar.vrm", response.headers.get("Content-Disposition", ""))
+        document, _binary = _read_glb_chunks(body)
+        block = document["extensions"]["VRM"]
+        self.assertEqual(block["meta"]["title"], "Hero")
+        self.assertFalse(block["rigged"])
+
+    def test_vrm_export_rejects_a_non_glb(self):
+        request = urllib.request.Request(
+            f"{self.base}/api/blueprint/vrm",
+            data=b"not a model at all",
+            headers={"Content-Type": "application/octet-stream"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=5)
+        self.assertEqual(caught.exception.code, 400)
+
+    def test_capabilities_report_the_vrm_contract(self):
+        status, data = self.get("/api/blueprint/capabilities")
+        self.assertEqual(status, 200)
+        self.assertIn("vrm_export", data)
+        self.assertFalse(data["vrm_export"]["rigged"])
+
+    def test_status_reports_site_support(self):
+        with urllib.request.urlopen(f"{self.base}/api/automation/status", timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        self.assertTrue(data["sites"])
+
+
 class LocalHttpServerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

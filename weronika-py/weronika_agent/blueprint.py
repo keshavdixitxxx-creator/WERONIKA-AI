@@ -170,3 +170,130 @@ def reconstruct_photo(image_bytes: bytes) -> tuple[bytes, str]:
             return model, f"3D model created locally with {MODEL_NAME}; source photo and result were temporary."
     finally:
         _MODEL_LOCK.release()
+
+
+# --------------------------------------------------------------------------- VRM
+# GLB is a plain mesh container. VRM is the same GLB container plus a humanoid
+# avatar description in its JSON chunk (bone mapping, expression blendshapes,
+# MToon materials). TripoSR produces an unrigged mesh, so a true VRM needs a
+# humanoid armature. We do not fabricate one: instead the export writes a
+# valid VRM 0.x container that declares the mesh as a static avatar and records
+# honestly that no rig is present. Anything claimed as rigged would be a lie.
+
+_VRM_EXTENSION = "VRM"
+_VRM_VERSION = "0.x"
+
+
+def _read_glb_chunks(payload: bytes) -> tuple[dict[str, Any], bytes]:
+    """Split a binary GLB into (json, binary). Raises on a malformed container."""
+    import json as _json
+    import struct
+
+    if len(payload) < 20 or not payload.startswith(b"glTF"):
+        raise BlueprintError("That file is not a binary GLB, so VRM export is not possible.")
+    magic, version, total = struct.unpack_from("<III", payload, 0)
+    if magic != 0x46546C67 or version != 2:
+        raise BlueprintError("Only glTF 2.0 binary GLB files can be exported to VRM.")
+    if total > len(payload):
+        raise BlueprintError("The GLB is truncated and cannot be exported.")
+    offset = 12
+    document: dict[str, Any] | None = None
+    binary = b""
+    while offset + 8 <= len(payload):
+        length, kind = struct.unpack_from("<II", payload, offset)
+        offset += 8
+        chunk = payload[offset : offset + length]
+        offset += length
+        if kind == 0x4E4F534A:
+            try:
+                document = _json.loads(chunk.decode("utf-8"))
+            except Exception as exc:
+                raise BlueprintError("The GLB JSON chunk could not be read.") from exc
+        elif kind == 0x004E4942:
+            binary = chunk
+    if not isinstance(document, dict):
+        raise BlueprintError("The GLB has no JSON chunk, so it cannot be exported to VRM.")
+    return document, binary
+
+
+def _write_glb(document: dict[str, Any], binary: bytes) -> bytes:
+    """Rebuild a binary GLB from JSON and an optional binary chunk."""
+    import json as _json
+    import struct
+
+    json_bytes = _json.dumps(document, separators=(",", ":")).encode("utf-8")
+    json_bytes += b" " * ((4 - len(json_bytes) % 4) % 4)
+    chunks = struct.pack("<II", len(json_bytes), 0x4E4F534A) + json_bytes
+    if binary:
+        padded = binary + b"\0" * ((4 - len(binary) % 4) % 4)
+        chunks += struct.pack("<II", len(padded), 0x004E4942) + padded
+    total = 12 + len(chunks)
+    return b"glTF" + struct.pack("<II", 2, total) + chunks
+
+
+def vrm_meta(title: str = "Weronika avatar") -> dict[str, Any]:
+    """A minimal, honest VRM 0.x metadata block."""
+    return {
+        "title": (title or "Weronika avatar")[:64],
+        "version": "1.0",
+        "author": "Weronika AI (local TripoSR)",
+        "contactInformation": "",
+        "reference": "",
+        "allowedUserName": "OnlyAuthor",
+        "violentUssageName": "Disallow",
+        "sexualUssageName": "Disallow",
+        "commercialUssageName": "Disallow",
+        "otherPermissionUrl": "",
+        "licenseName": "Other",
+        "otherLicenseUrl": "",
+    }
+
+
+def glb_to_vrm(glb: bytes, title: str = "Weronika avatar") -> bytes:
+    """Wrap a generated GLB in a VRM 0.x container.
+
+    The result is a valid VRM file that viewers can load. It is a *static*
+    avatar: TripoSR meshes carry no skeleton, so ``humanoid`` is left without
+    bone nodes and the file states that no rig is included. Callers must show
+    that limitation instead of implying the model is ready to animate.
+    """
+    document, binary = _read_glb_chunks(glb)
+    extensions = document.setdefault("extensions", {})
+    if not isinstance(extensions, dict):
+        raise BlueprintError("The GLB extensions block is malformed.")
+
+    extensions[_VRM_EXTENSION] = {
+        "exporterVersion": "Weronika-Blueprint 1.0",
+        "specVersion": _VRM_VERSION,
+        "meta": vrm_meta(title),
+        "humanoid": {"humanBones": []},
+        "blendShapeMaster": {"blendShapeGroups": []},
+        "firstPerson": None,
+        "materialProperties": [],
+        "secondaryAnimation": {"boneGroups": [], "colliderGroups": []},
+        "rigged": False,
+        "note": (
+            "Static mesh exported from a single photo by local TripoSR. "
+            "No skeleton or blendshapes are included, so this avatar will load "
+            "but cannot be posed or animated until it is rigged."
+        ),
+    }
+    document.setdefault("extensionsUsed", [])
+    if _VRM_EXTENSION not in document["extensionsUsed"]:
+        document["extensionsUsed"].append(_VRM_EXTENSION)
+    return _write_glb(document, binary)
+
+
+def describe_vrm_limits() -> dict[str, Any]:
+    """What the VRM export honestly is, for the orb to display."""
+    return {
+        "format": "VRM 0.x",
+        "static": True,
+        "rigged": False,
+        "has_blendshapes": False,
+        "note": (
+            "VRM export is a static avatar. A single photo cannot produce a "
+            "humanoid skeleton, so the model loads in VRM viewers but cannot be "
+            "posed or animated. Generate a GLB if you only need the mesh."
+        ),
+    }

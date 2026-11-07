@@ -18,9 +18,6 @@ import { Route as ApiGmailSendRouteImport } from './routes/api/gmail/send'
 import { Route as ApiGmailStatusRouteImport } from './routes/api/gmail/status'
 import { Route as ApiPublicAnswerRouteImport } from './routes/api/public/answer'
 import { Route as ApiPublicBrainRouteImport } from './routes/api/public/brain'
-import { Route as ApiPublicImageRouteImport } from './routes/api/public/image'
-import { Route as ApiPublicSongRouteImport } from './routes/api/public/song'
-import { Route as ApiPublicVideoRouteImport } from './routes/api/public/video'
 import { Route as ApiGmailMessagesIndexRouteImport } from './routes/api/gmail/messages/index'
 import { Route as ApiGmailMessagesIdRouteImport } from './routes/api/gmail/messages/$id'
 
@@ -69,21 +66,6 @@ const ApiPublicBrainRoute = ApiPublicBrainRouteImport.update({
   path: '/api/public/brain',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicImageRoute = ApiPublicImageRouteImport.update({
-  id: '/api/public/image',
-  path: '/api/public/image',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicSongRoute = ApiPublicSongRouteImport.update({
-  id: '/api/public/song',
-  path: '/api/public/song',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicVideoRoute = ApiPublicVideoRouteImport.update({
-  id: '/api/public/video',
-  path: '/api/public/video',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiGmailMessagesIndexRoute = ApiGmailMessagesIndexRouteImport.update({
   id: '/api/gmail/messages/',
   path: '/api/gmail/messages/',
@@ -105,9 +87,6 @@ export interface FileRoutesByFullPath {
   '/api/gmail/status': typeof ApiGmailStatusRoute
   '/api/public/answer': typeof ApiPublicAnswerRoute
   '/api/public/brain': typeof ApiPublicBrainRoute
-  '/api/public/image': typeof ApiPublicImageRoute
-  '/api/public/song': typeof ApiPublicSongRoute
-  '/api/public/video': typeof ApiPublicVideoRoute
   '/api/gmail/messages/$id': typeof ApiGmailMessagesIdRoute
   '/api/gmail/messages/': typeof ApiGmailMessagesIndexRoute
 }
@@ -121,9 +100,6 @@ export interface FileRoutesByTo {
   '/api/gmail/status': typeof ApiGmailStatusRoute
   '/api/public/answer': typeof ApiPublicAnswerRoute
   '/api/public/brain': typeof ApiPublicBrainRoute
-  '/api/public/image': typeof ApiPublicImageRoute
-  '/api/public/song': typeof ApiPublicSongRoute
-  '/api/public/video': typeof ApiPublicVideoRoute
   '/api/gmail/messages/$id': typeof ApiGmailMessagesIdRoute
   '/api/gmail/messages': typeof ApiGmailMessagesIndexRoute
 }
@@ -138,9 +114,6 @@ export interface FileRoutesById {
   '/api/gmail/status': typeof ApiGmailStatusRoute
   '/api/public/answer': typeof ApiPublicAnswerRoute
   '/api/public/brain': typeof ApiPublicBrainRoute
-  '/api/public/image': typeof ApiPublicImageRoute
-  '/api/public/song': typeof ApiPublicSongRoute
-  '/api/public/video': typeof ApiPublicVideoRoute
   '/api/gmail/messages/$id': typeof ApiGmailMessagesIdRoute
   '/api/gmail/messages/': typeof ApiGmailMessagesIndexRoute
 }
@@ -156,9 +129,6 @@ export interface FileRouteTypes {
     | '/api/gmail/status'
     | '/api/public/answer'
     | '/api/public/brain'
-    | '/api/public/image'
-    | '/api/public/song'
-    | '/api/public/video'
     | '/api/gmail/messages/$id'
     | '/api/gmail/messages/'
   fileRoutesByTo: FileRoutesByTo
@@ -172,9 +142,6 @@ export interface FileRouteTypes {
     | '/api/gmail/status'
     | '/api/public/answer'
     | '/api/public/brain'
-    | '/api/public/image'
-    | '/api/public/song'
-    | '/api/public/video'
     | '/api/gmail/messages/$id'
     | '/api/gmail/messages'
   id:
@@ -188,9 +155,6 @@ export interface FileRouteTypes {
     | '/api/gmail/status'
     | '/api/public/answer'
     | '/api/public/brain'
-    | '/api/public/image'
-    | '/api/public/song'
-    | '/api/public/video'
     | '/api/gmail/messages/$id'
     | '/api/gmail/messages/'
   fileRoutesById: FileRoutesById
@@ -205,9 +169,6 @@ export interface RootRouteChildren {
   ApiGmailStatusRoute: typeof ApiGmailStatusRoute
   ApiPublicAnswerRoute: typeof ApiPublicAnswerRoute
   ApiPublicBrainRoute: typeof ApiPublicBrainRoute
-  ApiPublicImageRoute: typeof ApiPublicImageRoute
-  ApiPublicSongRoute: typeof ApiPublicSongRoute
-  ApiPublicVideoRoute: typeof ApiPublicVideoRoute
   ApiGmailMessagesIdRoute: typeof ApiGmailMessagesIdRoute
   ApiGmailMessagesIndexRoute: typeof ApiGmailMessagesIndexRoute
 }
@@ -277,27 +238,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBrainRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/image': {
-      id: '/api/public/image'
-      path: '/api/public/image'
-      fullPath: '/api/public/image'
-      preLoaderRoute: typeof ApiPublicImageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/song': {
-      id: '/api/public/song'
-      path: '/api/public/song'
-      fullPath: '/api/public/song'
-      preLoaderRoute: typeof ApiPublicSongRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/video': {
-      id: '/api/public/video'
-      path: '/api/public/video'
-      fullPath: '/api/public/video'
-      preLoaderRoute: typeof ApiPublicVideoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/gmail/messages/': {
       id: '/api/gmail/messages/'
       path: '/api/gmail/messages'
@@ -325,9 +265,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGmailStatusRoute: ApiGmailStatusRoute,
   ApiPublicAnswerRoute: ApiPublicAnswerRoute,
   ApiPublicBrainRoute: ApiPublicBrainRoute,
-  ApiPublicImageRoute: ApiPublicImageRoute,
-  ApiPublicSongRoute: ApiPublicSongRoute,
-  ApiPublicVideoRoute: ApiPublicVideoRoute,
   ApiGmailMessagesIdRoute: ApiGmailMessagesIdRoute,
   ApiGmailMessagesIndexRoute: ApiGmailMessagesIndexRoute,
 }

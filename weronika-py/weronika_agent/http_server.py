@@ -11,12 +11,20 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .blueprint import BlueprintError, MAX_IMAGE_BYTES, reconstruct_photo
+from .blueprint import (
+    MAX_IMAGE_BYTES,
+    MAX_MODEL_BYTES,
+    BlueprintError,
+    describe_vrm_limits,
+    glb_to_vrm,
+    reconstruct_photo,
+)
 from .hardware import detect_hardware
 from .intents import parse_message_request
 from .models import Platform
 from .reply_watch import ReplyWatchError
 from .service import create_messaging_service
+from .site_service import SiteError, SiteService
 from .tasks import ACTIONS, TaskError
 from .web_intents import plan_local, url_for_system_open, wants_system_browser
 from .watch_intents import has_watch_intent, parse_watch_request
@@ -69,6 +77,36 @@ def make_handler(
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(payload)
+
+        def _blueprint_vrm(self) -> None:
+            """Wrap a generated GLB into a VRM container for download."""
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._send_json(400, {"error": "Invalid model content length."})
+                return
+            if length <= 0 or length > MAX_MODEL_BYTES:
+                self._send_json(413, {"error": "Models must be 80 MB or smaller."})
+                return
+            payload = self.rfile.read(length)
+            if len(payload) != length:
+                self._send_json(400, {"error": "The model upload was incomplete. Please try again."})
+                return
+            title = (self.headers.get("X-Weronika-Title", "") or "Weronika avatar").strip()[:64]
+            try:
+                vrm = glb_to_vrm(payload, title)
+            except BlueprintError as exc:
+                self._send_json(exc.status_code, {"error": str(exc)})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(vrm)))
+            self.send_header("Content-Disposition", 'attachment; filename="weronika-avatar.vrm"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Weronika-VRM-Static", "1")
+            self.end_headers()
+            self.wfile.write(vrm)
 
         def _blueprint_reconstruct(self) -> None:
             try:
@@ -168,11 +206,23 @@ def make_handler(
             if parsed.path == "/api/browse/capabilities":
                 self._send_json(200, self._browse_capabilities())
                 return
+            if parsed.path == "/api/sites/catalog":
+                self._send_json(200, self._sites().catalog())
+                return
+            if parsed.path == "/api/sites/search":
+                query = parse_qs(parsed.query).get("q", [""])[0]
+                self._send_json(200, {"sites": self._sites().search(query)})
+                return
+            if parsed.path == "/api/sites/tabs":
+                self._send_json(200, {"tabs": self._sites().tabs()})
+                return
             if parsed.path == "/api/skills":
                 self._send_json(200, skills.catalog() if skills is not None else {"skills": [], "unavailable": []})
                 return
             if parsed.path == "/api/blueprint/capabilities":
-                self._send_json(200, detect_hardware())
+                payload = detect_hardware()
+                payload["vrm_export"] = describe_vrm_limits()
+                self._send_json(200, payload)
                 return
             if parsed.path == "/api/workspace/status":
                 self._send_json(200, {"connected": True, "workspace": "local", "browser": "Playwright Chromium"})
@@ -216,6 +266,9 @@ def make_handler(
                 if path == "/api/blueprint/reconstruct":
                     self._blueprint_reconstruct()
                     return
+                if path == "/api/blueprint/vrm":
+                    self._blueprint_vrm()
+                    return
                 workspace_routes = {
                     "/api/workspace/file",
                     "/api/workspace/run",
@@ -242,6 +295,9 @@ def make_handler(
                     "/api/task/cancel",
                     "/api/task/retry",
                     "/api/browse/open",
+                    "/api/sites/open",
+                    "/api/sites/close",
+                    "/api/sites/focus",
                 }:
                     self._automation_stream(path, data)
                     return
@@ -287,7 +343,7 @@ def make_handler(
                     self._send_json(404, {"error": "Unknown local API route."})
                     return
                 self._send_json(200, result)
-            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError) as exc:
+            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError, SiteError) as exc:
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})
@@ -343,11 +399,13 @@ def make_handler(
                     result = self._watch_stream(path, data, progress)
                 elif path.startswith("/api/task/") or path == "/api/browse/open":
                     result = self._task_stream(path, data, progress)
+                elif path.startswith("/api/sites/"):
+                    result = self._sites_stream(path, data, progress)
                 else:
                     result = service.cancel(self._text(data, "draft_id"), progress=progress)
                 payload = result.to_dict() if hasattr(result, "to_dict") else result
                 emit({"type": "result", "workflow": payload})
-            except (ValueError, MessagingError, ReplyWatchError, TaskError) as exc:
+            except (ValueError, MessagingError, ReplyWatchError, TaskError, SiteError) as exc:
                 emit({"type": "error", "message": str(exc)})
             except Exception:
                 emit({"type": "error", "message": "The local automation worker encountered an unexpected error."})
@@ -360,6 +418,7 @@ def make_handler(
                 "reply_watch": watch is not None,
                 "skills": skills is not None,
                 "browser_tasks": tasks is not None,
+                "sites": True,
             }
             if skills is not None:
                 payload["skill_count"] = len(skills.catalog()["skills"])
@@ -398,6 +457,35 @@ def make_handler(
                 "local_planning": True,
             }
             return payload
+
+        def _sites(self) -> SiteService:
+            return SiteService(adapters.browser)
+
+        def _sites_stream(self, path: str, data: dict[str, object], progress) -> object:
+            service_sites = self._sites()
+            if path == "/api/sites/open":
+                raw = data.get("names")
+                if isinstance(raw, str):
+                    names = [raw]
+                elif isinstance(raw, list):
+                    names = [str(value) for value in raw]
+                else:
+                    names = [self._text(data, "site")]
+                progress("Opening the site in the Weronika browser window…")
+                return service_sites.open(names)
+            if path == "/api/sites/close":
+                tab_id = self._text(data, "tab_id")
+                name = self._text(data, "name") or self._text(data, "site")
+                if not tab_id and not name:
+                    raise SiteError("Which tab should Weronika close?")
+                progress("Closing the tab…")
+                return service_sites.close(tab_id, name)
+            if path == "/api/sites/focus":
+                tab_id = self._text(data, "tab_id")
+                name = self._text(data, "name") or self._text(data, "site")
+                progress("Switching tabs…")
+                return service_sites.focus(tab_id, name)
+            raise SiteError("Unknown site action.")
 
         def _task_status(self, task_id: str) -> None:
             if tasks is None:

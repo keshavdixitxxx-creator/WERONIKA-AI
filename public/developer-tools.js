@@ -1,61 +1,98 @@
 const WORKSPACE_STYLE = `
-  .devtools-panel { position:fixed; z-index:55; inset:3vh 2vw; display:flex; flex-direction:column; min-width:320px; color:#d9efff; background:radial-gradient(ellipse at 48% -30%,#123f62 0%,#081a2c 48%,#050d18 100%); border:1px solid #168acb; border-radius:8px; box-shadow:0 24px 90px #000e,0 0 35px #00aaff24,inset 0 0 26px #168acb0c; font:13px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; overflow:hidden; }
+  /* Compact VS Code / macOS layout, neon-blue. Dense rows, macOS traffic lights,
+     a title bar, and a single 3-pane grid that collapses predictably. */
+  .devtools-panel { position:fixed; z-index:55; inset:2.4vh 1.6vw; display:flex; flex-direction:column; min-width:320px; color:#cfe9f8; background:#061020; border:1px solid #1d5f8f; border-radius:10px; box-shadow:0 28px 80px #000d,0 0 44px #00a6ff1f,inset 0 0 0 1px #0b3a5a; font:12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",ui-sans-serif,system-ui,sans-serif; overflow:hidden; }
   .devtools-panel[hidden] { display:none; }
-  .devtools-top { display:flex; align-items:center; gap:14px; min-height:42px; padding:6px 12px; background:linear-gradient(100deg,#0c2b44,#0a1d31 58%,#0b2942); border-bottom:1px solid #20b8ff55; box-shadow:0 2px 15px #008cff16; }
-  .devtools-brand { color:#e6f8ff; font-size:12px; font-weight:700; letter-spacing:.13em; margin-right:auto; text-shadow:0 0 12px #22baff66; }
-  .devtools-subtitle { color:#72b6d9; font-size:10px; letter-spacing:.13em; }
-  .devtools-close { border:1px solid #3da9d955; border-radius:4px; color:#bdeaff; background:#08233a; padding:4px 10px; cursor:pointer; font-size:18px; transition:background .15s,border-color .15s; }
-  .devtools-close:hover { background:#10486a; border-color:#5bd3ff; color:#fff; }
-  .devtools-body { flex:1; min-height:0; display:flex; padding:0; }
-  .workspace-main { flex:1; min-height:0; display:grid; grid-template-columns:220px minmax(0,1fr) 345px; }
-  .workspace-explorer { display:flex; flex-direction:column; min-height:0; background:linear-gradient(180deg,#091b2c,#071321); border-right:1px solid #1376a744; }
-  .workspace-pane-heading { display:flex; align-items:center; justify-content:space-between; min-height:35px; padding:0 10px; color:#77c9f0; font-size:10px; font-weight:700; letter-spacing:.14em; border-bottom:1px solid #168acb30; }
-  .workspace-project-title { padding:9px 10px 5px; color:#a6d9f1; font-size:11px; font-weight:600; }
-  .devtools-files { flex:1; overflow:auto; padding:5px 4px 12px; }
-  .devtools-file { display:block; width:100%; text-align:left; border:0; border-left:2px solid transparent; border-radius:3px; padding:5px 7px; color:#9bb9cc; background:transparent; font:12px/1.4 "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .devtools-file:hover { background:#0b2b43; color:#e0f5ff; }
-  .devtools-file.active { background:linear-gradient(90deg,#0e4263,#0a263b); border-left-color:#36c5ff; color:#f0fbff; box-shadow:inset 0 0 14px #0a9cdc18; }
-  .workspace-editor-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#071321; }
-  .devtools-toolbar { display:flex; gap:6px; align-items:center; min-height:38px; flex-wrap:wrap; padding:5px 8px; background:#0a1c2d; border-bottom:1px solid #168acb33; }
-  .devtools-toolbar input { min-width:70px; flex:1; border:1px solid #1c4b68; background:#061522; color:#d9f1ff; border-radius:4px; padding:6px 8px; font:11px ui-monospace,Consolas,monospace; }
-  .devtools-toolbar input:focus { outline:1px solid #35bfff; box-shadow:0 0 0 2px #138bca35; }
-  .devtools-btn { border:1px solid #26658b; color:#bce8fa; background:linear-gradient(180deg,#10334d,#0a2237); border-radius:4px; padding:5px 8px; font:11px "Segoe UI",ui-sans-serif,system-ui,sans-serif; cursor:pointer; transition:background .15s,border-color .15s; }
-  .devtools-btn:hover { background:#145075; border-color:#3bbcff; color:#fff; }
-  .devtools-btn.warn { color:#ffbdad; border-color:#b6525170; }
-  .devtools-status { min-height:19px; padding:2px 9px; color:#73a9c5; background:#081827; font-size:10px; }
+
+  /* ---- title bar: macOS traffic lights + centred tab title ---- */
+  .devtools-top { position:relative; display:flex; align-items:center; gap:9px; height:36px; padding:0 10px; background:linear-gradient(180deg,#0b2a44,#081d31); border-bottom:1px solid #12527a; }
+  .devtools-lights { display:flex; gap:6px; flex:0 0 auto; }
+  .devtools-light { width:11px; height:11px; border-radius:50%; border:0; padding:0; cursor:pointer; }
+  .devtools-light.close { background:#ff5f57; }
+  .devtools-light.min { background:#febc2e; }
+  .devtools-light.max { background:#28c840; }
+  .devtools-light:hover { filter:brightness(1.25); }
+  .devtools-brand { display:none; }
+  .devtools-subtitle { position:absolute; left:50%; transform:translateX(-50%); color:#6fa8c8; font-size:10.5px; letter-spacing:.09em; white-space:nowrap; pointer-events:none; }
+  .devtools-close { margin-left:auto; border:1px solid #2b6d95; border-radius:4px; color:#a8d9f2; background:#0a2539; padding:2px 8px; cursor:pointer; font-size:14px; line-height:1.1; }
+  .devtools-close:hover { background:#12456a; border-color:#48bdf0; color:#fff; }
+
+  .devtools-body { flex:1; min-height:0; display:flex; }
+  .workspace-main { flex:1; min-height:0; display:grid; grid-template-columns:224px minmax(0,1fr) 330px; }
+
+  /* ---- explorer ---- */
+  .workspace-explorer { display:flex; flex-direction:column; min-height:0; background:#071625; border-right:1px solid #103f5e; }
+  .workspace-pane-heading { display:flex; align-items:center; justify-content:space-between; height:28px; padding:0 8px; color:#79c4e8; font-size:9.5px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; }
+  .workspace-project-title { padding:3px 8px 6px; color:#90bdd6; font-size:10.5px; font-weight:600; letter-spacing:.04em; }
+  .devtools-files { flex:1; overflow:auto; padding:0 4px 10px; }
+  .devtools-file { display:block; width:100%; text-align:left; border:0; border-radius:3px; padding:3px 7px; color:#89aec4; background:transparent; font:11.5px/1.6 inherit; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .devtools-file:hover { background:#0b2c45; color:#d8f0ff; }
+  .devtools-file.active { background:#0e3a58; color:#eafaff; box-shadow:inset 2px 0 0 #38c6ff; }
+  .devtools-folder { color:#9ccbe2; font-weight:600; }
+
+  /* ---- editor ---- */
+  .workspace-editor-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#061321; }
+  .devtools-toolbar { display:flex; gap:5px; align-items:center; height:30px; padding:0 7px; background:#081c2d; border-bottom:1px solid #0f3c58; }
+  .devtools-toolbar input { min-width:60px; flex:1; height:21px; border:1px solid #16435f; background:#05101b; color:#cfeaf8; border-radius:3px; padding:0 6px; font:10.5px ui-monospace,SFMono-Regular,Consolas,monospace; }
+  .devtools-toolbar input:focus { outline:1px solid #35c3ff; }
+  .devtools-btn { border:1px solid #1e5478; color:#a9dcf3; background:#0a2236; border-radius:3px; padding:2px 7px; height:21px; font:10.5px inherit; cursor:pointer; white-space:nowrap; }
+  .devtools-btn:hover { background:#124466; border-color:#42bdff; color:#fff; }
+  .devtools-btn.warn { color:#ffb9a8; border-color:#a34a3f; }
+  .devtools-status { height:18px; padding:0 8px; color:#6ba0bd; background:#071827; font-size:9.5px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .devtools-status.error { color:#ff9c88; }
   .devtools-editor-column { display:flex; flex:1; flex-direction:column; min-width:0; min-height:0; }
-  .devtools-editor-tabs { display:flex; min-height:35px; overflow-x:auto; background:#091a2a; border-bottom:1px solid #168acb33; }
-  .devtools-file-tab { display:flex; align-items:center; gap:11px; flex:0 0 auto; padding:5px 10px; color:#91b4c9; background:#0a1b2a; border-right:1px solid #168acb20; border-top:1px solid transparent; font-size:11px; cursor:pointer; }
-  .devtools-file-tab.active { color:#e6f8ff; background:#071321; border-top-color:#38c5ff; }
+  .devtools-editor-tabs { display:flex; height:29px; overflow-x:auto; background:#071a29; border-bottom:1px solid #0f3c58; scrollbar-width:thin; }
+  .devtools-file-tab { display:flex; align-items:center; gap:8px; flex:0 0 auto; padding:0 9px; color:#84a9bf; background:#081d2e; border-right:1px solid #0f3c58; border-top:1px solid transparent; font-size:10.5px; cursor:pointer; }
+  .devtools-file-tab.active { color:#e8faff; background:#061321; border-top-color:#38c6ff; }
   .devtools-tab-name { color:inherit; border:0; background:transparent; font:inherit; cursor:pointer; }
-  .devtools-tab-close { color:#74a2ba; border:0; background:transparent; cursor:pointer; font:inherit; }
+  .devtools-tab-close { color:#6b94ab; border:0; background:transparent; cursor:pointer; font:inherit; }
   .devtools-tab-close:hover { color:#fff; }
-  .devtools-editor-wrap { display:flex; flex:1; min-width:0; min-height:0; background:#071321; overflow:hidden; }
-  .devtools-gutter { flex:0 0 auto; width:48px; overflow:hidden; padding:12px 8px; color:#42657b; text-align:right; white-space:pre; line-height:1.55; user-select:none; font:12px/1.55 ui-monospace,Consolas,monospace; }
-  .devtools-editor { flex:1; min-width:0; min-height:0; resize:none; border:0; outline:0; padding:12px; color:#cce8f7; background:transparent; caret-color:#41cdff; font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
-  .workspace-agent-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:linear-gradient(180deg,#091d30,#071523); border-left:1px solid #168acb44; }
-  .workspace-agent-head { display:flex; align-items:center; gap:8px; min-height:41px; padding:0 12px; border-bottom:1px solid #168acb33; color:#dff6ff; font-size:12px; font-weight:700; letter-spacing:.1em; }
-  .workspace-agent-dot { width:7px; height:7px; border-radius:50%; background:#35d3ff; box-shadow:0 0 8px #35caffaa; }
-  .workspace-chat-messages { flex:1; min-height:0; overflow:auto; padding:13px 11px; display:flex; flex-direction:column; gap:11px; }
-  .workspace-chat-message { padding:9px 10px; border-radius:6px; white-space:pre-wrap; overflow-wrap:anywhere; color:#bfdae9; background:#0c263a; border:1px solid #16436366; font-size:12px; line-height:1.5; }
-  .workspace-chat-message.user { color:#e6f7ff; background:linear-gradient(110deg,#0c3c5b,#102d47); border-left:2px solid #34c5ff; }
-  .workspace-chat-message.assistant { border-left:2px solid #31a5e3; }
-  .workspace-chat-message.system { color:#6f9bb3; background:transparent; border:0; padding:2px 4px; font-size:10px; }
-  .workspace-chat-welcome { color:#86acc2; padding:5px 4px; font-size:11px; line-height:1.55; }
-  .workspace-chat-composer { padding:10px; border-top:1px solid #168acb35; background:#081827; }
-  .workspace-prompt { width:100%; min-height:86px; max-height:220px; resize:vertical; padding:10px; border:1px solid #205372; border-radius:6px; color:#dff4ff; background:#061522; font:12px/1.45 "Segoe UI",ui-sans-serif,system-ui,sans-serif; outline:none; }
+  .devtools-editor-wrap { display:flex; flex:1; min-width:0; min-height:0; background:#061321; overflow:hidden; }
+  .devtools-gutter { flex:0 0 auto; width:42px; overflow:hidden; padding:8px 6px; color:#3d6076; text-align:right; white-space:pre; line-height:1.6; user-select:none; font:11.5px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; }
+  .devtools-editor { flex:1; min-width:0; min-height:0; resize:none; border:0; outline:0; padding:8px 10px; color:#c2e4f5; background:transparent; caret-color:#42d0ff; font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:2; white-space:pre; overflow:auto; }
+
+  /* ---- agent pane ---- */
+  .workspace-agent-pane { display:flex; flex-direction:column; min-width:0; min-height:0; background:#071625; border-left:1px solid #103f5e; }
+  .workspace-agent-head { display:flex; align-items:center; gap:7px; height:30px; padding:0 10px; border-bottom:1px solid #0f3c58; color:#d6f2ff; font-size:10.5px; font-weight:700; letter-spacing:.09em; }
+  .workspace-agent-dot { width:6px; height:6px; border-radius:50%; background:#35d3ff; box-shadow:0 0 7px #35caffcc; }
+  .workspace-chat-messages { flex:1; min-height:0; overflow:auto; padding:9px 9px; display:flex; flex-direction:column; gap:7px; }
+  .workspace-chat-message { padding:6px 8px; border-radius:5px; white-space:pre-wrap; overflow-wrap:anywhere; color:#b7d5e6; background:#0a2437; border:1px solid #123f5c; font-size:11px; line-height:1.5; }
+  .workspace-chat-message.user { color:#e8f9ff; background:#0b3450; box-shadow:inset 2px 0 0 #34c5ff; }
+  .workspace-chat-message.assistant { box-shadow:inset 2px 0 0 #2b9cd8; }
+  .workspace-chat-message.system { color:#6b95ad; background:transparent; border:0; padding:1px 3px; font-size:9.5px; }
+  .workspace-chat-welcome { color:#7ba4bb; padding:2px 3px; font-size:10.5px; line-height:1.55; }
+  .workspace-chat-composer { padding:8px; border-top:1px solid #0f3c58; background:#071827; }
+  .workspace-prompt { width:100%; min-height:62px; max-height:150px; resize:vertical; padding:7px 8px; border:1px solid #17425e; border-radius:5px; color:#d8f3ff; background:#05101b; font:11.5px/1.45 inherit; outline:none; }
   .workspace-prompt:focus { border-color:#35c5ff; box-shadow:0 0 0 1px #149bd655; }
-  .workspace-composer-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:8px; }
-  .workspace-chat-hint { color:#6891a7; font-size:9px; }
-  .workspace-build { color:#f0fbff; border-color:#36b8f4; background:linear-gradient(180deg,#087cb3,#075887); box-shadow:0 0 14px #00aeff20; }
-  .workspace-build:hover { background:linear-gradient(180deg,#109dd7,#0878b2); }
+  .workspace-composer-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:6px; }
+  .workspace-chat-hint { color:#5f869c; font-size:9px; }
+  .workspace-build { color:#f2fcff; border-color:#2f9fd4; background:#086b99; }
+  .workspace-build:hover { background:#0b86bd; }
   .workspace-build:disabled { opacity:.55; cursor:wait; }
-  .workspace-statusbar { display:flex; gap:14px; align-items:center; min-height:23px; padding:3px 11px; color:#e1f5ff; background:linear-gradient(90deg,#075b89,#0b456b); border-top:1px solid #37bbf477; font-size:10px; }
+
+  /* ---- status bar ---- */
+  .workspace-statusbar { display:flex; gap:12px; align-items:center; height:20px; padding:0 10px; color:#cbeaff; background:#0a3d5e; border-top:1px solid #18658f; font-size:9.5px; }
   .workspace-statusbar span:last-child { margin-left:auto; }
-  @media(max-width:1000px) { .workspace-main { grid-template-columns:185px minmax(0,1fr) 300px; } }
-  @media(max-width:780px) { .devtools-panel { inset:1vh 1vw; } .workspace-main { grid-template-columns:160px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 260px; } .workspace-explorer { grid-row:1 / 3; } .workspace-agent-pane { grid-column:2; grid-row:2; border-left:0; border-top:1px solid #168acb44; } .workspace-editor-pane { grid-column:2; grid-row:1; } .devtools-subtitle { display:none; } }
-  @media(max-width:520px) { .workspace-main { grid-template-columns:115px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 240px; } .devtools-toolbar .run-file { display:none; } .devtools-brand { font-size:11px; } .workspace-statusbar { gap:7px; } }
+
+  /* ---- preview pane (toggled) ---- */
+  .workspace-preview-pane { display:none; flex-direction:column; min-width:0; min-height:0; border-left:1px solid #103f5e; background:#05101b; }
+  .devtools-panel.preview-open .workspace-preview-pane { display:flex; }
+  .devtools-panel.preview-open .workspace-main { grid-template-columns:224px minmax(0,1fr) minmax(0,1fr) 300px; }
+  .workspace-preview-head { display:flex; align-items:center; gap:8px; height:30px; padding:0 9px; border-bottom:1px solid #0f3c58; color:#8fc9e6; font-size:9.5px; letter-spacing:.09em; }
+  .workspace-preview-head .devtools-btn { margin-left:auto; }
+  .workspace-preview-frame { flex:1; min-height:0; width:100%; border:0; background:#fff; }
+
+  @media(max-width:1100px) { .workspace-main { grid-template-columns:200px minmax(0,1fr) 290px; } .devtools-panel.preview-open .workspace-main { grid-template-columns:200px minmax(0,1fr) minmax(0,1fr) 260px; } }
+  @media(max-width:820px) {
+    .devtools-panel { inset:1vh 1vw; }
+    .workspace-main { grid-template-columns:160px minmax(0,1fr); grid-template-rows:minmax(0,1fr) 230px; }
+    .workspace-explorer { grid-row:1 / 3; }
+    .workspace-editor-pane { grid-column:2; grid-row:1; }
+    .workspace-agent-pane { grid-column:2; grid-row:2; border-left:0; border-top:1px solid #103f5e; }
+    .workspace-preview-pane { display:none !important; }
+    .devtools-subtitle { display:none; }
+  }
+  @media(max-width:520px) { .workspace-main { grid-template-columns:118px minmax(0,1fr); } .devtools-toolbar .run-file { display:none; } .workspace-statusbar { gap:6px; } }
   @media(prefers-reduced-motion:reduce) { .devtools-btn,.devtools-close { transition:none; } }
 `;
 
@@ -157,7 +194,11 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   panel.hidden = true;
   panel.setAttribute("aria-label", "Weronika Workspace");
   panel.innerHTML = `
-    <header class="devtools-top"><span class="devtools-brand">WERONIKA AI</span><span class="devtools-subtitle">WORKSPACE · CLOUD AGENT · MULTI-LANGUAGE</span><button class="devtools-close" type="button" aria-label="Close Workspace">×</button></header>
+    <header class="devtools-top">
+      <span class="devtools-lights"><button class="devtools-light close" type="button" aria-label="Close Workspace"></button><button class="devtools-light min" type="button" aria-label="Minimise Workspace"></button><button class="devtools-light max" type="button" aria-label="Expand Workspace"></button></span>
+      <span class="devtools-subtitle">weronika-workspace — WERONIKA AI</span>
+      <button class="devtools-close" type="button" aria-label="Close Workspace">×</button>
+    </header>
     <div class="devtools-body">
       <div class="workspace-main">
         <aside class="workspace-explorer" aria-label="Project Explorer">
@@ -166,9 +207,13 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
           <div class="devtools-files" aria-label="Workspace files"></div>
         </aside>
         <section class="workspace-editor-pane" aria-label="Code editor">
-          <div class="devtools-toolbar"><input class="devtools-path" aria-label="Workspace file path" placeholder="src / main.py" autocomplete="off"><button class="devtools-btn new-file" type="button">＋ FILE</button><button class="devtools-btn save-file" type="button">SAVE</button><button class="devtools-btn run-file" type="button" hidden>RUN PYTHON</button><button class="devtools-btn refresh-files" type="button" title="Refresh workspace files">⟳</button></div>
+          <div class="devtools-toolbar"><input class="devtools-path" aria-label="Workspace file path" placeholder="src / main.py" autocomplete="off"><button class="devtools-btn new-file" type="button">＋ FILE</button><button class="devtools-btn save-file" type="button">SAVE</button><button class="devtools-btn run-file" type="button" hidden>RUN PYTHON</button><button class="devtools-btn refresh-files" type="button" title="Refresh workspace files">⟳</button><button class="devtools-btn preview-toggle" type="button" aria-pressed="false" title="Show the live preview">PREVIEW</button></div>
           <div class="devtools-status workspace-status" role="status">Connecting to local workspace…</div>
           <div class="devtools-editor-column"><div class="devtools-editor-tabs" role="tablist" aria-label="Open files"></div><div class="devtools-editor-wrap"><pre class="devtools-gutter" aria-hidden="true">1</pre><textarea class="devtools-editor" spellcheck="false" aria-label="Code editor" placeholder="Open a file or ask Weronika to create one…"></textarea></div></div>
+        </section>
+        <section class="workspace-preview-pane" aria-label="Live preview">
+          <div class="workspace-preview-head"><span>PREVIEW</span><button class="devtools-btn preview-refresh" type="button" title="Reload preview">⟳</button></div>
+          <iframe class="workspace-preview-frame" title="Project preview" sandbox="allow-scripts allow-forms allow-modals"></iframe>
         </section>
         <aside class="workspace-agent-pane" aria-label="Chat with Weronika">
           <header class="workspace-agent-head"><span class="workspace-agent-dot"></span><span>WERONIKA</span><span style="margin-left:auto;color:#70a8c3;font-size:10px;font-weight:400">AGENT</span></header>
@@ -197,6 +242,8 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   let loadedExisting = false;
   let workspaceRoot = "";
   let browserStorageMode = false;
+  let previewFiles = [];
+  let previewUrl = "";
   const browserWorkspaceKey = "weronika.workspace.files.v1";
   const supportedFilePath =
     /^(?!\/)(?!.*(?:^|\/)(?:\.|\.\.|__proto__|constructor|prototype)(?:\/|$))[^\\\u0000-\u001f]{1,200}\.(?:py|js|mjs|cjs|jsx|ts|tsx|vue|svelte|html|css|scss|json|md|txt|toml|yaml|yml|java|kt|kts|cs|c|h|cpp|hpp|go|rs|rb|php|sql|sh|bash|swift|dart|lua|r|scala|xml|graphql|proto|ex|exs|pl|ps1|bat)$/i;
@@ -629,7 +676,14 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     for (const [path, state] of openFiles) {
       if (supportedFilePath.test(path)) byPath.set(path, state.content);
     }
-    return [...byPath].map(([path, content]) => ({ path, content }));
+    const merged = [...byPath].map(([path, content]) => ({ path, content }));
+    if (panel.classList.contains("preview-open") && merged !== previewFiles) {
+      previewFiles = merged;
+      queueMicrotask(() => {
+        if (previewFrame) loadPreview(merged);
+      });
+    }
+    return merged;
   }
 
   async function downloadWorkspaceZip() {
@@ -702,9 +756,104 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     refreshFiles();
   }
   if (launch) launch.addEventListener("click", open);
-  $(".devtools-close").addEventListener("click", () => {
+
+  function closeWorkspace() {
     panel.hidden = true;
+  }
+  $(".devtools-close").addEventListener("click", closeWorkspace);
+  $(".devtools-light.close").addEventListener("click", closeWorkspace);
+
+  // macOS-style minimise: collapse to just the title bar.
+  let minimised = false;
+  $(".devtools-light.min").addEventListener("click", () => {
+    minimised = !minimised;
+    panel.style.height = minimised ? "36px" : "";
+    panel.style.bottom = minimised ? "auto" : "";
   });
+
+  // macOS-style zoom: fill the viewport, or return to the floating window.
+  let maximised = false;
+  $(".devtools-light.max").addEventListener("click", () => {
+    maximised = !maximised;
+    panel.style.inset = maximised ? "0" : "";
+    panel.style.borderRadius = maximised ? "0" : "";
+  });
+
+  // ---- live preview -------------------------------------------------------
+  const previewToggle = $(".preview-toggle");
+  const previewFrame = $(".workspace-preview-frame");
+  const previewRefresh = $(".preview-refresh");
+
+  function previewBlobUrl(files) {
+    // Render the project's own HTML in a sandboxed frame, with its CSS and JS
+    // inlined, so the preview never needs a server or network access.
+    const list = Array.isArray(files) ? files : [];
+    const byPath = new Map(
+      list.map((file) => [String(file.path || ""), String(file.content || "")]),
+    );
+    const entry =
+      [...byPath.keys()].find((path) => /^index\.html?$/i.test(path)) ||
+      [...byPath.keys()].find((path) => /\.html?$/i.test(path));
+    if (!entry) return "";
+    let html = byPath.get(entry) || "";
+    html = html.replace(/<link[^>]+href=["']([^"']+\.css)["'][^>]*>/gi, (match, href) => {
+      const css = byPath.get(href.replace(/^\.?\//, "")) || byPath.get(href);
+      return css ? `<style>${css}</style>` : match;
+    });
+    html = html.replace(
+      /<script[^>]+src=["']([^"']+\.js)["'][^>]*>\s*<\/script>/gi,
+      (match, src) => {
+        const js = byPath.get(src.replace(/^\.?\//, "")) || byPath.get(src);
+        return js ? `<script>${js}</script>` : match;
+      },
+    );
+    return URL.createObjectURL(new Blob([html], { type: "text/html" }));
+  }
+
+  function loadPreview(files) {
+    if (!previewFrame) return;
+    previewFiles = Array.isArray(files) ? files : previewFiles;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = previewBlobUrl(previewFiles);
+    if (!previewUrl) {
+      previewFrame.style.display = "none";
+      const head = panel.querySelector(".workspace-preview-head");
+      if (head && !head.querySelector(".preview-empty")) {
+        const note = document.createElement("span");
+        note.className = "preview-empty";
+        note.textContent = " · no HTML file yet";
+        head.insertBefore(note, previewRefresh);
+      }
+      return;
+    }
+    previewFrame.style.display = "";
+    const note = panel.querySelector(".preview-empty");
+    if (note) note.remove();
+    previewFrame.src = previewUrl;
+  }
+
+  async function refreshPreview() {
+    try {
+      loadPreview(await collectWorkspaceFiles());
+    } catch (error) {
+      status(
+        codeStatus,
+        error instanceof Error ? error.message : "Could not build the preview.",
+        true,
+      );
+    }
+  }
+
+  if (previewToggle) {
+    previewToggle.addEventListener("click", () => {
+      const isOpen = panel.classList.toggle("preview-open");
+      previewToggle.setAttribute("aria-pressed", String(isOpen));
+      if (isOpen) void refreshPreview();
+    });
+  }
+  if (previewRefresh) {
+    previewRefresh.addEventListener("click", () => void refreshPreview());
+  }
   async function submitWorkspacePrompt() {
     const prompt = promptInput.value.trim();
     if (!prompt) {
