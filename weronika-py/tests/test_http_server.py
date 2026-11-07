@@ -239,6 +239,43 @@ class SiteRouteTests(unittest.TestCase):
         result = next(event for event in events if event["type"] == "result")["workflow"]
         self.assertEqual(result["focused"], tab_id)
 
+    def test_vrm_export_wraps_a_glb(self):
+        from weronika_agent.blueprint import _read_glb_chunks, _write_glb
+
+        glb = _write_glb({"asset": {"version": "2.0"}, "scene": 0}, b"")
+        request = urllib.request.Request(
+            f"{self.base}/api/blueprint/vrm",
+            data=glb,
+            headers={"Content-Type": "application/octet-stream", "X-Weronika-Title": "Hero"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            body = response.read()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get("X-Weronika-VRM-Static"), "1")
+            self.assertIn("weronika-avatar.vrm", response.headers.get("Content-Disposition", ""))
+        document, _binary = _read_glb_chunks(body)
+        block = document["extensions"]["VRM"]
+        self.assertEqual(block["meta"]["title"], "Hero")
+        self.assertFalse(block["rigged"])
+
+    def test_vrm_export_rejects_a_non_glb(self):
+        request = urllib.request.Request(
+            f"{self.base}/api/blueprint/vrm",
+            data=b"not a model at all",
+            headers={"Content-Type": "application/octet-stream"},
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=5)
+        self.assertEqual(caught.exception.code, 400)
+
+    def test_capabilities_report_the_vrm_contract(self):
+        status, data = self.get("/api/blueprint/capabilities")
+        self.assertEqual(status, 200)
+        self.assertIn("vrm_export", data)
+        self.assertFalse(data["vrm_export"]["rigged"])
+
     def test_status_reports_site_support(self):
         with urllib.request.urlopen(f"{self.base}/api/automation/status", timeout=5) as response:
             data = json.loads(response.read().decode("utf-8"))

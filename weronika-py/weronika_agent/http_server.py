@@ -11,7 +11,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .blueprint import BlueprintError, MAX_IMAGE_BYTES, reconstruct_photo
+from .blueprint import (
+    MAX_IMAGE_BYTES,
+    MAX_MODEL_BYTES,
+    BlueprintError,
+    describe_vrm_limits,
+    glb_to_vrm,
+    reconstruct_photo,
+)
 from .hardware import detect_hardware
 from .intents import parse_message_request
 from .models import Platform
@@ -70,6 +77,36 @@ def make_handler(
             self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(payload)
+
+        def _blueprint_vrm(self) -> None:
+            """Wrap a generated GLB into a VRM container for download."""
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._send_json(400, {"error": "Invalid model content length."})
+                return
+            if length <= 0 or length > MAX_MODEL_BYTES:
+                self._send_json(413, {"error": "Models must be 80 MB or smaller."})
+                return
+            payload = self.rfile.read(length)
+            if len(payload) != length:
+                self._send_json(400, {"error": "The model upload was incomplete. Please try again."})
+                return
+            title = (self.headers.get("X-Weronika-Title", "") or "Weronika avatar").strip()[:64]
+            try:
+                vrm = glb_to_vrm(payload, title)
+            except BlueprintError as exc:
+                self._send_json(exc.status_code, {"error": str(exc)})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(vrm)))
+            self.send_header("Content-Disposition", 'attachment; filename="weronika-avatar.vrm"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Weronika-VRM-Static", "1")
+            self.end_headers()
+            self.wfile.write(vrm)
 
         def _blueprint_reconstruct(self) -> None:
             try:
@@ -183,7 +220,9 @@ def make_handler(
                 self._send_json(200, skills.catalog() if skills is not None else {"skills": [], "unavailable": []})
                 return
             if parsed.path == "/api/blueprint/capabilities":
-                self._send_json(200, detect_hardware())
+                payload = detect_hardware()
+                payload["vrm_export"] = describe_vrm_limits()
+                self._send_json(200, payload)
                 return
             if parsed.path == "/api/workspace/status":
                 self._send_json(200, {"connected": True, "workspace": "local", "browser": "Playwright Chromium"})
@@ -226,6 +265,9 @@ def make_handler(
                 path = urlparse(self.path).path
                 if path == "/api/blueprint/reconstruct":
                     self._blueprint_reconstruct()
+                    return
+                if path == "/api/blueprint/vrm":
+                    self._blueprint_vrm()
                     return
                 workspace_routes = {
                     "/api/workspace/file",

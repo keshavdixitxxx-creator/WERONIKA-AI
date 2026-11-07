@@ -104,9 +104,17 @@ const developerTools = readFileSync(
   "utf8",
 );
 assert.match(developerTools, /WORKSPACE/);
-assert.match(developerTools, /radial-gradient\(ellipse at 48% -30%,#123f62/);
-assert.match(developerTools, /border:1px solid #168acb/);
+// Compact VS Code / macOS shell: traffic lights, blue chrome, tight rows.
+assert.match(developerTools, /devtools-lights/);
+assert.match(developerTools, /devtools-light\.close/);
+assert.match(developerTools, /devtools-light\.min/);
+assert.match(developerTools, /devtools-light\.max/);
+assert.match(developerTools, /weronika-workspace — WERONIKA AI/);
+assert.match(developerTools, /background:#061020/);
+assert.match(developerTools, /border:1px solid #1d5f8f/);
 assert.match(developerTools, /#35c5ff/);
+assert.match(developerTools, /workspace-preview-pane/);
+assert.match(developerTools, /preview-toggle/);
 assert.match(developerTools, /workspace-build/);
 assert.match(developerTools, /openDraftFiles/);
 assert.match(developerTools, /RUN PYTHON/);
