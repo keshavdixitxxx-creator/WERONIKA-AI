@@ -163,6 +163,8 @@ const WORKSPACE_STYLE = `
   .devtools-highlight { position:absolute; left:0; top:0; min-width:100%; color:#c2e4f5; background:transparent; pointer-events:none; will-change:transform; }
   .devtools-highlight code { font:inherit; }
   .devtools-editor { position:absolute; inset:0; display:block; width:100%; height:100%; resize:none; outline:0; border-radius:0; color:transparent; background:transparent; caret-color:#7fe3ff; overflow:auto; }
+  /* The caret and the current-line bar show where the keyboard is; no frame around the code. */
+  .devtools-panel .devtools-editor:focus-visible { outline:0; }
   .devtools-editor::selection { background:#1f7fc277; color:transparent; }
   .devtools-code.plain .devtools-highlight { display:none; }
   .devtools-code.plain .devtools-editor { color:#c2e4f5; }
@@ -1322,12 +1324,25 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
       event.preventDefault();
       indentSelection(event.shiftKey);
     } else if (event.key === "Enter" && !event.shiftKey) {
-      // A new line starts at the indentation of the line above it.
-      const { selectionStart: start, value } = editor;
-      const indent = /^[ \t]*/.exec(value.slice(value.lastIndexOf("\n", start - 1) + 1, start))[0];
-      if (!indent) return;
+      // A new line starts at the indentation of the line above it, and one step
+      // deeper after an opening bracket or a Python colon.
+      const { selectionStart: start, selectionEnd: end, value } = editor;
+      const before = value.slice(value.lastIndexOf("\n", start - 1) + 1, start);
+      const indent = /^[ \t]*/.exec(before)[0];
+      const last = before.trimEnd().slice(-1);
+      const closer = { "{": "}", "[": "]", "(": ")" }[last] || "";
+      const deeper = Boolean(closer) || (last === ":" && language.extension === "py");
+      if (!indent && !deeper) return;
       event.preventDefault();
-      insertText(`\n${indent}`);
+      if (closer && start === end && value[start] === closer) {
+        // Between a pair of brackets: the closing one moves to a line of its own.
+        const inner = `\n${indent}${indentUnit()}`;
+        insertText(`${inner}\n${indent}`);
+        editor.setSelectionRange(start + inner.length, start + inner.length);
+        updateCaret();
+      } else {
+        insertText(`\n${indent}${deeper ? indentUnit() : ""}`);
+      }
     }
   });
 

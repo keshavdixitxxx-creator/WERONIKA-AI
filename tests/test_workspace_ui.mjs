@@ -76,6 +76,8 @@ assert.ok(tokenRules.length >= 14, "every token class has a colour");
 for (const rule of tokenRules) {
   assert.doesNotMatch(rule, /font-weight|font-style|font-size|letter-spacing/, rule);
 }
+// The focused editor shows a caret and a current-line bar, not a frame around the code.
+assert.match(tools, /\.devtools-panel \.devtools-editor:focus-visible \{ outline:0; \}/);
 // The orb puts its theme colour on <body> as a filter. The Workspace is mounted beside
 // <body> so that it stays neon blue, and only follows the brightness setting.
 assert.match(tools, /document\.documentElement\.append\(panel\)/);
@@ -144,6 +146,38 @@ for (const step of relaySteps) {
 assert.match(orb, /const opened = await developerTools\.openDraftFiles\(files\);/);
 assert.match(orb, /if \(currentTurn\) currentTurn\.files = files\.map\(\(file\) => file\.path\);/);
 assert.match(tools, /origin: "weronika"/);
+// A file the brain returns unchanged is not presented as a change, and the orb says so.
+assert.match(tools, /async function storedContent\(path\)/);
+assert.match(tools, /return \{ drafts, unchanged \};/);
+assert.match(orb, /Array\.isArray\(opened\.unchanged\) \? opened\.unchanged : \[\]/);
+assert.match(orb, /Unchanged, already stored: /);
+// Weronika's newer draft replaces her older one. Only text the user typed and has not
+// saved is protected by a question, asked once for all files.
+assert.match(tools, /state\.touched = true;/);
+assert.match(tools, /current\.touched === true &&/);
+assert.equal(
+  (tools.match(/would replace your own unsaved edits in:/g) || []).length,
+  1,
+  "one question covers every file",
+);
+// SAVE ALL asks once before replacing stored files with drafts.
+const saveAllAt = tools.indexOf("async function saveAll()");
+const saveAllBody = tools.slice(
+  saveAllAt,
+  tools.indexOf("async function collectWorkspaceFiles()", saveAllAt),
+);
+assert.ok(saveAllAt > 0 && saveAllBody.length > 300, "SAVE ALL exists");
+assert.equal((saveAllBody.match(/window\.confirm\(/g) || []).length, 1, "SAVE ALL asks once");
+assert.match(saveAllBody, /saveFile\(path, \{ batch: true, overwrite: true \}\)/);
+// Folded to its title bar, the Workspace unfolds before it shows a menu or the file finder.
+assert.match(tools, /function openQuick\(config\) \{\s*unfold\(\);/);
+assert.match(tools, /function openMenu\(button\) \{\s*unfold\(\);/);
+// On a narrow screen the Explorer lies over the editor, so it folds away by itself.
+assert.match(tools, /window\.matchMedia\("\(max-width: 820px\)"\)/);
+// The preview keeps a module a module, and inlined code cannot end its own tag early.
+assert.ok(tools.includes('js.replace(/<\\/script/gi, "<\\\\/script")'), "inlined scripts are closed safely");
+assert.ok(tools.includes('css.replace(/<\\/style/gi, "<\\\\/style")'), "inlined styles are closed safely");
+assert.match(tools, /\/\\btype=\["'\]module\["'\]\/i\.test\(match\) \? ' type="module"' : ""/);
 // The Workspace reports whether it covers the orb, and shows the remembered conversation.
 assert.match(tools, /document\.body\.classList\.toggle\(\s*"workspace-open"/);
 assert.match(orb, /document\.body\.classList\.contains\("workspace-open"\)/);

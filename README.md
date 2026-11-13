@@ -5,7 +5,9 @@ Weronika is a voice-and-text assistant. Her conversation UI is served by the web
 ## Current scope
 
 - **Cloud-brain chat:** text and voice conversations use the hosted brain endpoint (`/api/public/brain`).
-- **Browser-only chat history:** saved in this browser's local storage.
+- **Memory that survives a restart:** Weronika keeps the conversation on your device and carries on after the browser or the computer was shut down. See [Memory](#memory).
+- **Workspace:** a code editor in the shape of VS Code, in neon blue. A statement typed there goes to the orb, the orb passes it to the brain, and the files the brain writes open in the editor as unsaved drafts. See [Workspace](#workspace).
+- **No media generation:** Weronika does not generate images, videos, or songs. The app has no such route, and the brain is told to say so instead of pretending.
 - **Local worker for device automation:** messaging and reply watch run through `weronika-py` on your own computer because they use your signed-in browser session. Without it, the orb stays a cloud-brain chat and nothing is read, typed, or sent.
 - **Orb controls:** visual orb settings and camera gestures affect only the orb; they do not control the computer.
 
@@ -26,6 +28,60 @@ npm run preview
 ```
 
 The cloud brain credentials remain on the server. The browser sends conversation requests to `/api/public/brain`; it does not call a local Python service.
+
+## Memory
+
+Weronika remembers what you say to her by chat, by voice, and from the Workspace, so a
+restart does not start the conversation from zero.
+
+- **Where it is kept.** In this browser's local storage (`weronika.memory.v1`): the last
+  300 messages word for word, plus short long-term notes that the brain writes when
+  older messages pile up. With the local worker running (`weronika-py`), a second copy
+  is kept in a private file, `~/.weronika/memory/weronika-memory.json`, so the memory
+  comes back even in a browser whose storage is empty.
+- **After a restart.** The orb chat shows the last 30 messages again, the Workspace chat
+  shows its earlier statements, and every request to the brain carries the long-term
+  notes and the most recent 18 messages. The memory is sent to the hosted brain only as
+  part of your own requests, the same way the current conversation is.
+- **What is never kept.** Names and message text from local messaging and reply watch
+  (only a neutral marker that such a step happened), anything from Gmail, and requests
+  that failed.
+- **Your controls.** ⚙ SETTINGS → Memory: switch memory off (this forgets everything,
+  including the worker's file), EXPORT a JSON backup, IMPORT one, or CLEAR MEMORY AND
+  CHAT.
+
+The long-term notes use the `memory-digest` task of `/api/public/brain`. A deployment
+that does not have this task yet still works: the word-for-word messages are kept
+either way, and a reply that is not a usable note is discarded.
+
+## Workspace
+
+The **WORKSPACE** button on the orb opens a code editor laid out like VS Code, in neon
+blue: a title bar with File / Edit / View / Run menus and a file finder, an activity
+bar, an Explorer with the open editors and the project tree, search in files, tabs,
+breadcrumbs, syntax colouring, an OUTPUT panel, a live preview, a chat pane, and a
+status bar.
+
+1. You type a statement in the Workspace chat, for example “build a small counter app”.
+2. The Workspace hands it to the orb. The orb shows it in its own chat as
+   “You · Workspace”, adds the open files as context, and asks the brain.
+3. The files the brain returns are delivered into the editor as unsaved drafts. A
+   question that needs no file change is answered in the chat instead.
+4. Nothing is written until you choose **SAVE** or **SAVE ALL**, and nothing is run
+   unless you choose **RUN PYTHON**.
+
+Details that matter:
+
+- The route is shown above the chat: WORKSPACE › ORB › BRAIN › EDITOR.
+- A returned file that is identical to the stored one is not shown as a change. A draft
+  that would replace a stored file says so, and saving it asks first.
+- Weronika's newer draft replaces her older one. Text you typed yourself and have not
+  saved is replaced only after a question.
+- Unsaved drafts survive a restart, like the conversation does.
+- Files are stored in `~/.weronika/workspace/` when the local worker is running, and in
+  this browser's storage otherwise. **RUN PYTHON** needs the local worker.
+- Shortcuts: Ctrl/⌘+S save, Ctrl/⌘+Shift+S save all, Ctrl/⌘+P go to file, Ctrl/⌘+B side
+  bar, Ctrl/⌘+J output panel, Ctrl/⌘+Shift+E Explorer, Ctrl/⌘+Shift+F search.
 
 ## Reply watch (WhatsApp / Telegram)
 
@@ -76,4 +132,4 @@ OAuth state is one-time and browser-bound. Gmail access tokens and prepared-send
 npm run test
 ```
 
-The JavaScript suites check the cloud-brain conversation path and keep the Gmail permissions and selected-message/send-review policy from regressing. Media routes are checked to remain disabled/local-only.
+The JavaScript suites check the cloud-brain conversation path, the memory store, the Workspace relay and editor, and the syntax colouring, and keep the Gmail permissions and selected-message/send-review policy from regressing. They also check that no image, song, or video generation route exists. The local worker has its own suite: `cd weronika-py && python -m unittest discover -s tests`.
