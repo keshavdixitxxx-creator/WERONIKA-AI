@@ -2210,6 +2210,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     brain: "Weronika: the brain is working…",
     workspace: "Weronika: files delivered",
     answer: "Weronika: answered",
+    failed: "Weronika: no answer",
     idle: "Weronika: ready",
   };
   const STAGE_NOTES = {
@@ -2230,7 +2231,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     routeArrows.forEach((arrow, index) => arrow.classList.toggle("lit", index < reach));
     stageItem.textContent = STAGE_LABELS[stage];
     stageItem.classList.toggle("live", stage !== "idle");
-    if (stage === "workspace" || stage === "answer")
+    if (stage === "workspace" || stage === "answer" || stage === "failed")
       stageTimer = setTimeout(() => setStage("idle"), 6000);
   }
 
@@ -2270,9 +2271,12 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
         buildStatus,
         stage === "workspace"
           ? "Finished · review the drafts in the editor, then choose SAVE or SAVE ALL."
-          : stage === "answer"
-            ? "Finished · Weronika answered. Your files were not changed."
-            : "Ready · statements go through the orb to Weronika’s cloud brain.",
+          : stage === "failed"
+            ? "No answer · the brain could not be reached or its reply was unusable. Your files were not changed; send the statement again."
+            : stage === "answer"
+              ? "Finished · Weronika answered. Your files were not changed."
+              : "Ready · statements go through the orb to Weronika’s cloud brain.",
+        stage === "failed",
       );
     } catch (error) {
       const message =

@@ -134,7 +134,7 @@ const relaySteps = [
   'runAutomationPlan(prompt, undefined, "workspace-code", workspaceContext)',
   'appendChat("assistant", answer, { banner: false })',
   "rememberTurn(turn, prompt, answer)",
-  'stage(turn.files ? "workspace" : "answer")',
+  'stage(turn.failed ? "failed" : turn.files ? "workspace" : "answer")',
 ];
 let relayCursor = -1;
 for (const step of relaySteps) {
@@ -146,6 +146,9 @@ for (const step of relaySteps) {
 assert.match(orb, /const opened = await developerTools\.openDraftFiles\(files\);/);
 assert.match(orb, /if \(currentTurn\) currentTurn\.files = files\.map\(\(file\) => file\.path\);/);
 assert.match(tools, /origin: "weronika"/);
+// An unreachable brain or an unusable reply is reported as "no answer", not as an answer.
+assert.match(tools, /failed: "Weronika: no answer"/);
+assert.match(tools, /stage === "failed"\s*\? "No answer · the brain could not be reached/);
 // A file the brain returns unchanged is not presented as a change, and the orb says so.
 assert.match(tools, /async function storedContent\(path\)/);
 assert.match(tools, /return \{ drafts, unchanged \};/);

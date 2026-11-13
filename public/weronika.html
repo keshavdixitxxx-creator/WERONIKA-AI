@@ -5674,8 +5674,9 @@
       const answer = answered ? reply : "The cloud brain did not answer. Nothing was changed; please try again.";
       appendChat("assistant", answer, { banner: false });
       rememberTurn(turn, prompt, answer);
-      stage(turn.files ? "workspace" : "answer");
-      logVoice(turn.files ? "The code is in the Workspace." : "Workspace statement answered.");
+      // A turn fails when the brain could not be reached or its reply was unusable.
+      stage(turn.failed ? "failed" : turn.files ? "workspace" : "answer");
+      logVoice(turn.failed ? "The Workspace statement got no usable answer." : turn.files ? "The code is in the Workspace." : "Workspace statement answered.");
       return answer;
     }
 
