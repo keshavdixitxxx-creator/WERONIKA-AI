@@ -21,6 +21,7 @@ from .blueprint import (
 )
 from .hardware import detect_hardware
 from .intents import parse_message_request
+from .memory_store import MAX_MEMORY_BYTES, MemoryStore, MemoryStoreError
 from .models import Platform
 from .reply_watch import ReplyWatchError
 from .service import create_messaging_service
@@ -35,6 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = REPO_ROOT / "public"
 MAX_REQUEST_BYTES = 16_384
 MAX_WORKSPACE_REQUEST_BYTES = 1_100_000
+MAX_MEMORY_REQUEST_BYTES = MAX_MEMORY_BYTES + 200_000
 
 
 class LocalServer(HTTPServer):
@@ -49,8 +51,10 @@ def make_handler(
     watch=None,
     skills=None,
     tasks=None,
+    memory: MemoryStore | None = None,
 ):
     local_workspace = workspace or LocalWorkspace()
+    memory_store = memory or MemoryStore()
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "WeronikaLocal/0.1"
@@ -181,6 +185,23 @@ def make_handler(
             self._send_json(403, {"error": "This local automation endpoint only accepts same-device requests."})
             return False
 
+        def _require_loopback_host(self) -> bool:
+            """Refuse requests that were not addressed to this server by a loopback name.
+
+            A page on another site can point its own hostname at 127.0.0.1 (DNS rebinding).
+            Its requests then reach this server looking same-origin, but they still carry
+            the foreign hostname in the Host header.
+            """
+            try:
+                parsed = urlparse(f"//{self.headers.get('Host', '')}")
+                name, port = parsed.hostname, parsed.port
+            except ValueError:
+                name, port = None, None
+            if name in {"localhost", "127.0.0.1", "::1"} and (port or 80) == self.server.server_port:
+                return True
+            self._send_json(403, {"error": "Weronika's memory is only available at this device's local address."})
+            return False
+
         def do_GET(self) -> None:
             if not self._require_local():
                 return
@@ -223,6 +244,15 @@ def make_handler(
                 payload = detect_hardware()
                 payload["vrm_export"] = describe_vrm_limits()
                 self._send_json(200, payload)
+                return
+            if parsed.path == "/api/memory":
+                # The orb's conversation memory, mirrored to a file on this device.
+                if not self._require_loopback_host():
+                    return
+                try:
+                    self._send_json(200, {"memory": memory_store.load(), "path": str(memory_store.path)})
+                except MemoryStoreError as exc:
+                    self._send_json(400, {"error": str(exc)})
                 return
             if parsed.path == "/api/workspace/status":
                 self._send_json(200, {"connected": True, "workspace": "local", "browser": "Playwright Chromium"})
@@ -276,7 +306,15 @@ def make_handler(
                     "/api/workspace/browser/activate",
                     "/api/workspace/browser/close",
                 }
-                data = self._read_json(MAX_WORKSPACE_REQUEST_BYTES if path in workspace_routes else MAX_REQUEST_BYTES)
+                if path == "/api/memory":
+                    if not self._require_loopback_host():
+                        return
+                    max_bytes = MAX_MEMORY_REQUEST_BYTES
+                elif path in workspace_routes:
+                    max_bytes = MAX_WORKSPACE_REQUEST_BYTES
+                else:
+                    max_bytes = MAX_REQUEST_BYTES
+                data = self._read_json(max_bytes)
                 if path in {
                     "/api/automation/prepare",
                     "/api/automation/recipient",
@@ -312,6 +350,8 @@ def make_handler(
                     ).to_dict()
                 elif path == "/api/cancel":
                     result = service.cancel(self._text(data, "draft_id")).to_dict()
+                elif path == "/api/memory":
+                    result = memory_store.save(data.get("memory"))
                 elif path == "/api/workspace/file":
                     relative_path = self._text(data, "path")
                     content = data.get("content")
@@ -343,7 +383,7 @@ def make_handler(
                     self._send_json(404, {"error": "Unknown local API route."})
                     return
                 self._send_json(200, result)
-            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError, SiteError) as exc:
+            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError, SiteError, MemoryStoreError) as exc:
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})
@@ -419,6 +459,7 @@ def make_handler(
                 "skills": skills is not None,
                 "browser_tasks": tasks is not None,
                 "sites": True,
+                "memory": True,
             }
             if skills is not None:
                 payload["skill_count"] = len(skills.catalog()["skills"])
@@ -730,6 +771,7 @@ def main() -> None:
     print(f"Weronika local messaging is running at {url}")
     print("It is loopback-only; browser sessions and message drafts stay on this device.")
     print("Reply watch reads only the chats you name, and every send still needs your confirmation.")
+    print("Weronika's conversation memory is kept in ~/.weronika/memory on this device.")
     if args.open_browser:
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
     try:

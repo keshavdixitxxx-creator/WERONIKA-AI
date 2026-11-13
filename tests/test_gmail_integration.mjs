@@ -36,7 +36,17 @@ assert.match(
 assert.match(oauth, /threadId: prepared\.threadId/);
 assert.match(routes, /createFileRoute\("\/api\/gmail\/messages\/\$id"\)/);
 assert.match(html, /Email content reaches the hosted AI only when you choose SUMMARIZE or DRAFT/);
-assert.match(html, /includeHistory: false, recordHistory: false, sensitive: true/);
+assert.match(html, /\{ task: "gmail-assist", includeHistory: false, sensitive: true \}/);
+// Email content never reaches Weronika's memory: memory is written in one place, at the
+// end of a chat, voice, or Workspace turn, and the Gmail code never starts a turn.
+const gmailStart = html.indexOf("    async function gmailRequest(");
+const gmailBlock = html.slice(gmailStart, html.indexOf("    // Reply watch: watch named chats", gmailStart));
+assert.ok(gmailStart > 0 && gmailBlock.length > 3000, "the Gmail block has clear boundaries");
+assert.match(gmailBlock, /askBrainAboutSelectedGmail/);
+assert.doesNotMatch(gmailBlock, /rememberTurn|beginTurn|currentTurn|memory\./);
+assert.equal(html.split("memory.rememberExchange(").length - 1, 1, "memory is written in one place");
+assert.equal(html.split("memory.rememberPrivate(").length - 1, 1, "memory is written in one place");
+assert.match(html, /history: options\.includeHistory === false \? \[\] : memory\.brainHistory\(\)/);
 assert.match(html, /window\.confirm\(exact\)/);
 assert.match(html, /REVIEW EXACT REPLY/);
 assert.match(brain, /buildGmailAssistInstructions/);

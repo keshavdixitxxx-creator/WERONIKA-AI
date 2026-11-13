@@ -24,7 +24,6 @@ assert.equal(
 for (const file of [
   "public/weronika-automation.js",
   "public/weronika-google.js",
-  "public/weronika-memory.js",
   "public/weronika-same-browser.js",
   "public/weronika-workspace.js",
 ]) {

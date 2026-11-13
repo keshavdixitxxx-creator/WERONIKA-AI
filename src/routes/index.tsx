@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  // The orb experience and its additive editor/media panels live in the
+  // The orb experience and its Workspace and Blueprint panels live in the
   // self-contained public/weronika.html page. Keep it embedded full-screen so
   // / serves the app directly without replacing the orb experience.
   return (

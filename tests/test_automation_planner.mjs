@@ -34,7 +34,11 @@ const brainRoute = readFileSync(
   new URL("../src/routes/api/public/brain.ts", import.meta.url),
   "utf8",
 );
-assert.match(brainRoute, /body\.task === "automation-plan"/);
+assert.match(brainRoute, /isBrainTask\(body\.task\) \? body\.task : undefined/);
+assert.match(brainRoute, /input\.task === "automation-plan"\) return buildAutomationPlanInstructions\(\)/);
+for (const task of ["automation-plan", "workspace-code", "gmail-assist", "memory-digest"]) {
+  assert.ok(prompt.includes(`value === "${task}"`), `isBrainTask must accept ${task}`);
+}
 assert.match(brainRoute, /buildAutomationPlanInstructions\(\)/);
 assert.match(brainRoute, /buildWorkspaceCodeInstructions\(\)/);
 assert.match(brainRoute, /workspace-code/);
@@ -43,7 +47,18 @@ const orb = readFileSync(new URL("../public/weronika.html", import.meta.url), "u
 assert.match(orb, /planningTask = "automation-plan"/);
 assert.match(orb, /runAutomationPlan\(prompt, undefined, "workspace-code", workspaceContext\)/);
 assert.match(orb, /Open workspace files for context/);
-assert.match(orb, /includeHistory: planningTask !== "workspace-code"/);
+// Every plan, Workspace statements included, goes through the orb's one brain entry and
+// carries Weronika's memory.
+assert.match(
+  orb,
+  /callBuiltinBrain\(planningMessage, null, languageOverride, \{ task: planningTask \}\)/,
+);
+assert.doesNotMatch(orb, /includeHistory: planningTask/);
+// A Workspace statement may only produce code, a question, or an answer.
+assert.match(
+  orb,
+  /fromWorkspace && !\["write_code", "needs_info", "chat", "unsupported"\]\.includes\(plan\.intent\)/,
+);
 assert.match(orb, /\/api\/automation\/prepare/);
 assert.match(orb, /\/api\/automation\/confirm/);
 assert.match(orb, /\/api\/automation\/status/);

@@ -9,8 +9,10 @@ import {
   buildAutomationPlanInstructions,
   buildInstructions,
   buildGmailAssistInstructions,
+  buildMemoryDigestInstructions,
   buildWorkspaceCodeInstructions,
   buildResponsesBody,
+  isBrainTask,
   isTransientStatus,
   readResponseDeltas,
   sanitizeAddressName,
@@ -18,6 +20,7 @@ import {
   sanitizeHistory,
   sanitizeLang,
   sseEvent,
+  type BrainTask,
   type HistoryItem,
 } from "@/lib/brain-stream.server";
 
@@ -29,13 +32,14 @@ type BrainInput = {
   history: HistoryItem[];
   lang: string;
   addressName: string;
-  task?: "automation-plan" | "workspace-code" | "gmail-assist";
+  task?: BrainTask;
 };
 
 function instructionsFor(input: Pick<BrainInput, "lang" | "addressName" | "task">) {
   if (input.task === "automation-plan") return buildAutomationPlanInstructions();
   if (input.task === "workspace-code") return buildWorkspaceCodeInstructions();
   if (input.task === "gmail-assist") return buildGmailAssistInstructions();
+  if (input.task === "memory-digest") return buildMemoryDigestInstructions();
   return buildInstructions(input.lang, input.addressName);
 }
 
@@ -227,12 +231,10 @@ export const Route = createFileRoute("/api/public/brain")({
 
         const message = typeof body.message === "string" ? body.message.trim() : "";
         if (!message) return jsonError("message is required", 400);
-        const task =
-          body.task === "automation-plan" ||
-          body.task === "workspace-code" ||
-          body.task === "gmail-assist"
-            ? body.task
-            : undefined;
+        // A task selects the instructions: planning an orb action, a statement the orb
+        // passed on from the Workspace, selected Gmail messages, or folding older
+        // conversation into the on-device memory notes. Anything else is plain chat.
+        const task = isBrainTask(body.task) ? body.task : undefined;
         const maxMessageLength = task === "workspace-code" ? 40_000 : 8_000;
         if (message.length > maxMessageLength) return jsonError("message is too long", 400);
 

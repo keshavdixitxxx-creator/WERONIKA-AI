@@ -61,7 +61,7 @@ assert.match(orb, /\/api\/watch\/leave/);
 assert.match(orb, /\/api\/skills/);
 assert.match(
   orb,
-  /if \(hasWatchIntent\(text\)\) return await runReplyWatchPlan\(text, languageOverride\);/,
+  /if \(hasWatchIntent\(text\)\) \{\s*keepPrivate\(\);\s*return await runReplyWatchPlan\(text, languageOverride\);\s*\}/,
 );
 assert.match(orb, /if \(hasWatchIntent\(value\)\) return true;/);
 assert.match(orb, /watchSuspectUnsupportedPlan/);
