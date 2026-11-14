@@ -29,8 +29,8 @@ function assertFaithful(text, language, label = language) {
   return html;
 }
 function tokens(html, type) {
-  return [...html.matchAll(new RegExp(`<span class="tk-${type}">([\\s\\S]*?)</span>`, "g"))].map((match) =>
-    plain(match[1]),
+  return [...html.matchAll(new RegExp(`<span class="tk-${type}">([\\s\\S]*?)</span>`, "g"))].map(
+    (match) => plain(match[1]),
   );
 }
 
@@ -45,8 +45,14 @@ assert.equal(languageForPath("").name, "Plain Text");
 assert.equal(languageForPath(undefined).id, "plain");
 
 // Every extension the workspace accepts has a language.
-const developerTools = fs.readFileSync(new URL("../public/developer-tools.js", import.meta.url), "utf8");
-const worker = fs.readFileSync(new URL("../weronika-py/weronika_agent/workspace.py", import.meta.url), "utf8");
+const developerTools = fs.readFileSync(
+  new URL("../public/developer-tools.js", import.meta.url),
+  "utf8",
+);
+const worker = fs.readFileSync(
+  new URL("../weronika-py/weronika_agent/workspace.py", import.meta.url),
+  "utf8",
+);
 const allowed = /ALLOWED_EXTENSIONS = \{([^}]*)\}/.exec(worker);
 assert.ok(allowed, "worker workspace must declare its allowed extensions");
 const extensions = [...allowed[1].matchAll(/"\.([a-z0-9]+)"/g)].map((match) => match[1]);
@@ -54,19 +60,48 @@ assert.ok(extensions.length >= 40);
 for (const extension of extensions) {
   const language = languageForPath(`file.${extension}`);
   assert.notEqual(language.name, "", `.${extension} needs a display name`);
-  if (extension !== "txt") assert.notEqual(language.id, "plain", `.${extension} should be coloured`);
-  assertFaithful(`x = 1 // "a" <b> & 'c' # d\n\t/* e */ <!-- f -->\n`, language.id, `.${extension}`);
+  if (extension !== "txt")
+    assert.notEqual(language.id, "plain", `.${extension} should be coloured`);
+  assertFaithful(
+    `x = 1 // "a" <b> & 'c' # d\n\t/* e */ <!-- f -->\n`,
+    language.id,
+    `.${extension}`,
+  );
 }
-assert.match(developerTools, /workspace-syntax\.js/, "the workspace editor must use the syntax module");
+assert.match(
+  developerTools,
+  /workspace-syntax\.js/,
+  "the workspace editor must use the syntax module",
+);
 
 // ------------------------------------------------------------------ escaping
-assert.equal(escapeHtml(`<script>alert("x") && 1 > 0</script>`), `&lt;script&gt;alert("x") &amp;&amp; 1 &gt; 0&lt;/script&gt;`);
-assert.equal(highlightCode("<img src=x onerror=alert(1)>", "plain"), "&lt;img src=x onerror=alert(1)&gt;");
+assert.equal(
+  escapeHtml(`<script>alert("x") && 1 > 0</script>`),
+  `&lt;script&gt;alert("x") &amp;&amp; 1 &gt; 0&lt;/script&gt;`,
+);
+assert.equal(
+  highlightCode("<img src=x onerror=alert(1)>", "plain"),
+  "&lt;img src=x onerror=alert(1)&gt;",
+);
 assert.equal(highlightCode("a < b", "unknown-language"), "a &lt; b");
 assert.equal(highlightCode("", "python"), "");
 assert.equal(highlightCode(null, "python"), "");
-for (const language of ["javascript", "python", "markup", "css", "json", "markdown", "config", "shell", "sql"]) {
-  assertFaithful(`</span><script>alert(1)</script>&amp;<span class="tk-k">`, language, `${language} injection`);
+for (const language of [
+  "javascript",
+  "python",
+  "markup",
+  "css",
+  "json",
+  "markdown",
+  "config",
+  "shell",
+  "sql",
+]) {
+  assertFaithful(
+    `</span><script>alert(1)</script>&amp;<span class="tk-k">`,
+    language,
+    `${language} injection`,
+  );
 }
 
 // ------------------------------------------------------------------ JavaScript
@@ -85,18 +120,34 @@ for (const language of ["javascript", "python", "markup", "css", "json", "markdo
   ].join("\n");
   const html = assertFaithful(source, "javascript");
   const keywords = tokens(html, "k");
-  for (const keyword of ["import", "from", "const", "export", "async", "function", "return", "class", "extends", "this"]) {
+  for (const keyword of [
+    "import",
+    "from",
+    "const",
+    "export",
+    "async",
+    "function",
+    "return",
+    "class",
+    "extends",
+    "this",
+  ]) {
     assert.ok(keywords.includes(keyword), `"${keyword}" should be a keyword`);
   }
   assert.deepEqual(tokens(html, "c"), ["// greet the user", "/* block\n   comment */"]);
-  assert.deepEqual(tokens(html, "r"), ["/^[a-z/]+$/gi"], "a regex literal is one token; division is not a regex");
+  assert.deepEqual(
+    tokens(html, "r"),
+    ["/^[a-z/]+$/gi"],
+    "a regex literal is one token; division is not a regex",
+  );
   const strings = tokens(html, "s");
   assert.ok(strings.includes(`"./run.js"`));
   assert.ok(strings.includes(`'you'`));
   assert.ok(strings.includes("`Hello ${name}`"));
   assert.deepEqual(tokens(html, "n"), ["2", "0x1f", "3.5e2"]);
   const functions = tokens(html, "f");
-  for (const name of ["greet", "String", "arm", "map"]) assert.ok(functions.includes(name), `${name}() is a call`);
+  for (const name of ["greet", "String", "arm", "map"])
+    assert.ok(functions.includes(name), `${name}() is a call`);
   assert.ok(tokens(html, "t").includes("Robot"));
   assert.ok(tokens(html, "t").includes("Machine"));
   assert.ok(tokens(html, "a").includes("joints"));
@@ -117,7 +168,10 @@ assertFaithful(`x = a / b; y = /unterminated`, "javascript");
 
 // ------------------------------------------------------------------ TypeScript
 {
-  const html = assertFaithful(`interface Point { readonly x: number }\ntype Id = string | null;`, "typescript");
+  const html = assertFaithful(
+    `interface Point { readonly x: number }\ntype Id = string | null;`,
+    "typescript",
+  );
   for (const keyword of ["interface", "readonly", "number", "type", "string"]) {
     assert.ok(tokens(html, "k").includes(keyword), `"${keyword}" should be a TypeScript keyword`);
   }
@@ -142,8 +196,14 @@ assertFaithful(`x = a / b; y = /unterminated`, "javascript");
   for (const keyword of ["import", "class", "def", "if", "is", "or", "not", "return"]) {
     assert.ok(tokens(html, "k").includes(keyword), `"${keyword}" should be a Python keyword`);
   }
-  assert.deepEqual(tokens(html, "c"), ["# -*- coding: utf-8 -*-", "# not a comment inside the string"]);
-  assert.ok(tokens(html, "s").includes(`"""Module doc\nspanning lines."""`), "a docstring is one string token");
+  assert.deepEqual(tokens(html, "c"), [
+    "# -*- coding: utf-8 -*-",
+    "# not a comment inside the string",
+  ]);
+  assert.ok(
+    tokens(html, "s").includes(`"""Module doc\nspanning lines."""`),
+    "a docstring is one string token",
+  );
   assert.ok(tokens(html, "s").includes(`"reach #{target}"`));
   assert.ok(tokens(html, "s").includes(`'नमस्ते'`));
   assert.ok(tokens(html, "v").includes("@dataclass"));
@@ -175,7 +235,8 @@ assertFaithful(`x = a / b; y = /unterminated`, "javascript");
   }
   assert.deepEqual(tokens(html, "c"), ["<!-- page -->"]);
   const attributes = tokens(html, "a");
-  for (const name of ["lang", "class", "hidden", "color", "margin"]) assert.ok(attributes.includes(name));
+  for (const name of ["lang", "class", "hidden", "color", "margin"])
+    assert.ok(attributes.includes(name));
   assert.ok(tokens(html, "s").includes(`"en"`));
   assert.ok(tokens(html, "s").includes(`'x'`));
   assert.ok(tokens(html, "s").includes(`"</p>"`), "script content is coloured as JavaScript");
@@ -186,7 +247,11 @@ assertFaithful(`x = a / b; y = /unterminated`, "javascript");
 assertFaithful(`<div class="open`, "markup", "unterminated attribute");
 assertFaithful(`<script>let a = 1;`, "markup", "unterminated script");
 assertFaithful(`a < b and <<< >>> </ <1> <>`, "markup", "stray angle brackets");
-assertFaithful(`<template><div :class="{a: b}" @click="go">{{ msg }}</div></template>`, "markup", "vue");
+assertFaithful(
+  `<template><div :class="{a: b}" @click="go">{{ msg }}</div></template>`,
+  "markup",
+  "vue",
+);
 
 // ------------------------------------------------------------------ CSS
 {
@@ -208,14 +273,24 @@ assertFaithful(`<template><div :class="{a: b}" @click="go">{{ msg }}</div></temp
   assert.ok(tokens(html, "f").includes("url"));
   assert.ok(tokens(html, "n").includes("12px"));
   assert.ok(tokens(html, "s").includes(`"Fira Code"`));
-  assert.ok(tokens(html, "t").some((selector) => selector.includes(".card:hover")), "selectors are coloured as a unit");
+  assert.ok(
+    tokens(html, "t").some((selector) => selector.includes(".card:hover")),
+    "selectors are coloured as a unit",
+  );
 }
 assertFaithful(`a { color: red`, "css", "unterminated rule");
-assertFaithful(`.a { .b { color: red; &:hover { x: y } } }\n$gap: 4px;\n// scss comment`, "css", "scss nesting");
+assertFaithful(
+  `.a { .b { color: red; &:hover { x: y } } }\n$gap: 4px;\n// scss comment`,
+  "css",
+  "scss nesting",
+);
 
 // ------------------------------------------------------------------ JSON
 {
-  const html = assertFaithful(`{"name": "arm", "joints": [1, -2.5e3, true, null], "nested": {"a:b": "c: d"}}`, "json");
+  const html = assertFaithful(
+    `{"name": "arm", "joints": [1, -2.5e3, true, null], "nested": {"a:b": "c: d"}}`,
+    "json",
+  );
   assert.deepEqual(tokens(html, "a"), [`"name"`, `"joints"`, `"nested"`, `"a:b"`]);
   assert.deepEqual(tokens(html, "s"), [`"arm"`, `"c: d"`]);
   assert.deepEqual(tokens(html, "n"), ["1", "-2.5e3"]);
@@ -239,7 +314,10 @@ assertFaithful(`{"a": "unterminated`, "json");
   assert.deepEqual(tokens(html, "c"), ["> quote"]);
 }
 {
-  const html = assertFaithful(`# settings\n[tool.app]\nname = "weronika"\nport: 8765 # local\nenabled: true\n- item: 'x'\n`, "config");
+  const html = assertFaithful(
+    `# settings\n[tool.app]\nname = "weronika"\nport: 8765 # local\nenabled: true\n- item: 'x'\n`,
+    "config",
+  );
   assert.deepEqual(tokens(html, "t"), ["[tool.app]"]);
   assert.deepEqual(tokens(html, "a"), ["name", "port", "enabled", "item"]);
   assert.ok(tokens(html, "c").includes("# settings"));
@@ -250,7 +328,10 @@ assertFaithful(`{"a": "unterminated`, "json");
 
 // ------------------------------------------------------------------ other languages
 {
-  const html = assertFaithful(`#!/bin/bash\nNAME="x"; echo "$NAME" ${"${HOME}"} $# # trailing\nif [ -f a ]; then exit 1; fi`, "shell");
+  const html = assertFaithful(
+    `#!/bin/bash\nNAME="x"; echo "$NAME" ${"${HOME}"} $# # trailing\nif [ -f a ]; then exit 1; fi`,
+    "shell",
+  );
   assert.ok(tokens(html, "c").includes("#!/bin/bash"));
   assert.ok(tokens(html, "c").includes("# trailing"));
   assert.ok(tokens(html, "v").includes("${HOME}"));
@@ -258,18 +339,28 @@ assertFaithful(`{"a": "unterminated`, "json");
   assert.ok(tokens(html, "k").includes("fi"));
 }
 {
-  const html = assertFaithful(`SELECT id, name FROM users WHERE age >= 18 -- adults\n  AND name LIKE 'A%';`, "sql");
-  for (const keyword of ["SELECT", "FROM", "WHERE", "AND", "LIKE"]) assert.ok(tokens(html, "k").includes(keyword));
+  const html = assertFaithful(
+    `SELECT id, name FROM users WHERE age >= 18 -- adults\n  AND name LIKE 'A%';`,
+    "sql",
+  );
+  for (const keyword of ["SELECT", "FROM", "WHERE", "AND", "LIKE"])
+    assert.ok(tokens(html, "k").includes(keyword));
   assert.deepEqual(tokens(html, "c"), ["-- adults"]);
   assert.deepEqual(tokens(html, "s"), [`'A%'`]);
 }
 {
-  const html = assertFaithful(`#include <stdio.h>\nint main(void) { printf("hi\\n"); return 0; }`, "c");
+  const html = assertFaithful(
+    `#include <stdio.h>\nint main(void) { printf("hi\\n"); return 0; }`,
+    "c",
+  );
   assert.ok(tokens(html, "k").includes("#include"));
   assert.ok(tokens(html, "k").includes("int"));
   assert.ok(tokens(html, "f").includes("main"));
 }
-assertFaithful(`fn main() { let v: Vec<i32> = vec![1, 2]; println!("{:?}", v); } // 'a lifetime`, "rust");
+assertFaithful(
+  `fn main() { let v: Vec<i32> = vec![1, 2]; println!("{:?}", v); } // 'a lifetime`,
+  "rust",
+);
 assertFaithful(`package main\nfunc main() { s := \`raw\nstring\`; fmt.Println(s) }`, "go");
 assertFaithful(`<?php echo "$name {$a['b']}"; # c\n?>`, "php");
 assertFaithful(`--[[ block ]] local t = { 1, 2 } -- line`, "lua");
@@ -284,7 +375,7 @@ const odd = [
   "\t \t",
   "\r\n\r\n",
   "\\",
-  "\"",
+  '"',
   "'",
   "`",
   "/",
@@ -306,12 +397,41 @@ const odd = [
   "a\u00a0b\u3000c",
 ];
 const everyLanguage = [
-  "plain", "javascript", "typescript", "python", "markup", "css", "json", "markdown", "config", "java", "c", "cpp",
-  "csharp", "go", "rust", "kotlin", "swift", "dart", "php", "scala", "ruby", "shell", "powershell", "batch", "sql",
-  "lua", "r", "perl", "elixir", "graphql", "proto",
+  "plain",
+  "javascript",
+  "typescript",
+  "python",
+  "markup",
+  "css",
+  "json",
+  "markdown",
+  "config",
+  "java",
+  "c",
+  "cpp",
+  "csharp",
+  "go",
+  "rust",
+  "kotlin",
+  "swift",
+  "dart",
+  "php",
+  "scala",
+  "ruby",
+  "shell",
+  "powershell",
+  "batch",
+  "sql",
+  "lua",
+  "r",
+  "perl",
+  "elixir",
+  "graphql",
+  "proto",
 ];
 for (const language of everyLanguage) {
-  for (const text of odd) assertFaithful(text, language, `${language} edge ${JSON.stringify(text.slice(0, 12))}`);
+  for (const text of odd)
+    assertFaithful(text, language, `${language} edge ${JSON.stringify(text.slice(0, 12))}`);
 }
 
 // Deterministic pseudo-random text: the round trip must hold for arbitrary input.
@@ -322,13 +442,34 @@ const random = () => {
 };
 const alphabet = [
   ..."abcXYZ019_$ \n\t\"'`/\\*#<>&=:;,.(){}[]!@%-+|^~?",
-  "//", "/*", "*/", "<!--", "-->", "\"\"\"", "'''", "${", "</script>", "<style>", "<script>", "function", "return",
-  "def", "class", "--", "::", "<#", "#>", "é", "न", "😀",
+  "//",
+  "/*",
+  "*/",
+  "<!--",
+  "-->",
+  '"""',
+  "'''",
+  "${",
+  "</script>",
+  "<style>",
+  "<script>",
+  "function",
+  "return",
+  "def",
+  "class",
+  "--",
+  "::",
+  "<#",
+  "#>",
+  "é",
+  "न",
+  "😀",
 ];
 for (let round = 0; round < 400; round += 1) {
   let text = "";
   const length = Math.floor(random() * 90);
-  for (let index = 0; index < length; index += 1) text += alphabet[Math.floor(random() * alphabet.length)];
+  for (let index = 0; index < length; index += 1)
+    text += alphabet[Math.floor(random() * alphabet.length)];
   const language = everyLanguage[round % everyLanguage.length];
   assertFaithful(text, language, `${language} random #${round}`);
 }
@@ -339,7 +480,11 @@ for (let round = 0; round < 400; round += 1) {
   assert.ok(big.length < HIGHLIGHT_LIMIT);
   const started = Date.now();
   assertFaithful(big, "javascript", "large javascript");
-  assertFaithful("<div class=\"row\"><span>cell &amp; more</span></div>\n".repeat(3000), "markup", "large markup");
+  assertFaithful(
+    '<div class="row"><span>cell &amp; more</span></div>\n'.repeat(3000),
+    "markup",
+    "large markup",
+  );
   assertFaithful(".rule { color: #fff; margin: 0 auto; }\n".repeat(3000), "css", "large css");
   assert.ok(Date.now() - started < 4000, "colouring 150 KB files must stay fast");
 
@@ -354,7 +499,7 @@ for (let round = 0; round < 400; round += 1) {
   const started = Date.now();
   assertFaithful("/".repeat(20000), "javascript", "slashes");
   assertFaithful("<".repeat(20000), "markup", "angle brackets");
-  assertFaithful("\"".repeat(20001), "python", "quotes");
+  assertFaithful('"'.repeat(20001), "python", "quotes");
   assertFaithful("*".repeat(20000), "markdown", "asterisks");
   assertFaithful("a:".repeat(10000), "css", "colons");
   assertFaithful("{".repeat(20000), "css", "braces");

@@ -67,7 +67,9 @@ const SPECS = {
       "auto break case char const continue default do double else enum extern float for goto if inline int long register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while",
     ),
     constants: words("true false NULL"),
-    builtins: words("printf scanf malloc calloc realloc free size_t uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t bool FILE"),
+    builtins: words(
+      "printf scanf malloc calloc realloc free size_t uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t bool FILE",
+    ),
   },
   cpp: {
     ...C_COMMENTS,
@@ -77,7 +79,9 @@ const SPECS = {
       "alignas alignof auto bool break case catch char class const constexpr const_cast continue decltype default delete do double dynamic_cast else enum explicit export extern final float for friend goto if inline int long mutable namespace new noexcept operator override private protected public register reinterpret_cast return short signed sizeof static static_cast struct switch template this throw try typedef typeid typename union unsigned using virtual void volatile while",
     ),
     constants: words("true false nullptr NULL"),
-    builtins: words("std string vector map set cout cin endl size_t unique_ptr shared_ptr make_unique make_shared"),
+    builtins: words(
+      "std string vector map set cout cin endl size_t unique_ptr shared_ptr make_unique make_shared",
+    ),
   },
   csharp: {
     ...C_COMMENTS,
@@ -154,7 +158,9 @@ const SPECS = {
       "abstract and array as break callable case catch class clone const continue declare default do echo else elseif empty enum extends final finally fn for foreach function global goto if implements include include_once instanceof insteadof interface isset list match namespace new or print private protected public readonly require require_once return static switch throw trait try unset use var while xor yield",
     ),
     constants: words("true false null TRUE FALSE NULL"),
-    builtins: words("count strlen str_replace array_map array_filter json_encode json_decode var_dump"),
+    builtins: words(
+      "count strlen str_replace array_map array_filter json_encode json_decode var_dump",
+    ),
   },
   scala: {
     ...C_COMMENTS,
@@ -165,7 +171,9 @@ const SPECS = {
       "abstract case catch class def do else enum export extends final finally for given if implicit import lazy match new object override package private protected return sealed super then this throw trait try type using val var while with yield",
     ),
     constants: words("true false null"),
-    builtins: words("String Int Long Double Boolean Unit Any List Map Set Option Some None println"),
+    builtins: words(
+      "String Int Long Double Boolean Unit Any List Map Set Option Some None println",
+    ),
   },
   ruby: {
     line: ["#"],
@@ -188,7 +196,9 @@ const SPECS = {
       "if then else elif fi for in do done while until case esac function return export local readonly declare unset shift exit break continue source alias",
     ),
     constants: words("true false"),
-    builtins: words("echo printf read cd set trap eval exec test pwd ls cat grep sed awk mkdir rm cp mv chmod curl"),
+    builtins: words(
+      "echo printf read cd set trap eval exec test pwd ls cat grep sed awk mkdir rm cp mv chmod curl",
+    ),
   },
   powershell: {
     line: ["#"],
@@ -222,7 +232,9 @@ const SPECS = {
       "select from where insert into values update set delete create table alter drop index view join inner left right full outer on as and or not is in like between group by order having limit offset union all distinct primary key foreign references default constraint unique check if exists begin commit rollback transaction case when then else end asc desc",
     ),
     constants: words("null true false"),
-    builtins: words("integer int text varchar char boolean date timestamp real float numeric serial count sum avg min max coalesce now"),
+    builtins: words(
+      "integer int text varchar char boolean date timestamp real float numeric serial count sum avg min max coalesce now",
+    ),
   },
   lua: {
     line: ["--"],
@@ -285,7 +297,9 @@ const SPECS = {
       "syntax package import option message enum service rpc returns repeated optional required oneof map reserved stream extend",
     ),
     constants: words("true false"),
-    builtins: words("double float int32 int64 uint32 uint64 sint32 sint64 fixed32 fixed64 bool string bytes"),
+    builtins: words(
+      "double float int32 int64 uint32 uint64 sint32 sint64 fixed32 fixed64 bool string bytes",
+    ),
   },
 };
 
@@ -659,8 +673,10 @@ function cssValueTokens(text) {
     else if (token[0] === "#" && token.length > 1) out.push(span("n", token));
     else if (/^-?\d*\.?\d/.test(token)) out.push(span("n", token));
     else if (token === "!important") out.push(span("k", token));
-    else if (token[0] === "$" || token[0] === "@" || token.startsWith("--")) out.push(span("v", token));
-    else if (text[CSS_VALUE.lastIndex] === "(" && /[\p{L}_-]/u.test(token[0])) out.push(span("f", token));
+    else if (token[0] === "$" || token[0] === "@" || token.startsWith("--"))
+      out.push(span("v", token));
+    else if (text[CSS_VALUE.lastIndex] === "(" && /[\p{L}_-]/u.test(token[0]))
+      out.push(span("f", token));
     else if (/^[\p{L}_-]/u.test(token)) out.push(span("b", token));
     else out.push(";:,(){}".includes(token) ? span("o", token) : escapeHtml(token));
   }
@@ -875,14 +891,20 @@ function tokenizeMarkdown(text) {
       if (/^\s*(?:[-*_]\s*){3,}$/.test(line)) return span("o", line);
       const list = /^(\s*)([-*+]|\d+[.)])(\s+)/.exec(line);
       if (list) {
-        return escapeHtml(list[1]) + span("k", list[2]) + list[3] + markdownInline(line.slice(list[0].length));
+        return (
+          escapeHtml(list[1]) +
+          span("k", list[2]) +
+          list[3] +
+          markdownInline(line.slice(list[0].length))
+        );
       }
       return markdownInline(line);
     })
     .join("\n");
 }
 
-const CONFIG_VALUE = /("(?:\\.|[^"\\])*"|'[^']*')|(#.*$)|(\b(?:true|false|null|yes|no|on|off)\b)|(-?\b\d[\d_.:TZ+-]*\b)/gi;
+const CONFIG_VALUE =
+  /("(?:\\.|[^"\\])*"|'[^']*')|(#.*$)|(\b(?:true|false|null|yes|no|on|off)\b)|(-?\b\d[\d_.:TZ+-]*\b)/gi;
 
 function configValue(text) {
   let out = "";

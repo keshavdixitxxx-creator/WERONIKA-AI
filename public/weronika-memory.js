@@ -60,7 +60,12 @@ function clip(text, limit) {
 }
 
 function oneLine(text, limit) {
-  return clip(String(text ?? "").replace(/\s+/g, " ").trim(), limit);
+  return clip(
+    String(text ?? "")
+      .replace(/\s+/g, " ")
+      .trim(),
+    limit,
+  );
 }
 
 function sortTurns(turns) {
@@ -92,7 +97,8 @@ export function normalizeMemory(raw, limits = MEMORY_LIMITS) {
   state.updatedAt = finiteNumber(raw.updatedAt);
   state.clearedAt = finiteNumber(raw.clearedAt);
   state.sessions = Math.floor(finiteNumber(raw.sessions));
-  state.digest = typeof raw.digest === "string" ? clip(raw.digest.trim(), limits.digestMaxChars) : "";
+  state.digest =
+    typeof raw.digest === "string" ? clip(raw.digest.trim(), limits.digestMaxChars) : "";
   state.digestAt = state.digest ? finiteNumber(raw.digestAt) : 0;
   state.digestThrough = finiteNumber(raw.digestThrough);
   state.backlog =
@@ -212,7 +218,12 @@ export function createMemory({
   function persisted() {
     // With memory switched off, only the switch itself is remembered.
     if (!state.enabled) {
-      return { ...emptyState(), enabled: false, clearedAt: state.clearedAt, updatedAt: state.updatedAt };
+      return {
+        ...emptyState(),
+        enabled: false,
+        clearedAt: state.clearedAt,
+        updatedAt: state.updatedAt,
+      };
     }
     return state;
   }

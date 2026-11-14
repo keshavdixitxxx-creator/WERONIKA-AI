@@ -80,7 +80,10 @@ function chat(memory, now, count, label = "topic") {
   assert.equal(resumed.lastUser, "Remember that the demo is on Friday.");
   assert.equal(resumed.lastAssistant, "Got it, Friday.");
   assert.equal(resumed.sessions, 2);
-  assert.ok(resumed.awayMs > 13 * HOUR && resumed.awayMs <= 14 * HOUR, "away time spans the shutdown");
+  assert.ok(
+    resumed.awayMs > 13 * HOUR && resumed.awayMs <= 14 * HOUR,
+    "away time spans the shutdown",
+  );
 
   const restored = second.recent();
   assert.deepEqual(
@@ -178,7 +181,11 @@ function chat(memory, now, count, label = "topic") {
 
   const notes = "The user is Keshav. He is building a robot arm. The demo is on Friday.";
   assert.equal(memory.applyDigest(memory.digestJob(), `\`\`\`\n${notes}\n\`\`\``), true);
-  assert.equal(memory.stats().digestChars, notes.length, "code fences around the notes are removed");
+  assert.equal(
+    memory.stats().digestChars,
+    notes.length,
+    "code fences around the notes are removed",
+  );
   assert.equal(memory.needsDigest(), false);
   assert.match(memory.memoryNote(), /What I remember:\nThe user is Keshav\./);
 
@@ -209,12 +216,21 @@ function chat(memory, now, count, label = "topic") {
   memory.beginSession();
   for (let index = 0; index < 30; index += 1) {
     now.advance(MINUTE);
-    memory.rememberExchange(`early ${index} ${"e".repeat(200)}`, `reply ${index} ${"r".repeat(200)}`);
+    memory.rememberExchange(
+      `early ${index} ${"e".repeat(200)}`,
+      `reply ${index} ${"r".repeat(200)}`,
+    );
   }
-  assert.equal(memory.applyDigest(memory.digestJob(), "n".repeat(MEMORY_LIMITS.digestMaxChars)), true);
+  assert.equal(
+    memory.applyDigest(memory.digestJob(), "n".repeat(MEMORY_LIMITS.digestMaxChars)),
+    true,
+  );
   for (let index = 0; index < 40; index += 1) {
     now.advance(MINUTE);
-    memory.rememberExchange(`long ${index} ${"q".repeat(900)}`, `long answer ${index} ${"a".repeat(900)}`);
+    memory.rememberExchange(
+      `long ${index} ${"q".repeat(900)}`,
+      `long answer ${index} ${"a".repeat(900)}`,
+    );
   }
   assert.ok(memory.snapshot().backlog.length > 800, "dropped turns filled the loose notes");
   let rounds = 0;
@@ -254,7 +270,11 @@ function chat(memory, now, count, label = "topic") {
   assert.ok(stats.turns < 60 && stats.turns >= 2, "older turns were dropped to fit");
   const reopened = open(storage, now);
   assert.equal(reopened.stats().turns, stats.turns, "what fits is what comes back");
-  assert.equal(reopened.recent().at(-1).content, "answer quota 29", "the newest turn always survives");
+  assert.equal(
+    reopened.recent().at(-1).content,
+    "answer quota 29",
+    "the newest turn always survives",
+  );
 }
 
 {
@@ -332,10 +352,13 @@ function chat(memory, now, count, label = "topic") {
   assert.equal(reopened.stats().turns, 0);
   assert.equal(reopened.beginSession().returning, false);
   assert.equal(reopened.needsDigest(), false);
-  assert.deepEqual(reopened.merge({ v: 1, turns: [{ id: "x", role: "user", content: "old", at: 5 }] }), {
-    changed: false,
-    remoteStale: false,
-  });
+  assert.deepEqual(
+    reopened.merge({ v: 1, turns: [{ id: "x", role: "user", content: "old", at: 5 }] }),
+    {
+      changed: false,
+      remoteStale: false,
+    },
+  );
   assert.equal(reopened.stats().turns, 0, "a switched-off memory does not pull a copy back in");
 }
 
@@ -351,7 +374,11 @@ function chat(memory, now, count, label = "topic") {
   assert.deepEqual(result, { changed: true, remoteStale: true });
   assert.equal(browser.stats().turns, 8, "turns from both copies are united");
   const order = browser.recent().map((turn) => turn.at);
-  assert.deepEqual(order, [...order].sort((a, b) => a - b), "merged turns stay in time order");
+  assert.deepEqual(
+    order,
+    [...order].sort((a, b) => a - b),
+    "merged turns stay in time order",
+  );
 
   result = browser.merge(browser.snapshot());
   assert.deepEqual(result, { changed: false, remoteStale: false }, "merging is idempotent");

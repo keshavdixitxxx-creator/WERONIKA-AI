@@ -93,21 +93,21 @@ Simple commands are understood by `public/weronika-instant.js` in the page and c
 out at once. They are not sent to the cloud brain, so they are fast and they work when
 the brain cannot be reached.
 
-| You say | What happens | Needs the local worker |
-| --- | --- | --- |
-| “Open Notepad”, “open Chrome and VS Code”, “launch command prompt” | The worker starts the program through Python (`cmd /c start` for the fixed Windows tools, the Start-menu shortcut or app list for installed programs). | Yes |
-| “Open YouTube”, “open Gmail, Drive and Keep” | The site opens in Weronika's browser window, or as a browser tab without the worker. | No |
-| “Find India Gate on the map”, “show me the way to Connaught Place” | Google Maps opens with the place or the route. | No |
-| “Play Kesariya on YouTube” | Weronika searches YouTube in her window and starts the first result. | Yes |
-| “Play Kesariya on Spotify” | Spotify opens on a search for the song. Spotify does not let another program press play, so you press it; she says so. | No |
-| “Comment on this video that it is good for knowledge” | She types “This is good for knowledge” in the comment box and posts it only after you say `confirm`. | Yes |
-| “What time is it”, “what is the date” | Answered from your device's clock. | No |
-| “Set an alarm for 6:30 am”, “timer for 10 minutes”, “remind me to call mom at 5 pm” | Kept on this device (Settings → Alarms). They ring while Weronika is open in a browser tab; one that passed while she was closed is reported when you come back. | No |
-| “Tell me the news”, “news about cricket” | Headlines from Google News. Without the worker she opens Google News instead. | For reading aloud |
-| “Add meeting with Rahul tomorrow at 4 pm to my calendar” | A filled-in Google Calendar event opens; you press Save. | No |
-| “New Google Doc / Sheet / Slides / Form / Meet”, “open my calendar / Drive / Photos” | The matching Google page opens. | No |
-| “Write an email to … about …” | The brain writes the mail in a plain tone, the chat shows it, and **OPEN IN GMAIL** or **OPEN IN HOTMAIL** opens a compose window with it filled in. You press Send; she never sends a mail on her own. | No |
-| “Plan my day” | The brain plans it, with your clock and your alarms attached. | No |
+| You say                                                                              | What happens                                                                                                                                                                                            | Needs the local worker |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| “Open Notepad”, “open Chrome and VS Code”, “launch command prompt”                   | The worker starts the program through Python (`cmd /c start` for the fixed Windows tools, the Start-menu shortcut or app list for installed programs).                                                  | Yes                    |
+| “Open YouTube”, “open Gmail, Drive and Keep”                                         | The site opens in Weronika's browser window, or as a browser tab without the worker.                                                                                                                    | No                     |
+| “Find India Gate on the map”, “show me the way to Connaught Place”                   | Google Maps opens with the place or the route.                                                                                                                                                          | No                     |
+| “Play Kesariya on YouTube”                                                           | Weronika searches YouTube in her window and starts the first result.                                                                                                                                    | Yes                    |
+| “Play Kesariya on Spotify”                                                           | Spotify opens on a search for the song. Spotify does not let another program press play, so you press it; she says so.                                                                                  | No                     |
+| “Comment on this video that it is good for knowledge”                                | She types “This is good for knowledge” in the comment box and posts it only after you say `confirm`.                                                                                                    | Yes                    |
+| “What time is it”, “what is the date”                                                | Answered from your device's clock.                                                                                                                                                                      | No                     |
+| “Set an alarm for 6:30 am”, “timer for 10 minutes”, “remind me to call mom at 5 pm”  | Kept on this device (Settings → Alarms). They ring while Weronika is open in a browser tab; one that passed while she was closed is reported when you come back.                                        | No                     |
+| “Tell me the news”, “news about cricket”                                             | Headlines from Google News. Without the worker she opens Google News instead.                                                                                                                           | For reading aloud      |
+| “Add meeting with Rahul tomorrow at 4 pm to my calendar”                             | A filled-in Google Calendar event opens; you press Save.                                                                                                                                                | No                     |
+| “New Google Doc / Sheet / Slides / Form / Meet”, “open my calendar / Drive / Photos” | The matching Google page opens.                                                                                                                                                                         | No                     |
+| “Write an email to … about …”                                                        | The brain writes the mail in a plain tone, the chat shows it, and **OPEN IN GMAIL** or **OPEN IN HOTMAIL** opens a compose window with it filled in. You press Send; she never sends a mail on her own. | No                     |
+| “Plan my day”                                                                        | The brain plans it, with your clock and your alarms attached.                                                                                                                                           | No                     |
 
 A name she does not know is never guessed at. In a list such as “open Chrome and
 Foobar” nothing is opened unless every name is a known program or site, and a single
@@ -182,14 +182,14 @@ for the step list and limits.
 
 ## Accounts and what is not supported
 
-| Account | How it is connected | What Weronika can do |
-| --- | --- | --- |
-| WhatsApp | On your computer: start the worker, say “open WhatsApp”, scan the QR code once in Weronika's window. | Send a message you confirm, watch named chats, reply when you choose her. |
-| Telegram | Same, with “open Telegram” and your phone number. | Same as WhatsApp. |
-| Gmail | Google OAuth on the web app (next section). | List the inbox, read and summarize the messages you select, draft a reply, send after your review. Without OAuth: compose windows with her draft. |
-| Hotmail / Outlook.com | Nothing to connect. | A compose window with her draft filled in. She cannot read this inbox. |
-| Instagram | Signing in to Weronika's window lets her prepare a direct message you confirm. | She does not read Instagram messages or watch them: its web app has no dependable message list. |
-| Google Calendar, Docs, Sheets, Drive, Maps | Your own signed-in browser. | Opens them, and prepares calendar events for you to save. She does not read or change what is in them. |
+| Account                                    | How it is connected                                                                                  | What Weronika can do                                                                                                                              |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WhatsApp                                   | On your computer: start the worker, say “open WhatsApp”, scan the QR code once in Weronika's window. | Send a message you confirm, watch named chats, reply when you choose her.                                                                         |
+| Telegram                                   | Same, with “open Telegram” and your phone number.                                                    | Same as WhatsApp.                                                                                                                                 |
+| Gmail                                      | Google OAuth on the web app (next section).                                                          | List the inbox, read and summarize the messages you select, draft a reply, send after your review. Without OAuth: compose windows with her draft. |
+| Hotmail / Outlook.com                      | Nothing to connect.                                                                                  | A compose window with her draft filled in. She cannot read this inbox.                                                                            |
+| Instagram                                  | Signing in to Weronika's window lets her prepare a direct message you confirm.                       | She does not read Instagram messages or watch them: its web app has no dependable message list.                                                   |
+| Google Calendar, Docs, Sheets, Drive, Maps | Your own signed-in browser.                                                                          | Opens them, and prepares calendar events for you to save. She does not read or change what is in them.                                            |
 
 Not supported, and not faked:
 

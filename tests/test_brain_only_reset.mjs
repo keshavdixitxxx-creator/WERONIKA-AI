@@ -41,7 +41,11 @@ for (const kind of ["image", "images", "song", "music", "audio", "video", "media
     const route = `src/routes/api/public/${kind}.${extension}`;
     assert.equal(existsSync(resolve(root, route)), false, `${route} must not exist`);
   }
-  assert.equal(html.includes(`/api/public/${kind}`), false, `the orb must not call a ${kind} route`);
+  assert.equal(
+    html.includes(`/api/public/${kind}`),
+    false,
+    `the orb must not call a ${kind} route`,
+  );
 }
 assert.equal(
   existsSync(resolve(root, "src/lib/local-image-fallback.server.ts")),

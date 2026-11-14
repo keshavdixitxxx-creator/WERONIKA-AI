@@ -70,7 +70,10 @@ assert.match(tools, /async function saveAll\(\)/);
 // one rule for their metrics, and nothing in the coloured layer may change a glyph's
 // width, or the text would drift away from the caret.
 assert.match(tools, /import \{[^}]*highlightCode[^}]*\} from "\.\/workspace-syntax\.js";/);
-assert.match(tools, /\.devtools-highlight, \.devtools-editor \{[^}]*font:12\.5px\/19px var\(--mono\)/);
+assert.match(
+  tools,
+  /\.devtools-highlight, \.devtools-editor \{[^}]*font:12\.5px\/19px var\(--mono\)/,
+);
 const tokenRules = tools.match(/\.tk-[a-z] \{[^}]*\}/g) || [];
 assert.ok(tokenRules.length >= 14, "every token class has a colour");
 for (const rule of tokenRules) {
@@ -82,7 +85,10 @@ assert.match(tools, /\.devtools-panel \.devtools-editor:focus-visible \{ outline
 // <body> so that it stays neon blue, and only follows the brightness setting.
 assert.match(tools, /document\.documentElement\.append\(panel\)/);
 assert.doesNotMatch(tools, /document\.body\.append\(panel\)/);
-assert.match(tools, /html\[data-weronika-dim\] \.devtools-panel \{ filter:brightness\(var\(--weronika-brightness,1\)\); \}/);
+assert.match(
+  tools,
+  /html\[data-weronika-dim\] \.devtools-panel \{ filter:brightness\(var\(--weronika-brightness,1\)\); \}/,
+);
 assert.match(orb, /setProperty\("--weronika-brightness", String\(brightness \/ 100\)\)/);
 assert.match(orb, /toggleAttribute\("data-weronika-dim", brightness !== 100\)/);
 // Keys typed in the Workspace must not reach the orb's single-key shortcuts.
@@ -95,7 +101,10 @@ assert.match(
 // coloured layer, which takes the escaped output of the syntax module.
 const htmlSinks = tools.match(/\.innerHTML\s*=[^;]*;/g) || [];
 assert.equal(htmlSinks.length, 2, "exactly two innerHTML assignments");
-assert.ok(htmlSinks.some((sink) => sink.startsWith(".innerHTML = `")), "the static panel markup");
+assert.ok(
+  htmlSinks.some((sink) => sink.startsWith(".innerHTML = `")),
+  "the static panel markup",
+);
 assert.ok(
   htmlSinks.includes('.innerHTML = plain ? "" : highlightCode(text, language.id);'),
   "the coloured layer",
@@ -178,8 +187,14 @@ assert.match(tools, /function openMenu\(button\) \{\s*unfold\(\);/);
 // On a narrow screen the Explorer lies over the editor, so it folds away by itself.
 assert.match(tools, /window\.matchMedia\("\(max-width: 820px\)"\)/);
 // The preview keeps a module a module, and inlined code cannot end its own tag early.
-assert.ok(tools.includes('js.replace(/<\\/script/gi, "<\\\\/script")'), "inlined scripts are closed safely");
-assert.ok(tools.includes('css.replace(/<\\/style/gi, "<\\\\/style")'), "inlined styles are closed safely");
+assert.ok(
+  tools.includes('js.replace(/<\\/script/gi, "<\\\\/script")'),
+  "inlined scripts are closed safely",
+);
+assert.ok(
+  tools.includes('css.replace(/<\\/style/gi, "<\\\\/style")'),
+  "inlined styles are closed safely",
+);
 assert.match(tools, /\/\\btype=\["'\]module\["'\]\/i\.test\(match\) \? ' type="module"' : ""/);
 // The Workspace reports whether it covers the orb, and shows the remembered conversation.
 assert.match(tools, /document\.body\.classList\.toggle\(\s*"workspace-open"/);

@@ -35,7 +35,10 @@ const brainRoute = readFileSync(
   "utf8",
 );
 assert.match(brainRoute, /isBrainTask\(body\.task\) \? body\.task : undefined/);
-assert.match(brainRoute, /input\.task === "automation-plan"\) return buildAutomationPlanInstructions\(\)/);
+assert.match(
+  brainRoute,
+  /input\.task === "automation-plan"\) return buildAutomationPlanInstructions\(\)/,
+);
 for (const task of ["automation-plan", "workspace-code", "gmail-assist", "memory-digest"]) {
   assert.ok(prompt.includes(`value === "${task}"`), `isBrainTask must accept ${task}`);
 }

@@ -716,9 +716,10 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     }
     chatMessages.replaceChildren();
     for (const turn of earlier.slice(-80)) {
-      appendWorkspaceMessage(turn.role === "user" ? "user" : "assistant", turn.content).classList.add(
-        "earlier",
-      );
+      appendWorkspaceMessage(
+        turn.role === "user" ? "user" : "assistant",
+        turn.content,
+      ).classList.add("earlier");
     }
     appendWorkspaceMessage("system", "Remembered from earlier · Weronika still knows this.");
   }
@@ -938,7 +939,10 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   function applyView(view) {
     const length = editor.value.length;
     try {
-      editor.setSelectionRange(Math.min(view?.start ?? 0, length), Math.min(view?.end ?? 0, length));
+      editor.setSelectionRange(
+        Math.min(view?.start ?? 0, length),
+        Math.min(view?.end ?? 0, length),
+      );
     } catch {}
     editor.scrollTop = view?.top ?? 0;
     editor.scrollLeft = view?.left ?? 0;
@@ -1192,7 +1196,10 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
         toggle.setAttribute("aria-expanded", String(!collapsed));
         toggle.setAttribute("aria-label", `${item.name} folder`);
         toggle.title = item.path;
-        toggle.append(el("span", "devtools-chev", "⌄"), el("span", "devtools-file-name", item.name));
+        toggle.append(
+          el("span", "devtools-chev", "⌄"),
+          el("span", "devtools-file-name", item.name),
+        );
         const children = el("div", "devtools-folder-children");
         children.hidden = collapsed;
         appendTree(item.children, depth + 1, children);
@@ -1701,7 +1708,11 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
       while (match && hits < LIMIT) {
         const { index } = match;
         const length = match[0].length;
-        for (let at = file.content.indexOf("\n", counted); at !== -1 && at < index; at = file.content.indexOf("\n", at + 1))
+        for (
+          let at = file.content.indexOf("\n", counted);
+          at !== -1 && at < index;
+          at = file.content.indexOf("\n", at + 1)
+        )
           line += 1;
         counted = index;
         const lineStart = file.content.lastIndexOf("\n", index - 1) + 1;
@@ -1855,7 +1866,8 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
       accept(path) {
         if (!supportedFilePath.test(path)) return PATH_HELP;
         if (path !== from) {
-          if (openFiles.has(path)) return `${path} is already open. Close it, or choose another name.`;
+          if (openFiles.has(path))
+            return `${path} is already open. Close it, or choose another name.`;
           if (openFiles.get(from) !== state) return "That file is no longer open.";
           openFiles.set(path, {
             content: state.content,
@@ -1917,7 +1929,10 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     panel.classList.toggle("side-closed", !open);
     setPressed(".toggle-side", open);
     for (const button of $$(".workspace-activity-btn[data-view]"))
-      button.classList.toggle("active", open && !$(`.workspace-view[data-view="${button.dataset.view}"]`).hidden);
+      button.classList.toggle(
+        "active",
+        open && !$(`.workspace-view[data-view="${button.dataset.view}"]`).hidden,
+      );
   }
   const sideOpen = () => !panel.classList.contains("side-closed");
   // Choosing the view that is already showing closes the side bar, as in VS Code.
@@ -2006,7 +2021,11 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     "click",
     (event) => {
       if (!panel.classList.contains("minimised")) return;
-      if (event.target instanceof Element && event.target.closest(".devtools-lights, .devtools-close")) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(".devtools-lights, .devtools-close")
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
       unfold();
@@ -2115,9 +2134,15 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
     "pointerdown",
     (event) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (menuPopup && !(target && (menuPopup.contains(target) || target.closest(".devtools-menu"))))
+      if (
+        menuPopup &&
+        !(target && (menuPopup.contains(target) || target.closest(".devtools-menu")))
+      )
         closeMenus();
-      if (!quick.hidden && !(target && (quick.contains(target) || target.closest(".devtools-command"))))
+      if (
+        !quick.hidden &&
+        !(target && (quick.contains(target) || target.closest(".devtools-command")))
+      )
         closeQuick();
     },
     true,
@@ -2322,7 +2347,11 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   // Returns { drafts, unchanged } (lists of paths), or false when nothing was opened.
   async function openDraftFiles(files) {
     if (!Array.isArray(files) || !files.length || files.length > 10) return false;
-    if (files.some((file) => !file || typeof file.path !== "string" || typeof file.content !== "string"))
+    if (
+      files.some(
+        (file) => !file || typeof file.path !== "string" || typeof file.content !== "string",
+      )
+    )
       return false;
     const stored = new Map();
     await Promise.all(
@@ -2409,7 +2438,8 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   $(".collapse-folders").addEventListener("click", () => {
     for (const folder of listedFolders) collapsedFolders.add(folder);
     for (const path of openFiles.keys()) {
-      for (let folder = dirName(path); folder; folder = dirName(folder)) collapsedFolders.add(folder);
+      for (let folder = dirName(path); folder; folder = dirName(folder))
+        collapsedFolders.add(folder);
     }
     renderTree();
   });
@@ -2418,9 +2448,7 @@ export function mountDeveloperTools({ onPrompt = null } = {}) {
   $(".toggle-side").addEventListener("click", () => setSideOpen(!sideOpen()));
   $(".toggle-panel").addEventListener("click", () => setPanelOpen(outputPanel.hidden));
   for (const button of $$(".toggle-agent"))
-    button.addEventListener("click", () =>
-      setAgentOpen(panel.classList.contains("agent-closed")),
-    );
+    button.addEventListener("click", () => setAgentOpen(panel.classList.contains("agent-closed")));
   for (const button of $$(".workspace-activity-btn[data-view]"))
     button.addEventListener("click", () => showView(button.dataset.view, true));
   for (const toggle of $$(".workspace-section-toggle"))

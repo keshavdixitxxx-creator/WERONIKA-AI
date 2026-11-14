@@ -80,11 +80,11 @@ not your plans, so check what she sent. Calls are not handled at all.
 
 ## Opening apps, music, headlines
 
-| Route | What it does |
-| --- | --- |
+| Route                                                                          | What it does                                                                                                                                                     |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /api/open` `{targets: ["notepad", {"name": "calendar", "kind": "app"}]}` | Opens each name as a desktop program or as a site. Every name is decided first, and one unknown name opens nothing. Up to 10 targets and 5 programs per request. |
-| `POST /api/apps/music` `{service: "spotify", query}` | Opens Spotify (the installed program, else the web player) on a search for the song. Spotify does not let another program press play. |
-| `GET /api/news?topic=&lang=&country=` | Headlines from the public Google News feed, read-only. |
+| `POST /api/apps/music` `{service: "spotify", query}`                           | Opens Spotify (the installed program, else the web player) on a search for the song. Spotify does not let another program press play.                            |
+| `GET /api/news?topic=&lang=&country=`                                          | Headlines from the public Google News feed, read-only.                                                                                                           |
 
 How a program is started (`weronika_agent/apps.py`):
 
