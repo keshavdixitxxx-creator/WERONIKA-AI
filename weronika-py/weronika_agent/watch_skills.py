@@ -242,8 +242,18 @@ UNAVAILABLE: tuple[dict[str, str], ...] = (
         "name": "Calls",
         "why": (
             "Weronika does not place, answer or speak in phone, WhatsApp, Telegram or Instagram calls. "
-            "A call needs live two-way audio inside those apps, and none of them gives another "
-            "program that. Incoming-call detection and call summaries are not implemented either."
+            "She works through the chat pages in a browser window, where she reads and types text, "
+            "so she has no way to speak or listen inside a call. Incoming-call detection and call "
+            "summaries are not implemented either."
+        ),
+    },
+    {
+        "id": "smart-home",
+        "name": "Home devices (AC, lights, TV)",
+        "why": (
+            "There is no smart-home connection yet, so nothing is switched. A device that listens "
+            "only to an infrared remote also needs a Wi-Fi infrared blaster in the room before any "
+            "program can reach it."
         ),
     },
     {

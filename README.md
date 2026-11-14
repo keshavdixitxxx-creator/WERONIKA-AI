@@ -194,10 +194,17 @@ for the step list and limits.
 Not supported, and not faked:
 
 - **Calls.** Weronika does not place, answer, or speak in phone, WhatsApp, Telegram or
-  Instagram calls. A call needs live two-way audio inside those apps, and none of them
-  gives another program that.
-- **Smart-home devices** such as an air conditioner are not controlled yet. That needs
-  to know how the device is reached (its brand's cloud, or a hub such as Home Assistant).
+  Instagram calls. She works through the chat pages in a browser window, where she
+  reads and types text; she has no way to speak or listen inside a call, and nothing
+  here detects an incoming call. “Call mom” is answered with exactly that, on the
+  device, and she offers to write a message instead. Asked to call an ambulance or
+  the police, she says at once that you must dial yourself (112 in India).
+- **Home devices** (AC, lights, fan, TV) are not controlled: the app has no smart-home
+  connection yet. “Turn on the AC” is answered with that, on the device, instead of
+  being passed to a language model that might pretend. An AC or TV that listens only
+  to an infrared remote also needs a Wi-Fi infrared blaster in the room before any
+  program can reach it; a phone app such as Mi Remote works because the phone itself
+  has an infrared emitter, which a computer does not.
 - **Sending without you.** A mail goes out only when you press Send; a chat reply goes
   out only after `confirm send` or after you choose WERONIKA REPLIES for that message.
 

@@ -1068,12 +1068,133 @@ export function parseInstantCommand(text, now = new Date()) {
   if (MINI_ON_RE.test(value)) return { kind: "mini", on: true };
   if (MINI_OFF_RE.test(value)) return { kind: "mini", on: false };
 
+  const refused = parseCall(value) || parseHomeDevice(value);
+  if (refused) return refused;
+
   return parseOpen(value);
 }
 
 // ------------------------------------------------------------------------ mail
 // The request sent to the cloud brain for "write an email to … about …". The brain
 // writes the words; nothing is sent until the user presses Send in the mail window.
+// ------------------------------------------------- said plainly: not possible here
+// A language model that is asked to "call mom" or "turn on the AC" may answer as if it
+// had done it. These sentences are answered here instead, at once, with what is true.
+// The rules are narrow on purpose: a sentence they do not recognise goes on to the
+// brain as before, so "call center jobs in Noida" or "open Jio TV" stay ordinary requests.
+const CALL_VIA = "(?:whats\\s?app|telegram|instagram|insta|phone|mobile|video|voice|audio)";
+const CALL_ON = `(?:\\s+(?:on|via|using|through|over)\\s+(?:the\\s+|my\\s+)?${CALL_VIA}(?:\\s+call)?)?`;
+const CALL_TAIL = "(?:\\s+(?:now|right now|right away|once|again|back))?";
+const CALL_DO = "(?:karo|kar do|kardo|kar|lagao|laga do|lagado|milao|mila do|kijiye)";
+const CALL_PLACE_RES = [
+  `^(?:make|place|start|do|give)\\s+(?:a\\s+|an\\s+)?(?:${CALL_VIA}\\s+)*call(?:\\s+(?:to|with)\\s+(.+?))?${CALL_ON}${CALL_TAIL}$`,
+  `^give\\s+(.+?)\\s+a\\s+(?:${CALL_VIA}\\s+)?(?:call|ring)${CALL_ON}${CALL_TAIL}$`,
+  `^(?:${CALL_VIA}\\s+)?(?:call|dial)\\s+(?:to\\s+)?(?!(?:me|it|this|that|off|out|back|in|up|on|down|of|for|by|from|about|at|with|and|or|is|was)\\b)(.+?)${CALL_ON}${CALL_TAIL}$`,
+  `^(.+?)\\s+ko\\s+(?:${CALL_VIA}\\s+)?(?:call|phone|fone)\\s+${CALL_DO}$`,
+  `^(?:call|phone|fone)\\s+${CALL_DO}\\s+(.+?)\\s+ko$`,
+].map((source) => new RegExp(source, "i"));
+const CALL_ANSWER_RE =
+  /^(?:answer|pick up|pickup|accept|receive|attend|take|reject|decline|cut|end|hang up|disconnect)\s+(?:the\s+|this\s+|that\s+|my\s+|an?\s+|incoming\s+|whatsapp\s+|telegram\s+|instagram\s+|phone\s+|video\s+|voice\s+)*(?:calls?|phone)(?:\s+from\s+.{1,40})?$|^(?:call|phone)\s+(?:uthao|utha lo|uthalo|utha do|receive karo|kaat do|kat do)$/i;
+const EMERGENCY_CALL_RE =
+  /^(?:call|dial|phone|ring)\s+(?:for\s+|to\s+)?(?:the\s+|an?\s+)?(?:ambulance|police|fire brigade|fire station|fire department|fire service|emergency|emergency services?|help|100|101|102|108|112|911|999)\b/i;
+// Things that are called without a telephone: "call the API", "call a meeting".
+const NOT_A_PERSON_RE =
+  /\b(?:functions?|methods?|apis?|endpoints?|scripts?|code|commands?|class|url|service|number of|meeting|day|bluff|shots?|attention|question|cent(?:er|re)s?|recording|history|logs?|options?|waiting|forwarding|rates?|duty|tone|pad|quality|drops?|sheet)\b/i;
+const CALL_WHY =
+  "I work through the chat pages in a browser window, where I read and type text, so I have no way to speak or listen inside a call.";
+
+function parseCall(value) {
+  if (EMERGENCY_CALL_RE.test(value)) {
+    return {
+      kind: "say",
+      text: "I can't place calls, so please dial it yourself right now. The emergency number in India is 112. Nothing was dialled.",
+    };
+  }
+  if (CALL_ANSWER_RE.test(value)) {
+    return {
+      kind: "say",
+      text: `I can't answer, reject or end calls. ${CALL_WHY} Nothing was answered.`,
+    };
+  }
+  const match = firstMatch(CALL_PLACE_RES, value);
+  if (!match) return null;
+  const named = tidy(match[1] || "");
+  const who = named.replace(/^(?:the|my|our|an?)\s+/i, "");
+  if (who.split(" ").length > 3 || NOT_A_PERSON_RE.test(who)) return null;
+  // "call a cab" names no contact, and a bare number is not a chat to write to.
+  const contact = who && !/^an?\s/i.test(named) && !/^[\d\s+()-]+$/.test(who);
+  const offer = contact
+    ? ` I can write to ${who} instead: say “send a WhatsApp message to ${who} saying …”.`
+    : "";
+  return { kind: "say", text: `I can't place calls. ${CALL_WHY}${offer} Nothing was dialled.` };
+}
+
+const HOME_DEVICE =
+  "(?:a\\.?c\\.?|a\\/c|air[ -]?con|air[ -]?conditioner|air[ -]?conditioning|cooler|heater|geyser|fans?|pankha|pankhe|lights?|batti|lamps?|bulbs?|tube ?lights?|smart plug|air purifier|purifier|thermostat|heating)";
+const HOME_SCREEN = "(?:tv|television)";
+const HOME_ROOM =
+  "(?:bedroom|master bedroom|living room|drawing room|dining room|guest room|kids room|hall|kitchen|bathroom|balcony|study|office|lobby|room)";
+// Up to two words may describe the device ("living room light", "ceiling fan"), but not
+// little words of the sentence itself ("is the ac on"). A TV takes only a room, because
+// "Jio TV" and "YouTube TV" are things to open, not to switch.
+const HOME_NOT_A_NAME =
+  "(?:is|are|was|the|my|our|an?|being|can|could|will|would|you|please|do|does|did|it|if|when|and|or|to|of|in|on|at|for|with|not|no|turn|switch|set|put|make)";
+const HOME_ITEM = `(?:(?:(?!${HOME_NOT_A_NAME}\\b)[\\p{L}']+\\s+){0,2}${HOME_DEVICE}|(?:${HOME_ROOM}\\s+)?${HOME_SCREEN})`;
+const HOME_THE = "(?:(?:the|my|our|this|that)\\s+)?";
+const HOME_PHRASE = `${HOME_THE}(${HOME_ITEM})`;
+// "… and the fan": more devices in the same breath.
+const HOME_MORE = `(?:\\s*(?:,|and|aur)\\s+${HOME_THE}${HOME_ITEM})*`;
+const HOME_DOING = "(?:karo|kar do|kardo|kar|do|de|dijiye|kijiye|kar dijiye|rakho|rakh do)";
+const HOME_DEGREES = "\\d{1,2}(?:\\.\\d)?\\s*(?:°\\s*c?|degrees?(?:\\s+celsius)?|deg|c)?";
+const HOME_RES = [
+  `^(?:turn|switch|put|power|flip)\\s+(?:on|off)\\s+${HOME_PHRASE}${HOME_MORE}$`,
+  `^(?:turn|switch|put|power|flip)\\s+${HOME_PHRASE}${HOME_MORE}\\s+(?:on|off)$`,
+  `^(?:on|off|open|close|start|stop|shut|shut off|shut down)\\s+${HOME_PHRASE}${HOME_MORE}$`,
+  `^${HOME_PHRASE}${HOME_MORE}\\s+(?:ko\\s+)?(?:on|off|chalu|chala|chalao|jala|jalao|band|bandh|bujha|bujhao|start|stop)(?:\\s+${HOME_DOING})?$`,
+  `^(?:set|change|make|keep|put|adjust|turn)\\s+${HOME_PHRASE}\\s+(?:temperature\\s+|temp\\s+)?(?:(?:to|at|on|pe|par)\\s+)?${HOME_DEGREES}$`,
+  `^(?:set|change|make|keep|put|adjust)\\s+(?:the\\s+)?(?:temperature|temp)\\s+(?:of\\s+)?${HOME_PHRASE}\\s+(?:to|at)\\s+${HOME_DEGREES}$`,
+  `^${HOME_PHRASE}\\s+(?:ko\\s+)?\\d{1,2}\\s*(?:pe|par|degrees?|deg)(?:\\s+(?:${HOME_DOING}|set karo))?$`,
+  `^(?:set|change|put|switch)\\s+${HOME_PHRASE}\\s+(?:to|on|in|into)\\s+(?:cool|cooling|heat|heating|dry|fan|auto|sleep|turbo|eco)(?:\\s+mode)?$`,
+  `^(?:increase|decrease|raise|lower|reduce|dim|brighten)\\s+${HOME_PHRASE}(?:\\s+(?:temperature|temp|speed|brightness))?(?:\\s+(?:by|to)\\s+\\d{1,3}\\s*(?:%|degrees?)?)?$`,
+  `^(?:increase|decrease|raise|lower|reduce|set|change)\\s+(?:the\\s+)?(?:temperature|temp|speed|brightness)\\s+of\\s+${HOME_PHRASE}(?:\\s+(?:by|to)\\s+\\d{1,3}\\s*(?:%|degrees?)?)?$`,
+].map((source) => new RegExp(source, "iu"));
+const HOME_STATE_RE = new RegExp(
+  `^(?:is|are)\\s+${HOME_PHRASE}\\s+(?:still\\s+)?(?:on|off|running|working)$`,
+  "iu",
+);
+const HOME_NAMES = { ac: "AC", "a.c": "AC", "a.c.": "AC", "a/c": "AC", tv: "TV" };
+const HOME_REMOTE_RE =
+  /\b(?:a\.?c\.?|a\/c|air[ -]?con(?:ditioner|ditioning)?|tv|television)(?![\p{L}\d])/iu;
+
+function parseHomeDevice(value) {
+  const asked = value.match(HOME_STATE_RE);
+  const match = asked || firstMatch(HOME_RES, value);
+  if (!match) return null;
+  const several = /,|\b(?:and|aur)\b/i.test(value);
+  const device = several
+    ? ""
+    : tidy(match[1])
+        .split(" ")
+        .map((word) => HOME_NAMES[word.toLowerCase()] || word)
+        .join(" ");
+  if (asked) {
+    const verb = /s$/i.test(device) && !/(?:AC|TV)$/.test(device) ? "are" : "is";
+    return {
+      kind: "say",
+      text: `I can't see whether the ${device} ${verb} on: this app has no connection to home devices.`,
+    };
+  }
+  // Only what is usually driven by an infrared remote gets the hint about the blaster.
+  const remote = value.match(HOME_REMOTE_RE);
+  const hint = remote
+    ? ` ${/^t/i.test(remote[0]) ? "A TV" : "An AC"} that listens only to its infrared remote also needs a Wi-Fi infrared blaster in the room before any program can reach it.`
+    : "";
+  return {
+    kind: "say",
+    text: `I can't control ${device ? `the ${device}` : "those"} yet: this app has no connection to home devices.${hint} Nothing was switched.`,
+  };
+}
+
 // ------------------------------------------------------------- watching chats
 // "Watch my WhatsApp chat with Boss" is understood here, so that putting a chat on
 // watch needs no cloud planner. Anything more involved returns null and is planned.

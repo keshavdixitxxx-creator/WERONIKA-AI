@@ -313,6 +313,162 @@ for (const [sentence, watching, idle] of [
   assert.equal(asksAboutScreen(sentence, false), idle, `not watching: ${sentence}`);
 }
 
+// ------------------------------------------------- said plainly: not possible here
+// A language model asked to "call mom" or "turn on the AC" may answer as if it had done
+// it. These are answered on the device with what is true, and nothing is attempted.
+for (const sentence of [
+  "call mom",
+  "Weronika, call Rahul on WhatsApp",
+  "video call Priya",
+  "call my boss now",
+  "make a call to papa",
+  "make a phone call",
+  "call 9876543210",
+  "dial +91 98765 43210",
+  "mummy ko call karo",
+  "papa ko phone lagao",
+  "give mom a call",
+  "can you call my brother please",
+  "call a cab",
+]) {
+  const refused = parse(sentence);
+  assert.equal(refused?.kind, "say", sentence);
+  assert.match(
+    refused.text,
+    /^I can't place calls\. I work through the chat pages in a browser window/,
+    sentence,
+  );
+  assert.match(refused.text, /Nothing was dialled\.$/, sentence);
+}
+// A named contact gets the offer she can keep; a number or "a cab" does not.
+assert.match(
+  parse("call mom").text,
+  /I can write to mom instead: say “send a WhatsApp message to mom saying …”\./,
+);
+assert.match(parse("call my boss now").text, /send a WhatsApp message to boss saying/);
+assert.doesNotMatch(parse("call 9876543210").text, /instead/);
+assert.doesNotMatch(parse("call a cab").text, /instead/);
+for (const sentence of [
+  "answer the call",
+  "pick up the phone",
+  "reject this call",
+  "call uthao",
+  "answer the call from mom",
+]) {
+  const refused = parse(sentence);
+  assert.match(refused?.text || "", /^I can't answer, reject or end calls\./, sentence);
+  assert.match(refused.text, /Nothing was answered\.$/, sentence);
+}
+// Someone who asks for help must hear at once that they have to dial themselves.
+for (const sentence of [
+  "call an ambulance",
+  "call the police",
+  "call 112",
+  "dial 100",
+  "call for help",
+  "call an ambulance to my house",
+]) {
+  assert.equal(
+    parse(sentence)?.text,
+    "I can't place calls, so please dial it yourself right now. The emergency number in India is 112. Nothing was dialled.",
+    sentence,
+  );
+}
+
+for (const sentence of [
+  "turn on the AC",
+  "switch off the lights",
+  "turn the fan off",
+  "AC on",
+  "ac chalu karo",
+  "AC band kar do",
+  "pankha chala do",
+  "open the ac",
+  "set the AC to 24 degrees",
+  "set the temperature of the ac to 23",
+  "ac 24 pe karo",
+  "set the bedroom ac to cool mode",
+  "increase the fan speed",
+  "turn on the ceiling fan",
+  "turn off the tv",
+  "turn on the ac and the fan",
+]) {
+  const refused = parse(sentence);
+  assert.equal(refused?.kind, "say", sentence);
+  assert.match(
+    refused.text,
+    /^I can't control .+ yet: this app has no connection to home devices\./,
+    sentence,
+  );
+  assert.match(refused.text, /Nothing was switched\.$/, sentence);
+}
+assert.equal(
+  parse("turn on the AC").text,
+  "I can't control the AC yet: this app has no connection to home devices. An AC that listens only to its infrared remote also needs a Wi-Fi infrared blaster in the room before any program can reach it. Nothing was switched.",
+);
+assert.equal(
+  parse("switch off the lights").text,
+  "I can't control the lights yet: this app has no connection to home devices. Nothing was switched.",
+);
+assert.match(
+  parse("turn on the living room light").text,
+  /^I can't control the living room light yet/,
+);
+assert.match(parse("turn off the tv").text, /A TV that listens only to its infrared remote/);
+assert.match(parse("turn on the ac and the fan").text, /^I can't control those yet/);
+assert.equal(
+  parse("is the ac on").text,
+  "I can't see whether the AC is on: this app has no connection to home devices.",
+);
+assert.match(parse("are the lights on").text, /^I can't see whether the lights are on/);
+
+// Other meanings of the same words are left alone and go on as before.
+for (const sentence of [
+  "call me Sir",
+  "call it a day",
+  "call this function twice",
+  "call the API endpoint",
+  "call a meeting",
+  "call of duty",
+  "call center jobs in noida",
+  "call history",
+  "phone price in india",
+  "what do you call a baby cat",
+  "how do I call a function in python",
+  "call mom and tell her I am late for dinner",
+  "send a WhatsApp message to Boss saying call me",
+  "answer the phone interview questions",
+  "turn on voice chat",
+  "turn off gestures",
+  "turn on light mode",
+  "turn on the wifi",
+  "turn off the computer",
+  "open lightroom",
+  "open jio tv",
+  "youtube tv chalu karo",
+  "play something on tv",
+  "start the tv show",
+  "open the light settings",
+  "what is the best ac under 40000",
+  "how does a ceiling fan work",
+  "turn on the ac and open youtube",
+]) {
+  assert.doesNotMatch(parse(sentence)?.text || "", /^I can't /, sentence);
+}
+assert.equal(parse("remind me to call mom at 5 pm").kind, "reminder");
+assert.equal(parse("turn off the alarm").kind, "alarm-cancel");
+assert.equal(parse("turn on the mini orb").kind, "mini");
+assert.deepEqual(parse("start chrome").targets, [{ name: "chrome", kind: "auto" }]);
+// The brain is told the same, for the sentences that do reach it.
+assert.match(
+  brain,
+  /A reply of yours is only words: it cannot open, send, switch, set, call or play anything\./,
+);
+assert.match(
+  brain,
+  /You cannot place or answer phone or app calls, and you cannot control home devices/,
+);
+
 // ----------------------------------------------------------- watching a chat
 // A plain request is understood on the device, so it needs no cloud planner.
 for (const [sentence, expected] of [
