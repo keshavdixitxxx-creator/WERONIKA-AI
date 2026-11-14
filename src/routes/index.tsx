@@ -30,7 +30,7 @@ function Index() {
     <iframe
       src="/weronika.html"
       title="Weronika AI holographic orb assistant"
-      allow="camera; microphone; autoplay; fullscreen"
+      allow="camera; microphone; autoplay; fullscreen; display-capture"
       className="fixed inset-0 h-full w-full border-0"
     />
   );

@@ -54,7 +54,7 @@ CATALOG: tuple[Skill, ...] = (
         name="Watch · ask me first",
         summary=(
             "Reads the chats you name every few seconds. When someone messages you and you have "
-            "not replied, Weronika tells you and asks what to say — she does not write it herself."
+            "not replied, Weronika tells you and asks whether she should reply or you will."
         ),
         platforms=("WhatsApp", "Telegram"),
         commands=(
@@ -62,7 +62,27 @@ CATALOG: tuple[Skill, ...] = (
             "Keep an eye on Telegram chat with Rahul, ask me if I don’t reply in 10 minutes",
         ),
         needs=("The Weronika browser window stays open on that app",),
-        safety="No message is typed or sent until you give the exact reply and confirm it.",
+        safety="No message is typed or sent until you give the exact reply and confirm it, or tell her ‘you reply’ for that one message.",
+    ),
+    Skill(
+        id="reply-watch-delegate",
+        name="Watch · Weronika replies",
+        summary=(
+            "When a watched message is waiting, answer ‘you reply’. Weronika reads the chat again, "
+            "writes a short reply in your voice, opens the chat, sends it and shows you the exact text."
+        ),
+        platforms=("WhatsApp", "Telegram"),
+        commands=("You reply", "Weronika, you answer it", "I’ll reply"),
+        needs=(
+            "The Weronika browser window stays open on that app",
+            "The cloud brain, which writes the reply and confirms that it wrote it in your name",
+        ),
+        safety=(
+            "Your answer covers that one message only. Nothing is sent when you answered meanwhile, "
+            "when no wording could be written, or when several chats match the name. Wording from "
+            "an older cloud brain, which cannot confirm it wrote a message in your name, is shown "
+            "to you first and waits for ‘confirm send’."
+        ),
     ),
     Skill(
         id="reply-watch-propose",
@@ -139,6 +159,35 @@ CATALOG: tuple[Skill, ...] = (
         safety="The text is typed but never submitted until you reply ‘confirm’. If the text does not match exactly, it stops.",
     ),
     Skill(
+        id="open-apps",
+        name="Open apps and sites",
+        summary=(
+            "Opens desktop apps and sites by name straight from this computer, without asking the "
+            "cloud brain: system tools, anything in your Start menu, and the sites of the site list."
+        ),
+        platforms=("Windows", "macOS", "Linux"),
+        commands=(
+            "Open Notepad",
+            "Open Chrome and the calculator",
+            "Open the calendar app",
+            "Play Tum Hi Ho on Spotify",
+        ),
+        needs=("The local worker running (start.bat)",),
+        safety=(
+            "A name can only pick a fixed system tool, an app already in your Start menu, or a listed "
+            "site. Your words are never run as a command, and an unknown name opens nothing."
+        ),
+    ),
+    Skill(
+        id="news",
+        name="Headlines",
+        summary="Fetches today’s headlines, or headlines about a topic you name, and reads them out.",
+        platforms=("Google News",),
+        commands=("Tell me the news", "News about cricket"),
+        needs=("An internet connection",),
+        safety="Read-only. Only the public news feed is requested.",
+    ),
+    Skill(
         id="watch-status",
         name="Who’s waiting",
         summary="Lists every watched chat, what the other person said and how long it has been waiting.",
@@ -191,12 +240,27 @@ UNAVAILABLE: tuple[dict[str, str], ...] = (
     {
         "id": "calls",
         "name": "Calls",
-        "why": "Incoming-call detection, answering, live call audio and call summaries are not implemented.",
+        "why": (
+            "Weronika does not place, answer or speak in phone, WhatsApp, Telegram or Instagram calls. "
+            "A call needs live two-way audio inside those apps, and none of them gives another "
+            "program that. Incoming-call detection and call summaries are not implemented either."
+        ),
+    },
+    {
+        "id": "hotmail-read",
+        "name": "Reading Hotmail / Outlook.com",
+        "why": (
+            "Weronika writes a mail and opens it in a Hotmail compose window for you to send. "
+            "She does not read that inbox: no Microsoft sign-in is built into this app."
+        ),
     },
     {
         "id": "auto-send",
         "name": "Sending without you",
-        "why": "Every send needs your explicit confirmation of the chat and the exact text.",
+        "why": (
+            "Weronika never sends on her own. A message goes out only after you confirm the exact "
+            "text, or after you answer ‘you reply’ for that one waiting message."
+        ),
     },
 )
 

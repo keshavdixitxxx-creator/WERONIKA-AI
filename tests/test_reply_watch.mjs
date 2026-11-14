@@ -65,7 +65,18 @@ assert.match(
 );
 assert.match(orb, /if \(hasWatchIntent\(value\)\) return true;/);
 assert.match(orb, /watchSuspectUnsupportedPlan/);
-assert.match(orb, /document\.hidden \|\| !localAutomationConnected/);
+// The watch keeps scanning while the tab is in the background (that is when the user is
+// away); only the panel refresh waits for the tab to be visible.
+assert.match(orb, /if \(!localAutomationConnected \|\| !watchCardsState\.watches\.length\) return;/);
+assert.match(orb, /if \(!document\.hidden && watchPanelOpen\(\)\) void refreshWatchPanel\(\);/);
+assert.doesNotMatch(orb, /document\.hidden \|\| !localAutomationConnected/);
+// "Should I reply, or will you?": both answers exist, by button and by voice.
+assert.match(orb, /\/api\/watch\/delegate/);
+assert.match(orb, /WERONIKA REPLIES/);
+assert.match(orb, /I'LL REPLY/);
+assert.match(orb, /async function delegateWatchReply\(itemId\)/);
+assert.match(orb, /async function keepWatchReply\(itemId\)/);
+assert.match(server, /"\/api\/watch\/delegate"/);
 assert.match(orb, /say “leave it”/i);
 
 // --- the client never talks to a bare loopback address ---------------------------

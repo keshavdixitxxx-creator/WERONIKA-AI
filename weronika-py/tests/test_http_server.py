@@ -10,7 +10,13 @@ from unittest.mock import patch
 from weronika_agent.blueprint import BlueprintError
 from weronika_agent.http_server import LocalServer, make_handler
 from weronika_agent.models import Platform, VisibleContact
-from weronika_agent.reply_watch import ChatReading, ChatSnapshot, IncomingMessage, ReplyWatchService
+from weronika_agent.reply_watch import (
+    ChatReading,
+    ChatSnapshot,
+    DraftedReply,
+    IncomingMessage,
+    ReplyWatchService,
+)
 from weronika_agent.task_service import TaskService
 from weronika_agent.tasks import PageReading
 from weronika_agent.watch_skills import SkillRegistry
@@ -491,6 +497,48 @@ class LocalHttpServerTests(unittest.TestCase):
             sent = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
         self.assertEqual(sent["state"], "sent")
         self.assertEqual(self.adapter.sent, ["I won't be able to come today"])
+
+    def test_weronika_replies_route_sends_after_the_users_choice(self):
+        self.watch._suggester = lambda chat, text: DraftedReply("On my way, ten minutes.", confirmed=True)
+        with self.request(
+            "/api/watch/add",
+            {"platform": "whatsapp", "chat": "Boss", "mode": "ask", "unanswered_after_seconds": 0},
+            origin=self.base,
+        ) as response:
+            self.events(response)
+        self.activity.deliver("Where are you?")
+        with self.request("/api/watch/scan", {}, origin=self.base) as response:
+            scan = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
+        item_id = scan["detected"][0]["item_id"]
+        self.assertEqual(self.adapter.sent, [])
+
+        with self.request("/api/watch/delegate", {"draft_id": item_id}, origin=self.base) as response:
+            events = self.events(response)
+        sent = next(event["workflow"] for event in events if event["type"] == "result")
+        self.assertEqual(self.adapter.sent, ["On my way, ten minutes."])
+        self.assertEqual(sent["state"], "sent")
+        self.assertIn("Weronika replied in WhatsApp · Boss", sent["prompt"])
+        self.assertTrue(
+            any("Weronika is replying" in event.get("message", "") for event in events if event["type"] == "progress")
+        )
+
+    def test_weronika_replies_route_reports_missing_wording(self):
+        with self.request(
+            "/api/watch/add",
+            {"platform": "whatsapp", "chat": "Boss", "mode": "ask", "unanswered_after_seconds": 0},
+            origin=self.base,
+        ) as response:
+            self.events(response)
+        self.activity.deliver("Hmm")
+        with self.request("/api/watch/scan", {}, origin=self.base) as response:
+            scan = next(event["workflow"] for event in self.events(response) if event["type"] == "result")
+        with self.request(
+            "/api/watch/delegate", {"draft_id": scan["detected"][0]["item_id"]}, origin=self.base
+        ) as response:
+            events = self.events(response)
+        self.assertEqual(events[-1]["type"], "error")
+        self.assertIn("Nothing was sent", events[-1]["message"])
+        self.assertEqual(self.adapter.sent, [])
 
     def test_watch_status_and_leave_it_routes(self):
         with self.request(

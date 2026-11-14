@@ -10,16 +10,23 @@ import {
   buildInstructions,
   buildGmailAssistInstructions,
   buildMemoryDigestInstructions,
+  buildReplyDraftInstructions,
   buildWorkspaceCodeInstructions,
   buildResponsesBody,
+  imageDataUrl,
   isBrainTask,
   isTransientStatus,
   readResponseDeltas,
   sanitizeAddressName,
+  sanitizeClientTime,
   sanitizeGatewayMessage,
   sanitizeHistory,
+  sanitizeImage,
   sanitizeLang,
+  sanitizePersona,
   sseEvent,
+  type BrainImage,
+  type BrainPersona,
   type BrainTask,
   type HistoryItem,
 } from "@/lib/brain-stream.server";
@@ -33,14 +40,26 @@ type BrainInput = {
   lang: string;
   addressName: string;
   task?: BrainTask;
+  persona?: BrainPersona;
+  clientTime?: string;
+  image?: BrainImage;
 };
 
-function instructionsFor(input: Pick<BrainInput, "lang" | "addressName" | "task">) {
+function instructionsFor(
+  input: Pick<BrainInput, "lang" | "addressName" | "task" | "persona" | "clientTime" | "image">,
+) {
   if (input.task === "automation-plan") return buildAutomationPlanInstructions();
   if (input.task === "workspace-code") return buildWorkspaceCodeInstructions();
   if (input.task === "gmail-assist") return buildGmailAssistInstructions();
   if (input.task === "memory-digest") return buildMemoryDigestInstructions();
-  return buildInstructions(input.lang, input.addressName);
+  if (input.task === "reply-draft") return buildReplyDraftInstructions();
+  return buildInstructions(
+    input.lang,
+    input.addressName,
+    input.persona,
+    input.clientTime,
+    Boolean(input.image),
+  );
 }
 
 async function sleep(ms: number) {
@@ -52,7 +71,19 @@ function withCors(response: Response) {
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Headers", "Content-Type, Accept, X-Weronika-Lovable-Key");
   headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  // The caller reads these to know what the brain that answered really did.
+  headers.set("Access-Control-Expose-Headers", "X-Weronika-Vision, X-Weronika-Task");
   return new Response(response.body, { status: response.status, headers });
+}
+
+// Proof of what this brain applied: that it received the picture, and which task
+// instructions it used. An older hosted copy ignores fields it does not know and sends
+// neither header, so a caller can tell such an answer from a real one.
+function proofHeaders(input: BrainInput): Record<string, string> {
+  return {
+    ...(input.image ? { "X-Weronika-Vision": "1" } : {}),
+    ...(input.task ? { "X-Weronika-Task": input.task } : {}),
+  };
 }
 
 function jsonError(message: string, status: number) {
@@ -118,7 +149,15 @@ async function postChatCompletions(
       messages: [
         { role: "system", content: instructionsFor(input) },
         ...input.history,
-        { role: "user", content: input.message },
+        {
+          role: "user",
+          content: input.image
+            ? [
+                { type: "text", text: input.message },
+                { type: "image_url", image_url: { url: imageDataUrl(input.image) } },
+              ]
+            : input.message,
+        },
       ],
     }),
   });
@@ -132,7 +171,22 @@ async function completeWithGateway(apiKey: string, input: BrainInput, signal: Ab
       const { text } = await generateText({
         model: gateway(modelName),
         system: instructionsFor(input),
-        messages: [...input.history, { role: "user", content: input.message }],
+        messages: [
+          ...input.history,
+          input.image
+            ? {
+                role: "user" as const,
+                content: [
+                  { type: "text" as const, text: input.message },
+                  {
+                    type: "file" as const,
+                    data: input.image.base64,
+                    mediaType: input.image.mediaType,
+                  },
+                ],
+              }
+            : { role: "user" as const, content: input.message },
+        ],
         abortSignal: signal,
       });
       const reply = (text || "").trim();
@@ -152,7 +206,7 @@ function sentenceChunks(reply: string) {
   return parts.length ? parts : [reply];
 }
 
-function streamTextReply(reply: string, model: string) {
+function streamTextReply(reply: string, model: string, proof: Record<string, string> = {}) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -171,6 +225,7 @@ function streamTextReply(reply: string, model: string) {
         "Cache-Control": "no-cache, no-transform",
         "X-Accel-Buffering": "no",
         "X-Weronika-Brain": model,
+        ...proof,
       },
     }),
   );
@@ -194,6 +249,11 @@ async function relayHosted(body: unknown, signal: AbortSignal) {
       const headers = new Headers();
       headers.set("Content-Type", relay.headers.get("content-type") ?? "application/json");
       headers.set("X-Weronika-Brain", "relay");
+      // Only what the hosted copy itself reports is passed on.
+      for (const name of ["X-Weronika-Vision", "X-Weronika-Task"]) {
+        const value = relay.headers.get(name);
+        if (value) headers.set(name, value);
+      }
       return withCors(new Response(relay.body, { status: relay.status, headers }));
     } catch (error) {
       lastError = error;
@@ -222,7 +282,14 @@ export const Route = createFileRoute("/api/public/brain")({
           lang?: unknown;
           addressName?: unknown;
           task?: unknown;
+          persona?: unknown;
+          now?: unknown;
+          image?: unknown;
         };
+        // A screen picture is the only large part of a request.
+        if (Number(request.headers.get("content-length") || 0) > 2_000_000) {
+          return jsonError("The request is too large", 413);
+        }
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -241,12 +308,29 @@ export const Route = createFileRoute("/api/public/brain")({
         const history = sanitizeHistory(body.history);
         const lang = sanitizeLang(body.lang, message);
         const addressName = sanitizeAddressName(body.addressName);
+        // The personality is only how Weronika talks to her own user; a task prompt
+        // (planning, code, mail, a reply drafted for someone else) never carries it.
+        const persona = sanitizePersona(body.persona);
+        const clientTime = sanitizeClientTime(body.now);
+        // A picture of the screen, for a plain question about it.
+        const image = !task && body.image !== undefined ? sanitizeImage(body.image) : null;
+        if (body.image !== undefined && !image) {
+          return jsonError(
+            task
+              ? "A picture can only be sent with a plain chat message"
+              : "The attached picture is not a supported image or is too large",
+            400,
+          );
+        }
         const input: BrainInput = {
           message,
           history,
           lang,
           addressName,
           ...(task ? { task } : {}),
+          ...(!task && persona !== "friendly" ? { persona } : {}),
+          ...(!task && clientTime ? { clientTime } : {}),
+          ...(image ? { image } : {}),
         };
         const apiKey = readKey(request);
 
@@ -257,12 +341,21 @@ export const Route = createFileRoute("/api/public/brain")({
               503,
             );
           }
-          return relayHosted(input, request.signal);
+          // The hosted copy reads the same fields this route does.
+          const { clientTime: relayedTime, image: relayedImage, ...relayed } = input;
+          return relayHosted(
+            {
+              ...relayed,
+              ...(relayedTime ? { now: relayedTime } : {}),
+              ...(relayedImage ? { image: imageDataUrl(relayedImage) } : {}),
+            },
+            request.signal,
+          );
         }
 
         try {
           const reply = await completeWithGateway(apiKey, input, request.signal);
-          return streamTextReply(reply, CHAT_MODELS[0]);
+          return streamTextReply(reply, CHAT_MODELS[0], proofHeaders(input));
         } catch (gatewayError) {
           const statusCode = (gatewayError as { statusCode?: number }).statusCode;
           if (
@@ -334,6 +427,7 @@ export const Route = createFileRoute("/api/public/brain")({
                 "Cache-Control": "no-cache, no-transform",
                 "X-Accel-Buffering": "no",
                 "X-Weronika-Brain": "responses",
+                ...proofHeaders(input),
               },
             }),
           );

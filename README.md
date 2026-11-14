@@ -8,7 +8,11 @@ Weronika is a voice-and-text assistant. Her conversation UI is served by the web
 - **Memory that survives a restart:** Weronika keeps the conversation on your device and carries on after the browser or the computer was shut down. See [Memory](#memory).
 - **Workspace:** a code editor in the shape of VS Code, in neon blue. A statement typed there goes to the orb, the orb passes it to the brain, and the files the brain writes open in the editor as unsaved drafts. See [Workspace](#workspace).
 - **No media generation:** Weronika does not generate images, videos, or songs. The app has no such route, and the brain is told to say so instead of pretending.
-- **Local worker for device automation:** messaging and reply watch run through `weronika-py` on your own computer because they use your signed-in browser session. Without it, the orb stays a cloud-brain chat and nothing is read, typed, or sent.
+- **Things she does herself, at once:** “open Notepad”, “find India Gate on the map”, “set an alarm for 6:30 am”, “tell me the news”, “add a meeting tomorrow at 4 pm to my calendar”. These are understood on the device and are not sent to the brain. See [Instant commands](#instant-commands).
+- **Away replies:** when someone messages you on WhatsApp or Telegram and you have not answered, she asks “Should I reply, or will you?”. Only if you choose her does she write the answer, open the chat and send it. See [Reply watch](#reply-watch-whatsapp--telegram).
+- **Screen and mini orb:** share your screen and ask “what is this error?”; a small always-on-top orb window keeps her in front of your other windows. See [Screen and mini orb](#screen-and-mini-orb).
+- **A voice and a tone of her own:** after **LAUNCH** she greets you aloud. Her tone with you is set under SETTINGS → Address: romantic (the default), friendly, or professional. It is never used in mails or in replies written for other people.
+- **Local worker for device automation:** opening programs, messaging and reply watch run through `weronika-py` on your own computer because they use your own programs and your signed-in browser session. Without it, the orb stays a cloud-brain chat that can still open links, keep alarms and draft mails, and nothing is read, typed, or sent in your accounts.
 - **Orb controls:** visual orb settings and camera gestures affect only the orb; they do not control the computer.
 
 ## Run the web app
@@ -46,7 +50,7 @@ restart does not start the conversation from zero.
 - **What is never kept.** Names and message text from local messaging and reply watch
   (only a neutral marker that such a step happened), anything from Gmail, and requests
   that failed.
-- **Your controls.** ⚙ SETTINGS → Memory: switch memory off (this forgets everything,
+- **Your controls.** SETTINGS → Memory: switch memory off (this forgets everything,
   including the worker's file), EXPORT a JSON backup, IMPORT one, or CLEAR MEMORY AND
   CHAT.
 
@@ -83,16 +87,80 @@ Details that matter:
 - Shortcuts: Ctrl/⌘+S save, Ctrl/⌘+Shift+S save all, Ctrl/⌘+P go to file, Ctrl/⌘+B side
   bar, Ctrl/⌘+J output panel, Ctrl/⌘+Shift+E Explorer, Ctrl/⌘+Shift+F search.
 
+## Instant commands
+
+Simple commands are understood by `public/weronika-instant.js` in the page and carried
+out at once. They are not sent to the cloud brain, so they are fast and they work when
+the brain cannot be reached.
+
+| You say | What happens | Needs the local worker |
+| --- | --- | --- |
+| “Open Notepad”, “open Chrome and VS Code”, “launch command prompt” | The worker starts the program through Python (`cmd /c start` for the fixed Windows tools, the Start-menu shortcut or app list for installed programs). | Yes |
+| “Open YouTube”, “open Gmail, Drive and Keep” | The site opens in Weronika's browser window, or as a browser tab without the worker. | No |
+| “Find India Gate on the map”, “show me the way to Connaught Place” | Google Maps opens with the place or the route. | No |
+| “Play Kesariya on YouTube” | Weronika searches YouTube in her window and starts the first result. | Yes |
+| “Play Kesariya on Spotify” | Spotify opens on a search for the song. Spotify does not let another program press play, so you press it; she says so. | No |
+| “Comment on this video that it is good for knowledge” | She types “This is good for knowledge” in the comment box and posts it only after you say `confirm`. | Yes |
+| “What time is it”, “what is the date” | Answered from your device's clock. | No |
+| “Set an alarm for 6:30 am”, “timer for 10 minutes”, “remind me to call mom at 5 pm” | Kept on this device (Settings → Alarms). They ring while Weronika is open in a browser tab; one that passed while she was closed is reported when you come back. | No |
+| “Tell me the news”, “news about cricket” | Headlines from Google News. Without the worker she opens Google News instead. | For reading aloud |
+| “Add meeting with Rahul tomorrow at 4 pm to my calendar” | A filled-in Google Calendar event opens; you press Save. | No |
+| “New Google Doc / Sheet / Slides / Form / Meet”, “open my calendar / Drive / Photos” | The matching Google page opens. | No |
+| “Write an email to … about …” | The brain writes the mail in a plain tone, the chat shows it, and **OPEN IN GMAIL** or **OPEN IN HOTMAIL** opens a compose window with it filled in. You press Send; she never sends a mail on her own. | No |
+| “Plan my day” | The brain plans it, with your clock and your alarms attached. | No |
+
+A name she does not know is never guessed at. In a list such as “open Chrome and
+Foobar” nothing is opened unless every name is a known program or site, and a single
+unknown name (“open droid”) is searched on the web in her browser window instead of
+being started as a program. What the user says is never handed to a command line; the
+worker starts programs from fixed names and from the system's own app list.
+
+## Screen and mini orb
+
+- **“Watch my screen”** (or SETTINGS → Screen → WATCH MY SCREEN) asks the browser to
+  share a screen or a window; you pick it in the browser's own dialog, and the browser
+  shows its sharing notice while it lasts. A spoken command cannot open that dialog (a
+  browser rule), so Weronika then shows a button to press.
+- While she watches, a question that points at the screen (“what is this error?”,
+  “explain this page”, “what does this say?”) is sent to the cloud brain together with
+  one picture of the screen, taken at that moment. Ordinary talk and orders (“send…”,
+  “search…”, “play…”) carry no picture. Pictures are not stored and are not written to
+  memory. “Stop watching my screen”, the **● WATCHING SCREEN · STOP** button, or the
+  browser's own stop button ends it.
+- The brain route accepts the picture as `image` (a JPEG, PNG or WebP data URL, plain
+  chat only) and answers with the header `X-Weronika-Vision: 1`. A deployed copy that
+  does not know pictures yet would answer without having looked, so the orb shows such
+  an answer as “my cloud brain has not been updated” instead of the guess. **Publish the
+  web app again for this to work on the hosted brain.**
+- **“Show the mini orb”** (or SETTINGS → Screen → MINI ORB) opens a small window that
+  stays above your other windows, with a question box, the latest answer, and SCREEN /
+  VOICE / CLOSE. It uses Document Picture-in-Picture, which exists in Chrome and Edge on
+  a computer; other browsers keep her in the tab.
+
 ## Reply watch (WhatsApp / Telegram)
 
-The orb has a **◎ REPLY WATCH** panel (⚙ SETTINGS → Tools) and a matching chat vocabulary. Weronika reads
-only the chats you name, in the same local browser window you sign in to, and notices
-when someone messaged you and you have not answered. She then either asks you what to
-reply or drafts a suggested reply — and still waits for `confirm send` before the
-exact text is typed and sent. Replies can also use a file from the local workspace
-(for example a leave policy) or a one-time code you want to forward. A **✧ SKILLS**
-panel, next to it under ⚙ SETTINGS → Tools, lists exactly what the local worker
-implements and the gaps it will not fake.
+The orb has a **◎ REPLY WATCH** panel (SETTINGS → Tools) and a matching chat vocabulary:
+“Watch my WhatsApp chat with Boss”, “watch all my Telegram chats”, “… and ask me
+immediately”, “… after 5 minutes”. Weronika reads only the chats you name, in the same
+local browser window you sign in to, and notices when someone messaged you and you
+have not answered (after one minute, unless you say otherwise). The watch keeps going
+while the tab is in the background, and a desktop notification is shown if you allow it.
+
+She then asks: **“Should I reply, or will you?”**
+
+- **WERONIKA REPLIES** (or “you reply”): she reads the chat again, asks the brain for a
+  short neutral reply in your name, opens the chat, sends it, and shows you the exact
+  text she sent. If you answered in the meantime, or the brain gave no wording, she
+  sends nothing and says so. Your choice covers that one message only. Until the
+  hosted brain is published with this version, it cannot confirm that it wrote a
+  message in your name; her wording is then prepared and shown, and waits for your
+  `confirm send`.
+- **I'LL REPLY** (or “I'll reply”): nothing is sent and she keeps watching.
+- “reply: your words” still prepares your own text and waits for `confirm send`.
+
+Replies can also use a file from the local workspace (for example a leave policy) or a
+one-time code you want to forward. A **✧ SKILLS** panel, next to it under SETTINGS →
+Tools, lists exactly what the local worker implements and the gaps it will not fake.
 
 This needs the local Python worker (`weronika-py`, started with `start.bat`), because
 the browser sessions stay on your computer. The hosted web page alone cannot read
@@ -111,6 +179,27 @@ into ordered steps by the hosted brain and shown before anything runs. Naming Ed
 Chrome (“open github in chrome”) opens the address in your own browser instead.
 These run through the local worker; see [weronika-py/README.md](weronika-py/README.md)
 for the step list and limits.
+
+## Accounts and what is not supported
+
+| Account | How it is connected | What Weronika can do |
+| --- | --- | --- |
+| WhatsApp | On your computer: start the worker, say “open WhatsApp”, scan the QR code once in Weronika's window. | Send a message you confirm, watch named chats, reply when you choose her. |
+| Telegram | Same, with “open Telegram” and your phone number. | Same as WhatsApp. |
+| Gmail | Google OAuth on the web app (next section). | List the inbox, read and summarize the messages you select, draft a reply, send after your review. Without OAuth: compose windows with her draft. |
+| Hotmail / Outlook.com | Nothing to connect. | A compose window with her draft filled in. She cannot read this inbox. |
+| Instagram | Signing in to Weronika's window lets her prepare a direct message you confirm. | She does not read Instagram messages or watch them: its web app has no dependable message list. |
+| Google Calendar, Docs, Sheets, Drive, Maps | Your own signed-in browser. | Opens them, and prepares calendar events for you to save. She does not read or change what is in them. |
+
+Not supported, and not faked:
+
+- **Calls.** Weronika does not place, answer, or speak in phone, WhatsApp, Telegram or
+  Instagram calls. A call needs live two-way audio inside those apps, and none of them
+  gives another program that.
+- **Smart-home devices** such as an air conditioner are not controlled yet. That needs
+  to know how the device is reached (its brand's cloud, or a hub such as Home Assistant).
+- **Sending without you.** A mail goes out only when you press Send; a chat reply goes
+  out only after `confirm send` or after you choose WERONIKA REPLIES for that message.
 
 ## Gmail (optional OAuth integration)
 
@@ -132,4 +221,4 @@ OAuth state is one-time and browser-bound. Gmail access tokens and prepared-send
 npm run test
 ```
 
-The JavaScript suites check the cloud-brain conversation path, the memory store, the Workspace relay and editor, and the syntax colouring, and keep the Gmail permissions and selected-message/send-review policy from regressing. They also check that no image, song, or video generation route exists. The local worker has its own suite: `cd weronika-py && python -m unittest discover -s tests`.
+The JavaScript suites check the cloud-brain conversation path, the instant commands and their local-first routing, the memory store, the Workspace relay and editor, and the syntax colouring, and keep the Gmail permissions and selected-message/send-review policy from regressing. They also check that no image, song, or video generation route exists. The local worker has its own suite: `cd weronika-py && python -m unittest discover -s tests`.

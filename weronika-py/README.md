@@ -11,14 +11,18 @@ This package is the local Python worker behind Weronika's **existing animated or
 5. The worker opens and verifies the chat, prepares the exact message, and shows it in the orb. It does not send during preparation.
 6. Sending requires your separate `confirm send` / `send it` reply. The worker reports whether the send was verified.
 
-The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X, reply watch for WhatsApp Web and Telegram Web, plus four dedicated feature panels — BLUEPRINT and WORKSPACE on the main screen, REPLY WATCH and SKILLS under ⚙ SETTINGS → Tools. Workspace is a code editor in the shape of VS Code: a statement typed there goes to the orb, the orb passes it to the hosted cloud brain, and up to ten code/text files come back into the editor as unsaved drafts; files are written only when you choose SAVE or SAVE ALL. The general-purpose browser tab UI has been removed. Chromium remains an internal requirement for visible messaging automation.
+Simple commands skip the cloud brain altogether: “open Notepad”, “open Chrome and VS Code”, “play Kesariya on Spotify” and “tell me the news” are understood in the orb page and handed straight to the worker (see [Opening apps, music, headlines](#opening-apps-music-headlines)).
 
-## Reply watch (new)
+The orb exposes direct messaging on WhatsApp Web, Telegram Web, Instagram Direct, Facebook Messenger, and X, reply watch for WhatsApp Web and Telegram Web, plus four dedicated feature panels — BLUEPRINT and WORKSPACE on the main screen, REPLY WATCH and SKILLS under SETTINGS → Tools. Workspace is a code editor in the shape of VS Code: a statement typed there goes to the orb, the orb passes it to the hosted cloud brain, and up to ten code/text files come back into the editor as unsaved drafts; files are written only when you choose SAVE or SAVE ALL. The general-purpose browser tab UI has been removed. Chromium remains an internal requirement for visible messaging automation.
+
+## Reply watch
 
 The orb's **◎ REPLY WATCH** panel answers the everyday problem: someone messages
 you, you are busy or away, and the chat sits unanswered. Weronika watches only the
-chats you name, tells you when a message is still waiting, and can prepare a reply
-for you to approve.
+chats you name, tells you when a message is still waiting, and asks: **“Should I
+reply, or will you?”** If you choose her, she writes the reply, opens the chat, sends
+it and shows you the exact text. Otherwise she can prepare your own words for you to
+approve.
 
 1. **Name the chat.** In the panel, choose WhatsApp or Telegram, type the contact or
    group name (or tick _Watch every visible chat_), pick a mode and how long to wait.
@@ -27,20 +31,38 @@ for you to approve.
    in the Weronika browser window and looks at the newest bubbles. The conversation
    that existed when you started watching is history, not a new request for a reply.
 3. **She stops when you have answered.** If the newest bubble in that chat is yours,
-   nothing is reported. If the other person wrote last and the wait time has passed,
-   the chat becomes a _waiting_ item for you.
-4. **Two modes:** _Ask me what to reply_ tells you and waits for your words;
-   _Suggest a reply_ also drafts wording in your language. Either way the suggestion
-   is text in the orb, never a send.
-5. **Approval is the same as before.** The exact text is typed into the chat only
-   after you give it, and the visible draft is sent only when you answer
-   `confirm send` / `send it`. `leave it`, `cancel`, `hold on`, `who is waiting`
-   and `stop watching` all work in the chat box.
+   nothing is reported. If the other person wrote last and the wait time has passed
+   (one minute from the orb chat, unless you say “immediately” or “after 5 minutes”),
+   the chat becomes a _waiting_ item for you. The orb keeps checking while its tab is
+   in the background, says the question aloud, and shows a desktop notification if
+   you allowed notifications.
+4. **Two modes:** _Ask me: Weronika or me?_ shows the message and the question;
+   _…and show the reply she would send_ also shows her wording next to the question.
+5. **“Weronika replies” / “you reply”.** `POST /api/watch/delegate`. She reads the
+   chat again and sends nothing if you answered in the meantime. The wording is the
+   suggestion you already saw, or else a new one from the cloud brain's `reply-draft`
+   task: a short, neutral message in your name, without her own personality. Then
+   the usual path runs: the chat is found and verified, the exact text is typed and
+   checked, and it is sent once. Your choice covers that one message only. If several
+   chats match the name she asks for the number first.
+6. **“I'll reply”** closes the item without sending. `reply: your words` prepares your
+   own text, which is sent only when you answer `confirm send` / `send it`.
+   `leave it`, `cancel`, `hold on`, `who is waiting` and `stop watching` all work in
+   the chat box.
 
-Phrases that turn it on: “watch my WhatsApp chat with Boss”, “keep an eye on Telegram
-chat with Rahul and reply for me if I can’t”, “watch the Family group on WhatsApp and
-you can suggest a reply”. Delay words are understood: _in 10 minutes_, _after an hour_.
-Urgent-only watching is available with _only if it’s urgent_.
+Weronika sends wording you have not seen only when the brain itself confirms that it
+wrote a message in your name (the response header `X-Weronika-Task: reply-draft`). A
+hosted brain that is older than this worker answers the same request as ordinary
+chat, in Weronika's own voice, and confirms nothing; that text is prepared and shown,
+and waits for `confirm send`. The few built-in phrases that stand in for a suggestion
+when the brain is offline are only ever shown, never sent unseen.
+
+Phrases that turn it on: “watch my WhatsApp chat with Boss”, “watch all my Telegram
+chats”, “keep an eye on Telegram chat with Rahul and reply for me if I can’t”, “watch
+the Family group on WhatsApp and you can suggest a reply”. Delay words are understood:
+_immediately_, _after 5 minutes_, _after an hour_. Urgent-only watching is available
+with _only if it’s urgent_. A plain request of this kind is understood in the orb page
+and needs no cloud planner.
 
 Replies beyond a plain answer can use the same flow: files inside
 `~/.weronika/workspace` (for example a leave policy) can be read to answer a question
@@ -51,8 +73,34 @@ Web only, with the browser window open. Instagram's web app has no dependable me
 list, so the worker refuses to read it instead of guessing (sending a prepared draft
 there still works). There is no personal-account WhatsApp API and Telegram user
 accounts should be automated through the official Bot API, so this worker reads what
-you already signed in to and keeps that session on this device. Nothing is ever sent
-without your confirmation.
+you already signed in to and keeps that session on this device. Nothing is sent
+unless you confirm the exact text or choose “Weronika replies” for that one message.
+A reply she writes is a short general answer: she knows what the other person wrote,
+not your plans, so check what she sent. Calls are not handled at all.
+
+## Opening apps, music, headlines
+
+| Route | What it does |
+| --- | --- |
+| `POST /api/open` `{targets: ["notepad", {"name": "calendar", "kind": "app"}]}` | Opens each name as a desktop program or as a site. Every name is decided first, and one unknown name opens nothing. Up to 10 targets and 5 programs per request. |
+| `POST /api/apps/music` `{service: "spotify", query}` | Opens Spotify (the installed program, else the web player) on a search for the song. Spotify does not let another program press play. |
+| `GET /api/news?topic=&lang=&country=` | Headlines from the public Google News feed, read-only. |
+
+How a program is started (`weronika_agent/apps.py`):
+
+- The Windows tools (Notepad, Calculator, Paint, File Explorer, Command Prompt,
+  PowerShell, Task Manager, Settings, Control Panel, Snipping Tool, Camera, Clock…)
+  start through `cmd /c start "" <fixed name>` or a fixed `ms-…:` address. macOS uses
+  `open -a`, Linux the first installed program of a short list.
+- Installed programs (Chrome, Edge, VS Code, Word, Spotify, Discord…) are found in the
+  Start menu shortcuts and the system's app list, by exact name first and by a unique
+  partial match otherwise.
+- Photos, Calendar, Mail, Maps and Store mean the Google site unless you say “app”
+  (“open the calendar app”). “Open WhatsApp” / “open Telegram” show Weronika's own
+  signed-in window for that service, which is also how the account is connected.
+- What you say is never passed to a command line. Only fixed commands and shortcut
+  files found on this computer are started, and names with path or shell characters
+  are refused. These routes answer only requests addressed to the loopback host.
 
 ## Browser tasks (search, open, play, post)
 
@@ -98,11 +146,11 @@ the worker window is scripted.
 - Similar-name contacts are never silently selected. The open chat header and exact composer text are checked before any send action.
 - The local worker only clicks Send after explicit approval. An uncertain result is reported and never automatically retried.
 - Each messaging platform uses a local persistent browser profile under `~/.weronika/`; session cookies stay on this device. Do not share those profile directories.
-- Weronika's conversation memory is mirrored to one private file, `~/.weronika/memory/weronika-memory.json` (owner-only permissions, at most 2 MB, replaced atomically), so she still knows the conversation after the computer was shut down, even in a browser whose own storage is empty. The orb reads and writes it through `GET`/`POST /api/memory`, which answer only same-device requests addressed to the loopback host. The file holds what you said to Weronika by chat, by voice, and from the Workspace, plus her replies and short long-term notes. Names and message text from messaging and reply watch are never in it, and neither is anything from Gmail. Switching memory off or choosing CLEAR MEMORY AND CHAT in ⚙ SETTINGS → Memory empties the file as well. Use those controls to make Weronika forget: deleting only the file does not, because the browser's own copy writes it again.
+- Weronika's conversation memory is mirrored to one private file, `~/.weronika/memory/weronika-memory.json` (owner-only permissions, at most 2 MB, replaced atomically), so she still knows the conversation after the computer was shut down, even in a browser whose own storage is empty. The orb reads and writes it through `GET`/`POST /api/memory`, which answer only same-device requests addressed to the loopback host. The file holds what you said to Weronika by chat, by voice, and from the Workspace, plus her replies and short long-term notes. Names and message text from messaging and reply watch are never in it, and neither is anything from Gmail. Switching memory off or choosing CLEAR MEMORY AND CHAT in SETTINGS → Memory empties the file as well. Use those controls to make Weronika forget: deleting only the file does not, because the browser's own copy writes it again.
 - Workspace files use `~/.weronika/workspace/` when opened with `start.bat`. If the local worker is unavailable, files can still be saved to browser-local storage on that device/browser; those files do not sync to the PC workspace or other browsers. Python execution is available only through the local worker and requires a separate confirmation dialog. It is not a sandbox: confirmed code can access this device and its files, so inspect code before running it.
 - VRM uploads and photos are handled locally and are not saved to the workspace. Blueprint reports CPU/RAM and NVIDIA GPU details through a loopback-only preflight. Photo relief remains an instant browser-only preview; optional TripoSR can generate an actual single-image mesh on the local CPU after separate setup. The generated GLB and temporary input are not retained by the worker.
 - Reply-watch state (which chats you watch, the last message that triggered an item, the draft) stays in worker memory. Message bodies are not written to local files or request logs.
-- Reply watch pauses automatically while an older draft is still open in the orb, so it cannot overwrite or send your prepared text. Alerts never click or send anything.
+- Reply watch pauses automatically while an older draft is still open in the orb, so it cannot overwrite or send your prepared text. Alerts never click or send anything. A reply goes out without a typed confirmation only after you chose “Weronika replies” for that one message, and only with wording you saw or wording the cloud brain confirmed as a reply draft.
 - Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.
 - Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely. Direct text messaging is supported across WhatsApp, Telegram, Instagram, Messenger, and X; incoming call detection, answering, live call audio, and call summaries are not implemented. Never infer permission to answer a call from a prior preference; any future call flow must ask about each call and tell the other participant they are speaking with an AI.
 
@@ -134,7 +182,9 @@ python start.py --open-browser
 Suggestion wording in reply watch uses the hosted brain (`--brain-endpoint`, default
 the public Weronika route) only to draft a sentence; pass `--brain-endpoint off` to
 keep every suggestion on this device, where a small built-in phrase set is used
-instead. The chat text that is sent for a suggestion is the watched message only.
+instead. With the brain off, “Weronika replies” can only send a suggestion you were
+shown. The chat text that is sent for a suggestion is the watched message only (up to
+the last three waiting messages).
 
 The existing hosted orb URL remains available for ordinary cloud chat. To use local automation, open the orb served locally by this worker; the hosted page cannot access your computer's loopback service. The hosted cloud-brain deployment must include the `automation-plan` task added in this change; until that version is deployed, the local worker will reject incomplete or non-JSON plans rather than guess.
 

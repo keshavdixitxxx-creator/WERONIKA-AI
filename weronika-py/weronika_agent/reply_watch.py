@@ -164,6 +164,8 @@ class WatchItem:
     suggestion: str = ""
     draft: MessageDraft | None = None
     last_error: str = ""
+    # The user answered "Weronika replies" for this one message.
+    delegated: bool = False
 
     @property
     def chat_key(self) -> str:
@@ -193,6 +195,7 @@ class WatchItem:
             else [],
             "reminder_sent": self.reminder_sent,
             "last_error": self.last_error,
+            "delegated": self.delegated,
             "message": (
                 {
                     "from": message.sender or message.chat_name,
@@ -295,6 +298,19 @@ def is_urgent(message: IncomingMessage, keywords: list[str]) -> bool:
     return looks_like_question(text)
 
 
+def _plain_duration(seconds: int) -> str:
+    """60 -> "1 minute", 300 -> "5 minutes", 3600 -> "1 hour", 45 -> "45 seconds"."""
+    seconds = max(0, int(seconds))
+    for size, name in ((3600, "hour"), (60, "minute")):
+        if seconds >= size and seconds % size == 0:
+            count = seconds // size
+            return f"{count} {name}{'' if count == 1 else 's'}"
+    if seconds >= 120:
+        minutes = round(seconds / 60)
+        return f"about {minutes} minutes"
+    return f"{seconds} second{'' if seconds == 1 else 's'}"
+
+
 def _message_age(moment: float, now: float) -> str:
     seconds = max(0, int(now - moment)) if moment else 0
     if seconds < 90:
@@ -306,6 +322,23 @@ def _message_age(moment: float, now: float) -> str:
     if hours < 24:
         return f"{hours} h ago"
     return f"{hours // 24} d ago"
+
+
+class DraftedReply(str):
+    """Reply wording that came from the cloud brain.
+
+    ``confirmed`` is True when the brain itself reported that it wrote the text as a
+    message in the user's own name (its ``reply-draft`` task). An older brain answers
+    the same request as ordinary chat, in Weronika's voice, and confirms nothing; such
+    wording is shown to the user first and is never sent on its own.
+    """
+
+    confirmed: bool
+
+    def __new__(cls, text: object = "", confirmed: bool = False) -> "DraftedReply":
+        value = super().__new__(cls, str(text or ""))
+        value.confirmed = bool(confirmed)
+        return value
 
 
 def fallback_suggestion(text: str) -> str:
@@ -433,14 +466,24 @@ class ReplyWatchService:
             while len(self._watches) > MAX_WATCHES:
                 self._watches.pop(next(iter(self._watches)))
 
-        action = "ask you what to reply" if mode is WatchMode.ASK else "propose a reply for your approval"
+        action = (
+            "ask whether she should reply or you will"
+            if mode is WatchMode.ASK
+            else "show the reply she would send and ask whether she should send it or you will reply"
+        )
+        waiting = unanswered_after if rule is WatchRule.UNANSWERED else delay
+        what = "a message" if rule is WatchRule.UNANSWERED else "a message that looks urgent"
+        when = (
+            f"As soon as {what} arrives there and you have not answered it"
+            if waiting <= 0
+            else f"When {what} there has waited {_plain_duration(waiting)} without your answer"
+        )
         names = ", ".join(f"“{watch.chat_name}”" for watch in created) or "already-watched chats"
         note = f" (already watching {', '.join(skipped)})" if skipped else ""
         return WatchResult(
             created[0] if created else next(iter(self._watches.values())),
-            f"Watching {platform_display(platform)} {names}{note}. Weronika will {action} "
-            "when someone messages you there and you have not replied. "
-            "Nothing sends without your confirmation.",
+            f"Watching {platform_display(platform)} {names}{note}. {when}, Weronika will {action}. "
+            "Nothing is sent unless you choose it.",
         )
 
     def has_watch_for(self, platform: Platform, chat_name: str) -> bool:
@@ -666,17 +709,24 @@ class ReplyWatchService:
         who = item.message.sender if item.message and item.message.sender else item.chat_name
         return f"Still no reply to {who} on {platform_display(item.platform)} · {item.chat_name}."
 
-    def _suggest(self, message: IncomingMessage) -> str:
-        if self._suggester is not None:
-            try:
-                value = self._suggester(message.chat_name, message.text)
-                if isinstance(value, str):
-                    cleaned = " ".join(value.split())[:MAX_REPLY_CHARS]
-                    if cleaned:
-                        return cleaned
-            except Exception:
-                pass
-        return fallback_suggestion(message.text)
+    def _brain_wording(self, message: IncomingMessage, text: str = "") -> tuple[str, bool]:
+        """Wording from the cloud brain only: (text, confirmed). See DraftedReply."""
+        if self._suggester is None:
+            return "", False
+        try:
+            value = self._suggester(message.chat_name, text or message.text)
+        except Exception:
+            return "", False
+        if not isinstance(value, str):
+            return "", False
+        cleaned = " ".join(value.split())[:MAX_REPLY_CHARS]
+        return cleaned, bool(cleaned) and bool(getattr(value, "confirmed", False))
+
+    def _suggest(self, message: IncomingMessage, text: str = "") -> str:
+        """A suggestion to show the user. The small built-in phrases stand in when the
+        brain is offline; they are only ever shown, never sent without the user."""
+        wording, _ = self._brain_wording(message, text)
+        return wording or fallback_suggestion(text or message.text)
 
     # ---------------------------------------------------------------- answers
 
@@ -747,6 +797,103 @@ class ReplyWatchService:
                 item.state = WatchState.FAILED
         return WatchResult(item, workflow.prompt)
 
+    def delegate(
+        self, item_id: str, *, progress: Callable[[str], None] | None = None
+    ) -> WatchResult:
+        """The user answered “Weronika replies”: write the reply, open the chat, send it.
+
+        That answer is the approval for this one message, so no second confirmation is
+        asked. Everything else is the path of a reply the user words: the same chat
+        matching, the same check of the typed text, the same verified send. The chat is
+        read again first, so nothing goes out when the user has answered meanwhile.
+        """
+        item = self._item(item_id)
+        with self._lock:
+            if item.state not in {WatchState.AWAITING_USER, WatchState.HELD}:
+                raise ReplyWatchError("This chat is not waiting for you to choose who replies.")
+            if item.draft is not None and item.draft.stage.value == "awaiting_recipient_choice":
+                raise ReplyWatchError("Several chats match that name. Choose one by number first.")
+            message = item.message
+        if message is None:
+            raise ReplyWatchError("There is no message to answer in that chat.")
+
+        self._notify(progress, f"Reading {platform_display(item.platform)} · {item.chat_name} again.")
+        try:
+            reading = self._activity_for(item.platform).read_latest(item.platform, item.chat_name)
+        except Exception as exc:
+            raise ReplyWatchError(
+                f"Weronika could not read “{item.chat_name}” again, so she sent nothing. {str(exc)[:200]}".strip()
+            ) from exc
+        if reading.last_is_incoming is False:
+            with self._lock:
+                item.state = WatchState.DECLINED
+                item.updated_at = self._clock()
+                item.reason = "You had already answered, so Weronika sent nothing."
+                item.suggestion = ""
+                if item.watch_id in self._watches:
+                    self._watches[item.watch_id].state = WatchState.NEW
+            self._mark_reported(item.chat_key, [message_key(entry) for entry in reading.messages])
+            return WatchResult(item, f"You already answered “{item.chat_name}”, so Weronika sent nothing.")
+
+        # Answer what is waiting now: the message she reported and anything sent after it.
+        pending = [message]
+        keys = [message_key(entry) for entry in reading.messages]
+        if message_key(message) in keys:
+            later = reading.messages[keys.index(message_key(message)) :]
+            pending = [entry for entry in later if str(entry.text or "").strip()] or [message]
+        asked = "\n".join(entry.text for entry in pending[-3:])
+        if item.suggestion and len(pending) == 1:
+            # The user saw this exact text next to the question and chose it.
+            text, send_now = item.suggestion, True
+        else:
+            # Unseen wording goes out only when the brain confirms it wrote a message in
+            # the user's name. The keyword phrases are never sent this way.
+            text, send_now = self._brain_wording(pending[-1], asked)
+        if not text:
+            raise ReplyWatchError(
+                "Weronika could not write a reply for this message because the cloud brain did not answer. "
+                "Say the reply yourself, for example ‘reply: I will call you back’. Nothing was sent."
+            )
+        if not send_now:
+            with self._lock:
+                item.message = pending[-1]
+            staged = self.propose(item_id, text, progress=progress)
+            return WatchResult(
+                item,
+                "Weronika has not sent this yet: the cloud brain that wrote it is an older version, which "
+                "does not confirm that it wrote a message in your name. Read it first. " + staged.prompt,
+            )
+        with self._lock:
+            item.message = pending[-1]
+            item.delegated = True
+        self._notify(
+            progress,
+            f"Weronika is replying in {platform_display(item.platform)} · {item.chat_name}: “{text}”",
+        )
+        try:
+            staged = self.propose(item_id, text, progress=progress)
+        except Exception:
+            with self._lock:
+                item.delegated = False
+            raise
+        return self._send_delegated(item, staged, progress)
+
+    def _send_delegated(
+        self, item: WatchItem, staged: WatchResult, progress: Callable[[str], None] | None
+    ) -> WatchResult:
+        if item.draft is None or item.draft.stage.value != "awaiting_confirmation":
+            return staged  # several chats match the name: the user picks one, then it is sent
+        text = item.draft.message or item.suggestion
+        try:
+            sent = self.confirm(item.id, "confirm send", progress=progress)
+        finally:
+            with self._lock:
+                item.delegated = False
+        return WatchResult(
+            item,
+            f"Weronika replied in {platform_display(item.platform)} · {item.chat_name}: “{text}”. {sent.prompt}",
+        )
+
     def choose(
         self,
         item_id: str,
@@ -772,6 +919,9 @@ class ReplyWatchService:
                 else WatchState.FAILED
             )
             item.updated_at = self._clock()
+            delegated = item.delegated
+        if delegated:
+            return self._send_delegated(item, WatchResult(item, workflow.prompt), progress)
         return WatchResult(item, workflow.prompt)
 
     def confirm(

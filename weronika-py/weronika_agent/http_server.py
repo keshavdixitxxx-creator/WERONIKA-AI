@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .apps import AppLauncher, OpenService
 from .blueprint import (
     MAX_IMAGE_BYTES,
     MAX_MODEL_BYTES,
@@ -23,6 +24,7 @@ from .hardware import detect_hardware
 from .intents import parse_message_request
 from .memory_store import MAX_MEMORY_BYTES, MemoryStore, MemoryStoreError
 from .models import Platform
+from .news import NewsError, fetch_news
 from .reply_watch import ReplyWatchError
 from .service import create_messaging_service
 from .site_service import SiteError, SiteService
@@ -52,9 +54,13 @@ def make_handler(
     skills=None,
     tasks=None,
     memory: MemoryStore | None = None,
+    apps: AppLauncher | None = None,
+    news=None,
 ):
     local_workspace = workspace or LocalWorkspace()
     memory_store = memory or MemoryStore()
+    app_launcher = apps or AppLauncher()
+    read_news = news or fetch_news
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "WeronikaLocal/0.1"
@@ -237,6 +243,20 @@ def make_handler(
             if parsed.path == "/api/sites/tabs":
                 self._send_json(200, {"tabs": self._sites().tabs()})
                 return
+            if parsed.path == "/api/news":
+                query = parse_qs(parsed.query)
+                try:
+                    self._send_json(
+                        200,
+                        read_news(
+                            query.get("topic", [""])[0],
+                            query.get("lang", ["en"])[0],
+                            query.get("country", ["IN"])[0],
+                        ),
+                    )
+                except NewsError as exc:
+                    self._send_json(502, {"error": str(exc)})
+                return
             if parsed.path == "/api/skills":
                 self._send_json(200, skills.catalog() if skills is not None else {"skills": [], "unavailable": []})
                 return
@@ -310,6 +330,11 @@ def make_handler(
                     if not self._require_loopback_host():
                         return
                     max_bytes = MAX_MEMORY_REQUEST_BYTES
+                elif path == "/api/open" or path.startswith("/api/apps/"):
+                    # Starting programs is only for the page this worker serves itself.
+                    if not self._require_loopback_host():
+                        return
+                    max_bytes = MAX_REQUEST_BYTES
                 elif path in workspace_routes:
                     max_bytes = MAX_WORKSPACE_REQUEST_BYTES
                 else:
@@ -324,10 +349,13 @@ def make_handler(
                     "/api/watch/scan",
                     "/api/watch/reply",
                     "/api/watch/choose",
+                    "/api/watch/delegate",
                     "/api/watch/confirm",
                     "/api/watch/leave",
                     "/api/watch/hold",
                     "/api/watch/stop",
+                    "/api/open",
+                    "/api/apps/music",
                     "/api/task/start",
                     "/api/task/approve",
                     "/api/task/cancel",
@@ -441,6 +469,8 @@ def make_handler(
                     result = self._task_stream(path, data, progress)
                 elif path.startswith("/api/sites/"):
                     result = self._sites_stream(path, data, progress)
+                elif path == "/api/open" or path == "/api/apps/music":
+                    result = self._open_stream(path, data, progress)
                 else:
                     result = service.cancel(self._text(data, "draft_id"), progress=progress)
                 payload = result.to_dict() if hasattr(result, "to_dict") else result
@@ -460,6 +490,8 @@ def make_handler(
                 "browser_tasks": tasks is not None,
                 "sites": True,
                 "memory": True,
+                "apps": True,
+                "news": True,
             }
             if skills is not None:
                 payload["skill_count"] = len(skills.catalog()["skills"])
@@ -501,6 +533,29 @@ def make_handler(
 
         def _sites(self) -> SiteService:
             return SiteService(adapters.browser)
+
+        def _open_stream(self, path: str, data: dict[str, object], progress) -> object:
+            """“Open notepad and YouTube”, “play X on Spotify”: no cloud brain involved."""
+            if path == "/api/apps/music":
+                own_browser = None
+                if tasks is not None:
+                    own_browser = lambda url: tasks.open_in_own_browser(url, "")  # noqa: E731
+                progress("Handing the song to Spotify…")
+                return app_launcher.music(self._text(data, "service"), self._text(data, "query"), own_browser)
+            raw = data.get("targets")
+            if not isinstance(raw, list):
+                raw = data.get("names")
+            if isinstance(raw, str):
+                raw = [raw]
+            if not isinstance(raw, list):
+                raw = [self._text(data, "name")]
+            targets = [value for value in raw if isinstance(value, (str, dict))]
+            progress("Opening it on this computer…")
+            # "Open WhatsApp" shows Weronika's own signed-in window for that app.
+            chat_window = None
+            if callable(adapters):
+                chat_window = lambda name: adapters(Platform.parse(name)).open_window()  # noqa: E731
+            return OpenService(self._sites(), app_launcher, chat_window).open(targets)
 
         def _sites_stream(self, path: str, data: dict[str, object], progress) -> object:
             service_sites = self._sites()
@@ -613,6 +668,11 @@ def make_handler(
                     self._text(data, "candidate_id"),
                     progress=progress,
                 )
+            elif path == "/api/watch/delegate":
+                # "Weronika replies": the user's answer for this one message is the approval.
+                result = watch.delegate(self._text(data, "draft_id"), progress=progress)
+                if skills is not None:
+                    skills.mark_used("reply-watch-propose")
             elif path == "/api/watch/confirm":
                 result = watch.confirm(
                     self._text(data, "draft_id"),
