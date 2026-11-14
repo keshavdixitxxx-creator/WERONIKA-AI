@@ -24,7 +24,6 @@ assert.equal(
 for (const file of [
   "public/weronika-automation.js",
   "public/weronika-google.js",
-  "public/weronika-memory.js",
   "public/weronika-same-browser.js",
   "public/weronika-workspace.js",
 ]) {
@@ -34,6 +33,31 @@ assert.doesNotMatch(
   html,
   /api\/weronika-agent|127\.0\.0\.1:8765|api\/apps\/action|api\/google\/action/,
 );
+
+// Weronika does not generate images, videos, or songs: there is no route for it, the
+// orb never asks for one, and the brain is told to say so instead of pretending.
+for (const kind of ["image", "images", "song", "music", "audio", "video", "media"]) {
+  for (const extension of ["ts", "tsx"]) {
+    const route = `src/routes/api/public/${kind}.${extension}`;
+    assert.equal(existsSync(resolve(root, route)), false, `${route} must not exist`);
+  }
+  assert.equal(
+    html.includes(`/api/public/${kind}`),
+    false,
+    `the orb must not call a ${kind} route`,
+  );
+}
+assert.equal(
+  existsSync(resolve(root, "src/lib/local-image-fallback.server.ts")),
+  false,
+  "the local image fallback remains removed",
+);
+const brainPrompt = readFileSync(
+  new URL("../src/lib/brain-stream.server.ts", import.meta.url),
+  "utf8",
+);
+assert.match(brainPrompt, /You cannot generate or edit image, video, or audio files/);
+assert.match(brainPrompt, /Never claim that a media file was created\./);
 assert.doesNotMatch(viteConfig, /127\.0\.0\.1:8765|api\/weronika-agent/);
 assert.doesNotMatch(JSON.stringify(packageJson.scripts), /python|sync:standalone|dev:py/);
 assert.match(html, /api\/automation\/prepare/);

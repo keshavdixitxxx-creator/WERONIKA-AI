@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .apps import AppLauncher, OpenService
 from .blueprint import (
     MAX_IMAGE_BYTES,
     MAX_MODEL_BYTES,
@@ -21,7 +22,9 @@ from .blueprint import (
 )
 from .hardware import detect_hardware
 from .intents import parse_message_request
+from .memory_store import MAX_MEMORY_BYTES, MemoryStore, MemoryStoreError
 from .models import Platform
+from .news import NewsError, fetch_news
 from .reply_watch import ReplyWatchError
 from .service import create_messaging_service
 from .site_service import SiteError, SiteService
@@ -35,6 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WEB_ROOT = REPO_ROOT / "public"
 MAX_REQUEST_BYTES = 16_384
 MAX_WORKSPACE_REQUEST_BYTES = 1_100_000
+MAX_MEMORY_REQUEST_BYTES = MAX_MEMORY_BYTES + 200_000
 
 
 class LocalServer(HTTPServer):
@@ -49,8 +53,14 @@ def make_handler(
     watch=None,
     skills=None,
     tasks=None,
+    memory: MemoryStore | None = None,
+    apps: AppLauncher | None = None,
+    news=None,
 ):
     local_workspace = workspace or LocalWorkspace()
+    memory_store = memory or MemoryStore()
+    app_launcher = apps or AppLauncher()
+    read_news = news or fetch_news
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "WeronikaLocal/0.1"
@@ -181,6 +191,23 @@ def make_handler(
             self._send_json(403, {"error": "This local automation endpoint only accepts same-device requests."})
             return False
 
+        def _require_loopback_host(self) -> bool:
+            """Refuse requests that were not addressed to this server by a loopback name.
+
+            A page on another site can point its own hostname at 127.0.0.1 (DNS rebinding).
+            Its requests then reach this server looking same-origin, but they still carry
+            the foreign hostname in the Host header.
+            """
+            try:
+                parsed = urlparse(f"//{self.headers.get('Host', '')}")
+                name, port = parsed.hostname, parsed.port
+            except ValueError:
+                name, port = None, None
+            if name in {"localhost", "127.0.0.1", "::1"} and (port or 80) == self.server.server_port:
+                return True
+            self._send_json(403, {"error": "Weronika's memory is only available at this device's local address."})
+            return False
+
         def do_GET(self) -> None:
             if not self._require_local():
                 return
@@ -216,6 +243,20 @@ def make_handler(
             if parsed.path == "/api/sites/tabs":
                 self._send_json(200, {"tabs": self._sites().tabs()})
                 return
+            if parsed.path == "/api/news":
+                query = parse_qs(parsed.query)
+                try:
+                    self._send_json(
+                        200,
+                        read_news(
+                            query.get("topic", [""])[0],
+                            query.get("lang", ["en"])[0],
+                            query.get("country", ["IN"])[0],
+                        ),
+                    )
+                except NewsError as exc:
+                    self._send_json(502, {"error": str(exc)})
+                return
             if parsed.path == "/api/skills":
                 self._send_json(200, skills.catalog() if skills is not None else {"skills": [], "unavailable": []})
                 return
@@ -223,6 +264,15 @@ def make_handler(
                 payload = detect_hardware()
                 payload["vrm_export"] = describe_vrm_limits()
                 self._send_json(200, payload)
+                return
+            if parsed.path == "/api/memory":
+                # The orb's conversation memory, mirrored to a file on this device.
+                if not self._require_loopback_host():
+                    return
+                try:
+                    self._send_json(200, {"memory": memory_store.load(), "path": str(memory_store.path)})
+                except MemoryStoreError as exc:
+                    self._send_json(400, {"error": str(exc)})
                 return
             if parsed.path == "/api/workspace/status":
                 self._send_json(200, {"connected": True, "workspace": "local", "browser": "Playwright Chromium"})
@@ -276,7 +326,20 @@ def make_handler(
                     "/api/workspace/browser/activate",
                     "/api/workspace/browser/close",
                 }
-                data = self._read_json(MAX_WORKSPACE_REQUEST_BYTES if path in workspace_routes else MAX_REQUEST_BYTES)
+                if path == "/api/memory":
+                    if not self._require_loopback_host():
+                        return
+                    max_bytes = MAX_MEMORY_REQUEST_BYTES
+                elif path == "/api/open" or path.startswith("/api/apps/"):
+                    # Starting programs is only for the page this worker serves itself.
+                    if not self._require_loopback_host():
+                        return
+                    max_bytes = MAX_REQUEST_BYTES
+                elif path in workspace_routes:
+                    max_bytes = MAX_WORKSPACE_REQUEST_BYTES
+                else:
+                    max_bytes = MAX_REQUEST_BYTES
+                data = self._read_json(max_bytes)
                 if path in {
                     "/api/automation/prepare",
                     "/api/automation/recipient",
@@ -286,10 +349,13 @@ def make_handler(
                     "/api/watch/scan",
                     "/api/watch/reply",
                     "/api/watch/choose",
+                    "/api/watch/delegate",
                     "/api/watch/confirm",
                     "/api/watch/leave",
                     "/api/watch/hold",
                     "/api/watch/stop",
+                    "/api/open",
+                    "/api/apps/music",
                     "/api/task/start",
                     "/api/task/approve",
                     "/api/task/cancel",
@@ -312,6 +378,8 @@ def make_handler(
                     ).to_dict()
                 elif path == "/api/cancel":
                     result = service.cancel(self._text(data, "draft_id")).to_dict()
+                elif path == "/api/memory":
+                    result = memory_store.save(data.get("memory"))
                 elif path == "/api/workspace/file":
                     relative_path = self._text(data, "path")
                     content = data.get("content")
@@ -343,7 +411,7 @@ def make_handler(
                     self._send_json(404, {"error": "Unknown local API route."})
                     return
                 self._send_json(200, result)
-            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError, SiteError) as exc:
+            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError, SiteError, MemoryStoreError) as exc:
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})
@@ -401,6 +469,8 @@ def make_handler(
                     result = self._task_stream(path, data, progress)
                 elif path.startswith("/api/sites/"):
                     result = self._sites_stream(path, data, progress)
+                elif path == "/api/open" or path == "/api/apps/music":
+                    result = self._open_stream(path, data, progress)
                 else:
                     result = service.cancel(self._text(data, "draft_id"), progress=progress)
                 payload = result.to_dict() if hasattr(result, "to_dict") else result
@@ -419,6 +489,9 @@ def make_handler(
                 "skills": skills is not None,
                 "browser_tasks": tasks is not None,
                 "sites": True,
+                "memory": True,
+                "apps": True,
+                "news": True,
             }
             if skills is not None:
                 payload["skill_count"] = len(skills.catalog()["skills"])
@@ -460,6 +533,29 @@ def make_handler(
 
         def _sites(self) -> SiteService:
             return SiteService(adapters.browser)
+
+        def _open_stream(self, path: str, data: dict[str, object], progress) -> object:
+            """“Open notepad and YouTube”, “play X on Spotify”: no cloud brain involved."""
+            if path == "/api/apps/music":
+                own_browser = None
+                if tasks is not None:
+                    own_browser = lambda url: tasks.open_in_own_browser(url, "")  # noqa: E731
+                progress("Handing the song to Spotify…")
+                return app_launcher.music(self._text(data, "service"), self._text(data, "query"), own_browser)
+            raw = data.get("targets")
+            if not isinstance(raw, list):
+                raw = data.get("names")
+            if isinstance(raw, str):
+                raw = [raw]
+            if not isinstance(raw, list):
+                raw = [self._text(data, "name")]
+            targets = [value for value in raw if isinstance(value, (str, dict))]
+            progress("Opening it on this computer…")
+            # "Open WhatsApp" shows Weronika's own signed-in window for that app.
+            chat_window = None
+            if callable(adapters):
+                chat_window = lambda name: adapters(Platform.parse(name)).open_window()  # noqa: E731
+            return OpenService(self._sites(), app_launcher, chat_window).open(targets)
 
         def _sites_stream(self, path: str, data: dict[str, object], progress) -> object:
             service_sites = self._sites()
@@ -572,6 +668,11 @@ def make_handler(
                     self._text(data, "candidate_id"),
                     progress=progress,
                 )
+            elif path == "/api/watch/delegate":
+                # "Weronika replies": the user's answer for this one message is the approval.
+                result = watch.delegate(self._text(data, "draft_id"), progress=progress)
+                if skills is not None:
+                    skills.mark_used("reply-watch-propose")
             elif path == "/api/watch/confirm":
                 result = watch.confirm(
                     self._text(data, "draft_id"),
@@ -730,6 +831,7 @@ def main() -> None:
     print(f"Weronika local messaging is running at {url}")
     print("It is loopback-only; browser sessions and message drafts stay on this device.")
     print("Reply watch reads only the chats you name, and every send still needs your confirmation.")
+    print("Weronika's conversation memory is kept in ~/.weronika/memory on this device.")
     if args.open_browser:
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
     try:

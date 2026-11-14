@@ -1,16 +1,73 @@
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from weronika_agent.models import Platform, WorkflowStage
 from weronika_agent.reply_watch import (
     ChatReading,
     ChatSnapshot,
+    DraftedReply,
     IncomingMessage,
     ReplyWatchError,
     ReplyWatchService,
     find_chat,
     looks_like_question,
 )
+from weronika_agent.service import build_brain_suggester
 from weronika_agent.watch_intents import parse_watch_request
+
+
+class BrainSuggesterTests(unittest.TestCase):
+    """The worker asks the cloud brain for reply wording and notes what the brain confirms."""
+
+    def serve(self, headers, body='data: {"type":"delta","text":"On my way. "}\n\ndata: {"type":"done"}\n\n', status=200):
+        seen = []
+
+        class Brain(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                seen.append(self.rfile.read(length).decode("utf-8"))
+                data = body.encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "text/event-stream")
+                for name, value in headers.items():
+                    self.send_header(name, value)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+        server = HTTPServer(("127.0.0.1", 0), Brain)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_port}/api/public/brain", seen
+
+    def test_a_brain_that_names_the_task_is_confirmed(self):
+        endpoint, seen = self.serve({"X-Weronika-Task": "reply-draft"})
+        reply = build_brain_suggester(endpoint)("Boss", "Where are you?")
+        self.assertEqual(reply, "On my way.")
+        self.assertTrue(reply.confirmed)
+        self.assertIn('"task": "reply-draft"', seen[0])
+        self.assertIn("Where are you?", seen[0])
+
+    def test_an_older_brain_is_not_confirmed(self):
+        endpoint, _ = self.serve({})
+        reply = build_brain_suggester(endpoint)("Boss", "Where are you?")
+        self.assertEqual(reply, "On my way.")
+        self.assertFalse(reply.confirmed)
+
+    def test_another_task_name_is_not_confirmed(self):
+        endpoint, _ = self.serve({"X-Weronika-Task": "automation-plan"})
+        self.assertFalse(build_brain_suggester(endpoint)("Boss", "Where are you?").confirmed)
+
+    def test_an_unreachable_or_failing_brain_gives_no_wording(self):
+        endpoint, _ = self.serve({"X-Weronika-Task": "reply-draft"}, body='{"error":"busy"}', status=503)
+        self.assertEqual(build_brain_suggester(endpoint)("Boss", "Hi"), "")
+        self.assertEqual(build_brain_suggester("")("Boss", "Hi"), "")
+        self.assertEqual(build_brain_suggester("http://127.0.0.1:9/api/public/brain")("Boss", "Hi"), "")
 
 
 class FakeClock:
@@ -78,6 +135,7 @@ class FakeDraft:
         self.selected_recipient = "Boss"
         self.message = ""
         self.result = "Message sent and verified."
+        self.candidates = []
 
 
 class FakeResult:
@@ -254,6 +312,245 @@ class ReplyWatchServiceTests(unittest.TestCase):
         chosen = service.choose(item_id, "1")
         self.assertEqual(chosen.item.state.value, "awaiting_review")
         self.assertEqual(self.messaging.selected[1], "1")
+
+    # --- "Weronika replies": the user's choice for one message is the approval ---
+
+    def delegating_service(self, wording="I’ll call you back in ten minutes.", confirmed=True):
+        """A watch on “Boss” whose brain writes `wording`. `confirmed` is whether the
+        brain reports that it wrote it as a message in the user's own name."""
+        self.asked = []
+
+        def suggest(chat, text):
+            self.asked.append((chat, text))
+            return DraftedReply(wording, confirmed=confirmed)
+
+        service = ReplyWatchService(
+            lambda platform: self.activity, self.messaging, clock=self.clock, suggester=suggest
+        )
+        service.add_watch(
+            {
+                "platform": "whatsapp",
+                "chat": "Boss",
+                "mode": "ask",
+                "rule": "unanswered",
+                "unanswered_after_seconds": 0,
+            }
+        )
+        return service
+
+    def test_weronika_replies_writes_opens_the_chat_and_sends(self):
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item = service.scan()["detected"][0]
+        self.assertEqual(item["suggestion"], "")  # ask mode: nothing is written before the choice
+        self.assertEqual(self.asked, [])
+
+        progress = []
+        result = service.delegate(item["item_id"], progress=progress.append)
+        self.assertEqual(self.asked, [("Boss", "Can you call me?")])
+        self.assertEqual(
+            self.messaging.prepared, [("whatsapp", "Boss", "I’ll call you back in ten minutes.")]
+        )
+        self.assertEqual(self.messaging.confirmed, [("draft1", "confirm send")])
+        self.assertEqual(result.item.state.value, "sent")
+        self.assertFalse(result.item.delegated)
+        self.assertIn("Weronika replied in WhatsApp · Boss", result.prompt)
+        self.assertIn("I’ll call you back in ten minutes.", result.prompt)
+        self.assertTrue(any("Weronika is replying" in line for line in progress))
+        self.assertEqual(service.list_state()["watches"][0]["state"], "new")
+
+    def test_weronika_sends_nothing_when_the_user_already_answered(self):
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        self.activity.reply_self("Boss")  # answered from the phone meanwhile
+        result = service.delegate(item_id)
+        self.assertEqual(result.item.state.value, "declined")
+        self.assertIn("already answered", result.prompt)
+        self.assertEqual(self.asked, [])
+        self.assertEqual(self.messaging.prepared, [])
+        self.assertEqual(self.messaging.confirmed, [])
+        self.assertEqual(service.scan()["detected"], [])
+
+    def test_weronika_answers_what_is_waiting_now(self):
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        self.activity.deliver("Boss", "It is about tomorrow’s meeting.", sender="Boss")
+        result = service.delegate(item_id)
+        self.assertEqual(
+            self.asked, [("Boss", "Can you call me?\nIt is about tomorrow’s meeting.")]
+        )
+        self.assertEqual(result.item.message.text, "It is about tomorrow’s meeting.")
+        self.assertEqual(len(self.messaging.confirmed), 1)
+
+    def test_starting_a_watch_says_when_she_will_ask(self):
+        soon = self.service.add_watch(
+            {"platform": "whatsapp", "chat": "Boss", "mode": "ask", "unanswered_after_seconds": 60}
+        )
+        self.assertEqual(
+            soon.prompt,
+            "Watching WhatsApp “Boss”. When a message there has waited 1 minute without your answer, "
+            "Weronika will ask whether she should reply or you will. Nothing is sent unless you choose it.",
+        )
+        self.service.remove_watch(soon.item.id)
+        at_once = self.service.add_watch(
+            {"platform": "whatsapp", "chat": "Boss", "mode": "propose", "unanswered_after_seconds": 0}
+        )
+        self.assertIn("As soon as a message arrives there and you have not answered it", at_once.prompt)
+        self.assertIn("show the reply she would send", at_once.prompt)
+
+    def test_weronika_sends_the_suggestion_the_user_already_saw(self):
+        wording = iter(["First idea.", "A different second idea."])
+        service = ReplyWatchService(
+            lambda platform: self.activity,
+            self.messaging,
+            clock=self.clock,
+            suggester=lambda chat, text: next(wording),
+        )
+        service.add_watch(
+            {
+                "platform": "whatsapp",
+                "chat": "Boss",
+                "mode": "propose",
+                "rule": "unanswered",
+                "unanswered_after_seconds": 0,
+            }
+        )
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item = service.scan()["detected"][0]
+        self.assertEqual(item["suggestion"], "First idea.")
+        service.delegate(item["item_id"])
+        self.assertEqual(self.messaging.prepared, [("whatsapp", "Boss", "First idea.")])
+
+    def test_weronika_does_not_send_without_wording(self):
+        service = self.delegating_service(wording="")
+        self.activity.deliver("Boss", "Hmm", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        with self.assertRaises(ReplyWatchError) as raised:
+            service.delegate(item_id)
+        self.assertIn("Nothing was sent", str(raised.exception))
+        self.assertEqual(self.messaging.prepared, [])
+        self.assertEqual(self.messaging.confirmed, [])
+        state = service.list_state()["items"][0]
+        self.assertEqual(state["state"], "awaiting_user")
+        self.assertFalse(state["delegated"])
+
+    def test_wording_from_an_older_brain_waits_for_the_user(self):
+        # An older brain answers the same request as ordinary chat, in Weronika's voice,
+        # and does not confirm the task. That text is shown first, never sent on its own.
+        service = self.delegating_service(wording="Sure, Commander! Tell him you will call.", confirmed=False)
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        result = service.delegate(item_id)
+        self.assertEqual(self.messaging.confirmed, [])
+        self.assertEqual(result.item.state.value, "awaiting_review")
+        self.assertFalse(result.item.delegated)
+        self.assertIn("has not sent this yet", result.prompt)
+        self.assertIn("older version", result.prompt)
+        self.assertEqual(
+            self.messaging.prepared, [("whatsapp", "Boss", "Sure, Commander! Tell him you will call.")]
+        )
+        # The user can still send it, change it, or drop it.
+        service.confirm(item_id, "confirm send")
+        self.assertEqual(self.messaging.confirmed, [("draft1", "confirm send")])
+
+    def test_a_plain_string_from_the_brain_counts_as_unconfirmed(self):
+        service = ReplyWatchService(
+            lambda platform: self.activity,
+            self.messaging,
+            clock=self.clock,
+            suggester=lambda chat, text: "On my way.",
+        )
+        service.add_watch({"platform": "whatsapp", "chat": "Boss", "mode": "ask", "unanswered_after_seconds": 0})
+        self.activity.deliver("Boss", "Where are you?", sender="Boss")
+        result = service.delegate(service.scan()["detected"][0]["item_id"])
+        self.assertEqual(result.item.state.value, "awaiting_review")
+        self.assertEqual(self.messaging.confirmed, [])
+
+    def test_built_in_phrases_are_never_sent_for_the_user(self):
+        # With the brain offline a suggestion falls back to a few keyword phrases
+        # (“call” -> “I’ll call you back”). Those are for showing, not for sending unseen.
+        service = self.delegating_service(wording="")
+        self.activity.deliver("Boss", "Can you call me? Are you on leave today?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        with self.assertRaises(ReplyWatchError) as raised:
+            service.delegate(item_id)
+        self.assertIn("Nothing was sent", str(raised.exception))
+        self.assertEqual(self.messaging.prepared, [])
+        self.assertEqual(self.messaging.confirmed, [])
+
+    def test_a_built_in_phrase_the_user_saw_can_be_sent(self):
+        service = ReplyWatchService(
+            lambda platform: self.activity,
+            self.messaging,
+            clock=self.clock,
+            suggester=lambda chat, text: "",  # the brain is offline
+        )
+        service.add_watch({"platform": "whatsapp", "chat": "Boss", "mode": "propose", "unanswered_after_seconds": 0})
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item = service.scan()["detected"][0]
+        self.assertEqual(item["suggestion"], "Can’t talk right now — I’ll call you back as soon as I can.")
+        service.delegate(item["item_id"])  # the user read that exact text and chose it
+        self.assertEqual(self.messaging.confirmed, [("draft1", "confirm send")])
+
+    def test_weronika_does_not_send_when_the_chat_cannot_be_read(self):
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+
+        def broken(platform, chat_name):
+            raise RuntimeError("WhatsApp is signed out.")
+
+        self.activity.read_latest = broken
+        with self.assertRaises(ReplyWatchError) as raised:
+            service.delegate(item_id)
+        self.assertIn("sent nothing", str(raised.exception))
+        self.assertIn("signed out", str(raised.exception))
+        self.assertEqual(self.messaging.prepared, [])
+        self.assertEqual(self.messaging.confirmed, [])
+
+    def test_weronika_asks_which_chat_before_sending_when_the_name_is_ambiguous(self):
+        self.messaging.ambiguous_chat = True
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        staged = service.delegate(item_id)
+        self.assertIn("Several chats match", staged.prompt)
+        self.assertEqual(self.messaging.confirmed, [])
+        self.assertTrue(service.list_state()["items"][0]["delegated"])
+        with self.assertRaises(ReplyWatchError):
+            service.delegate(item_id)  # the number comes first
+
+        chosen = service.choose(item_id, "1")
+        self.assertEqual(self.messaging.selected[1], "1")
+        self.assertEqual(self.messaging.confirmed, [("draft1", "confirm send")])
+        self.assertEqual(chosen.item.state.value, "sent")
+        self.assertIn("Weronika replied", chosen.prompt)
+
+    def test_weronika_only_takes_over_a_message_that_is_still_waiting(self):
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+        service.propose(item_id, "I am in a meeting")  # the user worded a reply: it waits for review
+        with self.assertRaises(ReplyWatchError):
+            service.delegate(item_id)
+        self.assertEqual(self.messaging.confirmed, [])
+        with self.assertRaises(ReplyWatchError):
+            service.delegate("missing")
+
+    def test_a_failed_send_is_reported_and_not_repeated(self):
+        service = self.delegating_service()
+        self.activity.deliver("Boss", "Can you call me?", sender="Boss")
+        item_id = service.scan()["detected"][0]["item_id"]
+
+        def failing(draft_id, phrase, progress=None):
+            raise ReplyWatchError("The send action may have completed, but Weronika could not verify it.")
+
+        self.messaging.confirm_send = failing
+        with self.assertRaises(ReplyWatchError):
+            service.delegate(item_id)
+        self.assertFalse(service.list_state()["items"][0]["delegated"])
 
     def test_a_refused_confirmation_does_not_mark_the_item_sent(self):
         self.add_boss_watch(unanswered_after_seconds=0)

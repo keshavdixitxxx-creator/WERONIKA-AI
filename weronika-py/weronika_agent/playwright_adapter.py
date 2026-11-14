@@ -361,6 +361,16 @@ class PlaywrightMessagingAdapter:
                 continue
         return False
 
+    def open_window(self) -> bool:
+        """Show this app's own Weronika window. True when it still waits for a sign-in."""
+        page = self._page()
+        try:
+            page.bring_to_front()
+            page.wait_for_timeout(1_500)
+        except Exception:
+            pass
+        return self._login_required(page)
+
     def find_recipients(self, query: str) -> list[VisibleContact]:
         page = self._page()
         search_error = None

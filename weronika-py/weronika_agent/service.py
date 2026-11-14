@@ -12,7 +12,7 @@ from typing import Callable
 from .activity import PlaywrightActivityAdapter
 from .models import Platform
 from .playwright_adapter import BrowserManager, PlaywrightMessagingAdapter
-from .reply_watch import ReplyWatchService
+from .reply_watch import DraftedReply, ReplyWatchService
 from .task_service import TaskService
 from .watch_skills import SkillRegistry
 from .web_adapter import BrowserTaskAdapter, find_browser
@@ -91,8 +91,16 @@ def build_brain_suggester(endpoint: str) -> Callable[[str, str], str]:
             f"Their message: {message_text}\n"
             "Reply in the same language they used. Reply with the message text only."
         )
+        # "reply-draft" asks the brain for a plain reply in the user's own voice. A server
+        # that does not know the task yet answers the question as ordinary chat.
         payload = json.dumps(
-            {"message": question, "history": [], "lang": "", "addressName": "Commander"}
+            {
+                "message": question,
+                "history": [],
+                "lang": "",
+                "addressName": "Commander",
+                "task": "reply-draft",
+            }
         ).encode("utf-8")
         request = urllib.request.Request(
             endpoint,
@@ -103,12 +111,14 @@ def build_brain_suggester(endpoint: str) -> Callable[[str, str], str]:
         try:
             with urllib.request.urlopen(request, timeout=SUGGESTION_TIMEOUT_SECONDS) as response:
                 raw = response.read(200_000).decode("utf-8", errors="replace")
+                # The brain names the task it applied. Without this it answered as chat.
+                applied = str(response.headers.get("X-Weronika-Task") or "").strip().casefold()
         except (urllib.error.URLError, TimeoutError, OSError):
             return ""
         except Exception:
             return ""
         text = _sse_text(raw)
-        return " ".join(text.split())[:2000]
+        return DraftedReply(" ".join(text.split())[:2000], confirmed=applied == "reply-draft")
 
     return suggest
 
