@@ -72,6 +72,79 @@ def create_messaging_service(
     return messaging, adapters, watch, skills, tasks
 
 
+def create_call_service(
+    *,
+    brain_endpoint: str | None = None,
+    owner: str = "Commander",
+    audio_route: str = "",
+    speech_engine: str = "auto",
+    voice_hint: str = "",
+    language: str = "",
+    messaging: object = None,
+    browser: object = None,
+    with_whatsapp: bool = True,
+):
+    """Assemble the call engine: channels, audio, and the wording source.
+
+    Every part is optional and reports itself honestly. A machine with no phone on the
+    cable and no speech engine still gets a working call service — it can only run in
+    typed mode, and it says so, which is better than a feature that quietly does nothing.
+    Nothing here opens a browser, launches adb, or loads a model; those happen on first use.
+    """
+    from .adb_calls import PhoneCallAdapter
+    from .call_audio import ChannelAudio, LocalCallAudio, build_speaker, build_transcriber, pick_route
+    from .call_dialogue import build_brain_responder
+    from .calls import CallWatchService
+    from .models import CallRoute
+
+    adapters: list[object] = [PhoneCallAdapter()]
+    whatsapp = None
+    if with_whatsapp and browser is not None:
+        try:
+            from .whatsapp_calls import WhatsappCallAdapter
+
+            whatsapp = WhatsappCallAdapter(browser)
+            adapters.append(whatsapp)
+        except Exception:
+            # A missing browser dependency must not take the phone channel down with it.
+            whatsapp = None
+
+    endpoint = brain_endpoint if brain_endpoint is not None else default_brain_endpoint()
+    responder = build_brain_responder(endpoint, owner=owner)
+
+    audio = None
+    try:
+        preference = CallRoute.parse(audio_route) if str(audio_route or "").strip() else CallRoute.NONE
+        route, note = pick_route(preference)
+        transcriber = build_transcriber(speech_engine)
+        speaker = build_speaker(voice_hint=voice_hint)
+        phone_audio = LocalCallAudio(
+            route=route,
+            route_preference=preference,
+            route_note=note,
+            transcriber=transcriber,
+            speaker=speaker,
+            language=language,
+        )
+        browser_audio = None
+        if whatsapp is not None:
+            from .whatsapp_calls import BrowserCallAudio
+
+            # The page tap hears the caller directly; when WhatsApp does not expose the
+            # stream it falls back to the same microphone the phone route uses.
+            browser_audio = BrowserCallAudio(
+                whatsapp, fallback=phone_audio, transcriber=transcriber, speaker=speaker,
+                language=language,
+            )
+        audio = ChannelAudio(phone_audio, browser_audio)
+    except Exception:
+        audio = None
+
+    calls = CallWatchService(adapters, audio, responder=responder, messaging=messaging)
+    calls.configure({"owner": owner, "language": language})
+    return calls
+
+
 def default_brain_endpoint() -> str:
     """Resolve the brain URL without exposing anything to browser code."""
     configured = os.environ.get("WERONIKA_BRAIN_ENDPOINT")

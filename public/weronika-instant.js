@@ -1100,8 +1100,13 @@ const EMERGENCY_CALL_RE =
 // Things that are called without a telephone: "call the API", "call a meeting".
 const NOT_A_PERSON_RE =
   /\b(?:functions?|methods?|apis?|endpoints?|scripts?|code|commands?|class|url|service|number of|meeting|day|bluff|shots?|attention|question|cent(?:er|re)s?|recording|history|logs?|options?|waiting|forwarding|rates?|duty|tone|pad|quality|drops?|sheet)\b/i;
+// Placing a call is genuinely impossible here: she has no dialler. Handling an incoming one
+// is not — that runs on this computer through the local worker, which asks about every call
+// before answering. Keep the opening of CALL_WHY: tests pin it and callers hear it verbatim.
 const CALL_WHY =
-  "I work through the chat pages in a browser window, where I read and type text, so I have no way to speak or listen inside a call.";
+  "I work through the chat pages in a browser window and have no dialler, so I cannot start a call myself.";
+const CALL_WATCH_WHERE =
+  "Incoming calls belong to SETTINGS → Tools → ☎ CALL WATCH, with the local worker running (start.bat): she watches for a call, asks you about each one, and answers only the call you hand over — telling the caller she is your AI assistant, taking the message and hanging up.";
 
 function parseCall(value) {
   if (EMERGENCY_CALL_RE.test(value)) {
@@ -1113,7 +1118,7 @@ function parseCall(value) {
   if (CALL_ANSWER_RE.test(value)) {
     return {
       kind: "say",
-      text: `I can't answer, reject or end calls. ${CALL_WHY} Nothing was answered.`,
+      text: `I can't answer, reject or end a call from this browser tab by myself. ${CALL_WATCH_WHERE} Nothing was answered.`,
     };
   }
   const match = firstMatch(CALL_PLACE_RES, value);
@@ -1480,4 +1485,192 @@ export function matchAlarms(alarms, command, now = new Date()) {
     const at = new Date(alarm.at);
     return at.getHours() === when.at.getHours() && at.getMinutes() === when.at.getMinutes();
   });
+}
+
+// ------------------------------------------------------------- handling calls
+// A call is handled by the local worker, which asks about every single one before it
+// touches the phone. This reader exists for two reasons only:
+//   1. to route the sentence to the worker instead of the cloud brain, and
+//   2. to say honestly that nothing can be done when the worker is offline.
+// The worker stays the authority on what actually happens; nothing here answers a call.
+// The patterns mirror weronika-py/weronika_agent/call_intents.py, and the order matters:
+// a refusal is read before a "take it" phrasing, so "don't answer my calls" can never be
+// mistaken for a request to answer.
+const CALL_NOT_A_REQUEST_RE =
+  /\b(?:call me (?:a |an )?(?:cab|taxi|uber|ola|doctor|plumber)|i'?ll call you|i will call (?:you|him|her|them)|call (?:you|him|her|them) (?:back|later|tomorrow)|what do you call|we call it|they call (?:it|him|her)|a call (?:for|to) (?:help|action)|call of duty|cold call|call the shots|wake[- ]up call|phone a friend)\b/i;
+const CALL_WORD_RE = /\b(?:call|calls|calling|phone|ring|ringing|handset|sim)\b|[कक][ॉो]?ल|फ़ोन/i;
+const CALL_DICTATE_PREFIX_RE =
+  /^\s*(?:say|tell them|tell him|tell her|speak|bol|bolo|bol do|kaho|keh do)\s*[:\-]\s*(.+)$/i;
+const CALL_HEARD_RE =
+  /^\s*(?:he said|she said|they said|caller said|the caller said|he'?s saying|she'?s saying|they'?re saying|usne kaha|unhone kaha|woh (?:bol|keh) (?:raha|rahi) (?:hai|tha)|उसने कहा|वो बोल रहा है)\s*[:\-]?\s*(.+)$/i;
+const CALL_READ_SECRET_RE = /^\s*(?:read|say|speak)\s+(?:it|that|the code)\s+(?:out\s+)?(?:anyway|regardless|please)\s*$/i;
+const CALL_HANDOVER_RE =
+  /^\s*(?:please\s+)?(?:weronika[,\s]+|veronica[,\s]+)?(?:(?:give|hand|pass)\s+(?:me\s+|back\s+)?(?:the\s+)?(?:call|phone|line)|(?:give|hand|pass)\s+(?:it\s+over|it\s+to\s+me)|(?:i'?m|i am)\s+here(?:\s+now)?|main\s+(?:hoon|aa gaya|aa gayi|aaya|aayi)|le lo|phone\s+(?:mujhe\s+)?do|mujhe\s+(?:phone|call)\s+do|de do|i'?ll talk now|main baat kar(?:ta|ti|unga|ungi) hoon)\s*$/i;
+const CALL_END_RE =
+  /^\s*(?:please\s+)?(?:weronika[, ]+|veronica[, ]+)?(?:(?:end|hang ?up|cut|close|drop|disconnect)\s+(?:the\s+|this\s+|up\s+)?(?:call|phone|line)\b|(?:hang ?up|call (?:end|cut|kaat)|kaat do|band kar do|cut kar do|फ़ोन काट दो|कॉल काटो)\s*$)/i;
+const CALL_DECISION_RE =
+  /^\s*(?:please\s+)?(?:weronika[, ]+|veronica[, ]+)?(?:you\s+(?:handle|take|answer|pick|attend)|(?:handle|take|answer|attend)\s+(?:it|the\s+call|the\s+phone)|pick\s+(?:it|the\s+call)\s+up|i'?ll\s+take\s+it|i\s+will\s+(?:take|handle|answer)|let\s+me\s+(?:take|handle|answer)|ignore\s+it|ignore|skip\s+it|let\s+it\s+ring|decline\s+it|reject\s+it|main\s+uthaunga|tum\s+utha\s+lo|aap\s+uthao|mat\s+uthao)\s*(?:it|the\s+call|please)?\s*[.!]*\s*$/i;
+const CALL_ENABLE_RE =
+  /\b(?:(?:can |could |please |now |from now on )?(?:handle|take|attend|answer|pick up|screen|manage|look after)\s+(?:my |the )?(?:phone )?(?:calls?|rings?)\b|(?:calls?|phone)\s+(?:handle|sambhal|sambhalo|uthao|uthaao|attend|manage)\s*(?:kar(?:o| do| diya)?|liya)?\b|(?:meri|mere|humari)\s+(?:calls?|phone)\s+(?:uthao|sambhalo|handle|attend)|(?:be|act as)\s+(?:my\s+)?(?:call\s+)?(?:screener|receptionist|assistant on calls)|(?:watch|monitor|keep an eye on)\s+(?:my\s+)?(?:incoming\s+)?calls?\b|call (?:handling|screening|watch)\s+(?:on|start|shuru|enable)|start (?:handling|answering|taking) (?:my )?calls?\b|कॉल (?:उठाओ|संभालो)|फ़ोन (?:उठाओ|संभालो))/i;
+const CALL_DISABLE_RE =
+  /\b(?:stop|don'?t|do not|no more|turn off|switch off|disable|quit|never)\s+(?:you\s+)?(?:handling|taking|answering|attending|screening|watching|handle|take|answer|pick up|attend|screen|watch)\s+(?:my |the )?(?:phone )?calls?\b|(?:turn|switch)\s+(?:off|out)\s+(?:the\s+)?call\s+(?:handling|screening|watch)\b|call (?:handling|screening|watch)\s+(?:off|stop|band)|(?:calls?|phone)\s+(?:uthana|handle karna)\s+band|कॉल (?:उठाना|संभालना) बंद/i;
+const CALL_SCAN_RE =
+  /\b(?:scan|check|look at|see)\s+(?:my\s+)?(?:the\s+)?(?:calls?|phone)\b|(?:is|are)\s+(?:someone|anyone|anybody|koi)\s+(?:calling|ringing|on the (?:phone|line))|(?:who|kaun)\s+(?:is calling|calling|call kar (?:raha|rahi)|kar raha hai)|(?:any|koi)\s+(?:new\s+|missed\s+|incoming\s+)?calls?\??\s*$|(?:is the phone|phone)\s+ringing|कौन कॉल कर रहा/i;
+const CALL_STATUS_RE =
+  /\b(?:call|calls)\s+(?:status|watch status|setup|settings)\b|what calls (?:did you|have you) (?:handle|handled|answered|taken)|(?:which|what) calls (?:are|were) (?:you )?(?:handling|handled|watching)|(?:show|give)\s+(?:me\s+)?(?:the\s+)?call (?:summary|summaries|log|history)|(?:kaun si|kitni)\s+calls?\b/i;
+const CALL_LINKS_RE =
+  /\b(?:is|are|which|what)\s+(?:my\s+)?(?:phone|device|android|iphone)\s*(?:is\s+|are\s+)?(?:connected|linked|there|detected|plug(?:ged)? in)\b|(?:check|test|show)\s+(?:my\s+)?call\s+(?:setup|link|connection|audio|route)|(?:which|what)\s+(?:audio\s+)?route\b.*\bcalls?\b|\bcalls?\b.*\b(?:audio\s+)?route\b|(?:can you|is it possible to)\s+(?:hear|answer|handle)\s+(?:the\s+)?calls?\s+(?:on|from|through)\s+(?:my\s+)?(?:phone|whatsapp|telegram|sim)|phone (?:connect|link) (?:hai|hai kya|check)/i;
+const CALL_EXAMPLE_QUALIFIER =
+  "(?:(?:incoming|outgoing|phone|whats\\s?app|wa|telegram|tg|sim|video|fake|dummy|scripted|sample|scam|otp)\\s+)*";
+const CALL_SIMULATE_RE = new RegExp(
+  "\\b(?:give|show|run|do|play)\\s+(?:me\\s+)?(?:an?\\s+)?(?:example|demo|sample|test)\\s+" +
+    "(?:of\\s+(?:an?\\s+)?|on\\s+|with\\s+|about\\s+)?" +
+    CALL_EXAMPLE_QUALIFIER +
+    "call\\b" +
+    "|\\b(?:simulate|demo|example|test|run|rehearse)\\s+(?:a\\s+|an\\s+|the\\s+)?" +
+    CALL_EXAMPLE_QUALIFIER +
+    "call\\s*(?:example|demo|simulation)?\\b" +
+    "|\\b(?:whats\\s?app|telegram|phone|sim)\\s+call\\s+(?:example|demo)\\b" +
+    "|\\bexample call\\b|\\bdemo call\\b|\\bcall\\s+(?:example|demo)\\b",
+  "i",
+);
+const CALL_SUMMARY_SEND_RE = /\b(?:send|share|forward)\s+(?:the\s+|that\s+)?(?:call\s+)?summary\s+(?:on|to|via|through)\s+(.+)$/i;
+
+// The three answers to "Are you able to handle the call?" — kept in the same order the
+// worker uses, because "don't answer, I'll take it" means you take it.
+const CALL_CLAIMS_THE_CALL =
+  /\b(?:i'?ll|i will|i am|i'?m|let me|main|mai)\b[\s\w,'-]*\b(?:tak\w*|handl\w*|answer\w*|pick\w*|attend\w*|talk\w*|speak\w*|get|got|utha\w*|le\s+lo|baat\w*|on it)\b/;
+const CALL_KEEPS_THE_CALL =
+  /^(?:me|myself|i|leave it to me|hand it over|give (?:it|the phone|the call) to me|pass (?:it|the phone)|i'?m on it|mine|apna)\b/;
+const CALL_IGNORE_ANSWER =
+  /^(?:no\s+)?(?:please\s+)?(?:just\s+)?(?:ignore|skip|reject|decline|cancel|drop|don'?t|do not|never|no need to)[\w\s'!,.]*|^(?:let it (?:ring|go)|leave it(?: ringing| alone)?|no need|nahi uthao|mat uthao|mat uthana|chhod do|rehne do|cut kar do|उठाना मत|छोड़ दो)[\w\s'!,.]*|^(?:no|nope|nahi|nahin)\s*$/;
+const CALL_USER_ANSWER =
+  /^(?:i(?:'ll|'?ll| will| am|'?m| can| shall)?|me|myself)\s*(?:tak\w*|handl\w*|answer\w*|pick\w*|attend\w*|get|got|talk\w*|speak\w*|do|see|on it)\b.*|^(?:me|myself|i|let me|leave it to me)\s*$|^(?:main|mai|hum)\s+\w+|\b(?:let me|give it to me|hand it over|pass (?:it|the phone)|i'?m on (?:it|the call)|main uthaunga|main uthaungi|main le leta|main baat kar)\b/;
+const CALL_WERONIKA_ANSWER =
+  /^(?:\b(?:yes|yeah|yep|haan|ji|ok|okay|sure|please|kindly|go ahead|do it)\b[\s,]*)*(?:\b(?:you|weronika|veronica|she|her|bot|ai|assistant|can|could|should|would|will|shall|please|kindly|just|go ahead and|ji)\b[\s,]*){0,4}\b(?:handle|take|answer|pick|attend|talk|speak|deal)\w*\b.*|^(?:you|her|she|bot|ai|veronica|weronika|yes|yeah|haan|ji|ok|okay|sure|go ahead|please|handle it|take it|answer it|pick it up|attend it|yes please|you first|do it|assistant|tum utha lo|aap uthao|aap hi utha lo|tum hi uthao|तुम उठा लो|आप उठाओ)\s*[.!]*$/;
+
+export function callChannelWord(text) {
+  const value = String(text || "");
+  if (/\b(?:whats\s?app|wa|whatsapp web)\b/i.test(value)) return "whatsapp";
+  if (/\b(?:telegram|tg)\b/i.test(value)) return "telegram";
+  if (/\b(?:sim|phone|mobile|cell|carrier|cable|usb|adb|android)\b/i.test(value)) return "sim";
+  return "";
+}
+
+export function callRouteWord(text) {
+  const value = String(text || "");
+  if (/\b(?:bluetooth|bt|hands[- ]?free|headset|earbuds|buds)\b/i.test(value)) return "bluetooth";
+  if (/\b(?:aux|line[- ]?in|3\.?5\s?mm|wired)\b/i.test(value)) return "aux";
+  if (/\b(?:speaker|mic|mike|loudspeaker)\b/i.test(value)) return "speaker_mic";
+  return "";
+}
+
+// The answer to her question, in whichever language it came: "weronika", "user", "ignore",
+// or "" when the sentence is not an answer at all.
+export function parseCallDecision(text) {
+  const value = String(text || "")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/^[.!?]+|[.!?]+$/g, "");
+  if (!value) return "";
+  if (["weronika", "user", "ignore"].includes(value)) return value;
+  if (CALL_CLAIMS_THE_CALL.test(value) || CALL_KEEPS_THE_CALL.test(value)) return "user";
+  if (CALL_IGNORE_ANSWER.test(value)) return "ignore";
+  if (CALL_USER_ANSWER.test(value)) return "user";
+  if (CALL_WERONIKA_ANSWER.test(value)) return "weronika";
+  return "";
+}
+
+// Is this sentence about handling calls at all? Deliberately broad, because the worker
+// decides what to do with it; deliberately not so broad that "call me a cab" qualifies.
+export function hasCallIntent(text) {
+  const value = String(text || "").trim();
+  if (!value || value.length > 400) return false;
+  if (CALL_DICTATE_PREFIX_RE.test(value)) return true;
+  if (CALL_NOT_A_REQUEST_RE.test(value)) return false;
+  if (!CALL_WORD_RE.test(value)) return false;
+  return (
+    CALL_ENABLE_RE.test(value) ||
+    CALL_DISABLE_RE.test(value) ||
+    CALL_SCAN_RE.test(value) ||
+    CALL_STATUS_RE.test(value) ||
+    CALL_LINKS_RE.test(value) ||
+    CALL_SIMULATE_RE.test(value) ||
+    CALL_SUMMARY_SEND_RE.test(value) ||
+    CALL_END_RE.test(value) ||
+    CALL_HANDOVER_RE.test(value) ||
+    CALL_READ_SECRET_RE.test(value) ||
+    CALL_DECISION_RE.test(value)
+  );
+}
+
+// A short answer only means something while a call is ringing or live. The orb asks this
+// before handing an ordinary sentence to the worker.
+export function hasCallAnswer(text) {
+  const value = String(text || "").trim();
+  if (!value || value.length > 120) return false;
+  return Boolean(
+    parseCallDecision(value) || CALL_HANDOVER_RE.test(value) || CALL_END_RE.test(value),
+  );
+}
+
+// Read a call request the same way the worker does, so the orb can answer at once when the
+// worker is offline instead of asking the cloud brain to do something only this device can.
+export function parseCallRequest(text) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  const unhandled = { action: "unhandled", decision: "", text: "", channel: "", route: "" };
+  if (!value || value.length > 400) return unhandled;
+  const dictated = value.match(CALL_DICTATE_PREFIX_RE);
+  if (dictated) {
+    return { ...unhandled, action: "dictate", text: dictated[1].trim().slice(0, 600) };
+  }
+  if (CALL_NOT_A_REQUEST_RE.test(value)) return unhandled;
+  const channel = callChannelWord(value);
+  const route = callRouteWord(value);
+  if (CALL_READ_SECRET_RE.test(value)) return { ...unhandled, action: "read_secret", channel, route };
+  if (CALL_HANDOVER_RE.test(value)) return { ...unhandled, action: "handover", channel, route };
+  if (CALL_END_RE.test(value)) return { ...unhandled, action: "end", channel, route };
+  if (CALL_DECISION_RE.test(value)) {
+    const decision = parseCallDecision(value);
+    if (decision) return { ...unhandled, action: "decide", decision, channel, route };
+  }
+  const heard = value.match(CALL_HEARD_RE);
+  if (heard) return { ...unhandled, action: "hear", text: heard[1].trim().slice(0, 600), channel, route };
+  const summary = value.match(CALL_SUMMARY_SEND_RE);
+  if (summary) return { ...unhandled, action: "summary_send", text: summary[1].trim(), channel, route };
+  if (CALL_SIMULATE_RE.test(value)) return { ...unhandled, action: "simulate", channel, route };
+  if (CALL_DISABLE_RE.test(value)) return { ...unhandled, action: "disable", channel, route };
+  if (CALL_ENABLE_RE.test(value)) return { ...unhandled, action: "enable", channel, route };
+  if (CALL_LINKS_RE.test(value)) return { ...unhandled, action: "links", channel, route };
+  if (CALL_STATUS_RE.test(value)) return { ...unhandled, action: "status", channel, route };
+  if (CALL_SCAN_RE.test(value)) return { ...unhandled, action: "scan", channel, route };
+  return unhandled;
+}
+
+// What the orb says when a call request arrives while the worker is offline. It never
+// promises a call was handled, because without the worker nothing could have been.
+export function callWorkerOfflineReply(text) {
+  const intent = parseCallRequest(text);
+  const wanted = intent.channel === "telegram" ? " Telegram has no calling on any surface Weronika can reach, so a Telegram call cannot be watched or answered." : "";
+  if (intent.action === "unhandled") {
+    return `The local worker is offline, so no call can be watched or answered right now. Open Weronika with start.bat on this computer and try again. Nothing was dialled.${wanted}`;
+  }
+  const what = {
+    enable: "start watching for incoming calls",
+    disable: "stop watching for calls",
+    scan: "look for a ringing call",
+    status: "read the call status",
+    links: "check which phone is on the cable",
+    simulate: "run an example call",
+    decide: "answer for a ringing call",
+    handover: "take the phone back",
+    end: "end a call",
+    hear: "take a line from the caller",
+    dictate: "say your own words into a call",
+    summary_send: "send a call summary",
+    read_secret: "read a code out",
+  }[intent.action];
+  return `The local worker is offline, so Weronika cannot ${what || "handle that call"}. Start her with start.bat on the computer the phone is plugged into, then ask again. No call was answered, ended or dialled.${wanted}`;
 }

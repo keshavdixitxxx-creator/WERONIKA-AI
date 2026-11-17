@@ -179,6 +179,19 @@ class BrowserManager:
         pages = context.pages
         return pages[0] if pages else context.new_page()
 
+    def signed_in_page(self, platform: Platform):
+        """The already-open page for a platform, or None when its window is not open.
+
+        Call handling polls every couple of seconds, so looking for a ringing call must
+        never launch a browser window as a side effect. Opening and signing in stays an
+        explicit action you ask for.
+        """
+        context = self._contexts.get(platform)
+        if context is None:
+            return None
+        pages = getattr(context, "pages", None) or []
+        return pages[0] if pages else None
+
     def workspace_browser(self):
         """Public accessor for the user-visible managed browser."""
         return self._workspace_browser()

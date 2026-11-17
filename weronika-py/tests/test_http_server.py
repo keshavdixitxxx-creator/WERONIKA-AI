@@ -454,9 +454,31 @@ class LocalHttpServerTests(unittest.TestCase):
         ids = {skill["id"] for skill in catalog["skills"]}
         self.assertIn("reply-watch-propose", ids)
         self.assertIn("send-message", ids)
+        # Incoming calls are handled now, so the catalog lists them as skills...
+        for call_skill in ("call-watch-ask", "call-handle", "call-setup", "call-example"):
+            self.assertIn(call_skill, ids)
         reasons = {entry["id"] for entry in catalog["unavailable"]}
         self.assertIn("auto-send", reasons)
-        self.assertIn("calls", reasons)
+        # ...and the blanket "calls are unavailable" refusal is gone, replaced by the three
+        # things that genuinely still cannot be done.
+        self.assertNotIn("calls", reasons)
+        self.assertIn("telegram-calls", reasons)
+        self.assertIn("outgoing-calls", reasons)
+        self.assertIn("iphone-sim-calls", reasons)
+
+    def test_every_call_skill_names_its_confirmation_step(self):
+        with self.request("/api/skills") as response:
+            catalog = json.load(response)
+        for skill in catalog["skills"]:
+            if not skill["id"].startswith("call-"):
+                continue
+            self.assertTrue(skill["summary"], skill["id"])
+            self.assertTrue(skill["commands"], skill["id"])
+            self.assertTrue(skill["safety"], skill["id"])
+        by_id = {skill["id"]: skill for skill in catalog["skills"]}
+        self.assertIn("AI", by_id["call-handle"]["safety"])
+        self.assertIn("every call", by_id["call-watch-ask"]["summary"].casefold())
+        self.assertIn("never written", by_id["call-handle"]["safety"].casefold())
 
     def test_reply_watch_adds_scans_and_prepares_a_confirmed_reply(self):
         with self.request(

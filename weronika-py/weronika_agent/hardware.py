@@ -70,6 +70,27 @@ def _nvidia_gpus() -> list[dict[str, str]]:
     return gpus
 
 
+def call_setup_status() -> dict[str, object]:
+    """Call readiness: the audio side plus whether a phone can be reached over a cable.
+
+    Both halves are cheap and best-effort. Nothing is installed, no browser is opened, and
+    a missing piece is reported as a reason rather than a silent ``False``.
+    """
+    from .adb_calls import find_adb
+    from .call_audio import speech_setup_status
+
+    speech = speech_setup_status()
+    adb = find_adb()
+    speech["adb"] = str(adb) if adb else ""
+    speech["adb_ready"] = bool(adb)
+    speech["channels"] = ["phone (SIM)", "WhatsApp"]
+    speech["telegram"] = (
+        "Telegram calling is not possible on any surface Weronika can reach: Telegram Web has "
+        "no calls and the Bot API cannot make or receive them. Telegram stays text-only."
+    )
+    return speech
+
+
 def detect_hardware() -> dict[str, object]:
     """Return a non-sensitive, best-effort inventory; no model is run or downloaded."""
     total_memory = _total_memory_bytes()
@@ -83,4 +104,5 @@ def detect_hardware() -> dict[str, object]:
         "nvidia_gpus": _nvidia_gpus(),
         "model_runtime": "triposr-cpu-ready" if model["available"] else "not-configured",
         "blueprint_model": model,
+        "call_setup": call_setup_status(),
     }

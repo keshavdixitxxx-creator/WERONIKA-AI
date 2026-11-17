@@ -20,13 +20,16 @@ from .blueprint import (
     glb_to_vrm,
     reconstruct_photo,
 )
+from .call_intents import has_call_intent, parse_call_request, telegram_note
+from .calls import CallWatchError
 from .hardware import detect_hardware
 from .intents import parse_message_request
 from .memory_store import MAX_MEMORY_BYTES, MemoryStore, MemoryStoreError
 from .models import Platform
 from .news import NewsError, fetch_news
+from .phone_link import scan_links
 from .reply_watch import ReplyWatchError
-from .service import create_messaging_service
+from .service import create_call_service, create_messaging_service
 from .site_service import SiteError, SiteService
 from .tasks import ACTIONS, TaskError
 from .web_intents import plan_local, url_for_system_open, wants_system_browser
@@ -56,6 +59,7 @@ def make_handler(
     memory: MemoryStore | None = None,
     apps: AppLauncher | None = None,
     news=None,
+    calls=None,
 ):
     local_workspace = workspace or LocalWorkspace()
     memory_store = memory or MemoryStore()
@@ -227,6 +231,19 @@ def make_handler(
             if parsed.path == "/api/watch/item":
                 self._watch_item(parse_qs(parsed.query).get("draft_id", [""])[0])
                 return
+            if parsed.path == "/api/call/status":
+                self._send_json(200, self._call_status())
+                return
+            if parsed.path == "/api/call/capabilities":
+                self._send_json(200, self._call_capabilities())
+                return
+            if parsed.path == "/api/call/links":
+                # Which phone is on the cable, and what it can be asked to do.
+                try:
+                    self._send_json(200, scan_links())
+                except Exception as exc:
+                    self._send_json(200, {"links": [], "summary": f"Phones could not be scanned: {exc}"})
+                return
             if parsed.path == "/api/task/status":
                 self._task_status(parse_qs(parsed.query).get("task_id", [""])[0])
                 return
@@ -364,6 +381,15 @@ def make_handler(
                     "/api/sites/open",
                     "/api/sites/close",
                     "/api/sites/focus",
+                    "/api/call/scan",
+                    "/api/call/decide",
+                    "/api/call/hear",
+                    "/api/call/say",
+                    "/api/call/handover",
+                    "/api/call/end",
+                    "/api/call/summary",
+                    "/api/call/configure",
+                    "/api/call/simulate",
                 }:
                     self._automation_stream(path, data)
                     return
@@ -411,7 +437,15 @@ def make_handler(
                     self._send_json(404, {"error": "Unknown local API route."})
                     return
                 self._send_json(200, result)
-            except (ValueError, MessagingError, ReplyWatchError, WorkspaceError, SiteError, MemoryStoreError) as exc:
+            except (
+                ValueError,
+                MessagingError,
+                ReplyWatchError,
+                WorkspaceError,
+                SiteError,
+                MemoryStoreError,
+                CallWatchError,
+            ) as exc:
                 self._send_json(400, {"error": str(exc)})
             except Exception:
                 self._send_json(500, {"error": "Weronika encountered an unexpected local error. Check the terminal output."})
@@ -465,6 +499,8 @@ def make_handler(
                     )
                 elif path.startswith("/api/watch/"):
                     result = self._watch_stream(path, data, progress)
+                elif path.startswith("/api/call/"):
+                    result = self._call_stream(path, data, progress)
                 elif path.startswith("/api/task/") or path == "/api/browse/open":
                     result = self._task_stream(path, data, progress)
                 elif path.startswith("/api/sites/"):
@@ -475,7 +511,7 @@ def make_handler(
                     result = service.cancel(self._text(data, "draft_id"), progress=progress)
                 payload = result.to_dict() if hasattr(result, "to_dict") else result
                 emit({"type": "result", "workflow": payload})
-            except (ValueError, MessagingError, ReplyWatchError, TaskError, SiteError) as exc:
+            except (ValueError, MessagingError, ReplyWatchError, TaskError, SiteError, CallWatchError) as exc:
                 emit({"type": "error", "message": str(exc)})
             except Exception:
                 emit({"type": "error", "message": "The local automation worker encountered an unexpected error."})
@@ -486,6 +522,7 @@ def make_handler(
                 "worker": "weronika-py",
                 "mode": "loopback-only",
                 "reply_watch": watch is not None,
+                "call_watch": calls is not None,
                 "skills": skills is not None,
                 "browser_tasks": tasks is not None,
                 "sites": True,
@@ -496,6 +533,39 @@ def make_handler(
             if skills is not None:
                 payload["skill_count"] = len(skills.catalog()["skills"])
             return payload
+
+        def _call_status(self) -> dict[str, object]:
+            if calls is None:
+                return {
+                    "available": False,
+                    "items": [],
+                    "active": [],
+                    "awaiting": [],
+                    "live": [],
+                    "reminders": [],
+                    "busy": False,
+                    "settings": {},
+                    "reason": "Call handling is not running in this worker.",
+                }
+            state = calls.list_state()
+            state["available"] = True
+            return state
+
+        def _call_capabilities(self) -> dict[str, object]:
+            if calls is None:
+                return {
+                    "available": False,
+                    "channels": [],
+                    "audio": {"available": False, "reason": "Call handling is not running in this worker."},
+                    "telegram": telegram_note(),
+                }
+            report = calls.capabilities()
+            report["available"] = True
+            try:
+                report["links"] = scan_links()
+            except Exception as exc:
+                report["links"] = {"links": [], "summary": f"Phones could not be scanned: {exc}"}
+            return report
 
         def _watch_status(self) -> dict[str, object]:
             state = watch.list_state()
@@ -739,6 +809,197 @@ def make_handler(
                 **watch.propose(item_id, intent.reply).to_dict(),
             }
 
+        def _call_stream(self, path: str, data: dict[str, object], progress) -> object:
+            if calls is None:
+                raise CallWatchError(
+                    "Call handling is not running in this worker. Start it with start.bat, "
+                    "or with `python start.py` on a machine that has the call support installed."
+                )
+            if path == "/api/call/configure":
+                settings = calls.configure(data)
+                return {"stage": "configure", "settings": settings, "prompt": _configure_prompt(settings)}
+            if path == "/api/call/scan":
+                scan = calls.scan(progress=progress)
+                for note in scan.get("notes", []):
+                    progress(f"Call note · {note}")
+                if skills is not None:
+                    skills.mark_used("call-watch-ask")
+                return {"stage": "scan", **scan}
+            if path == "/api/call/simulate":
+                report = self._run_call_example(data, progress)
+                if skills is not None:
+                    skills.mark_used("call-example")
+                return {"stage": "simulate", **report, "prompt": _example_prompt(report)}
+            item_id = self._text(data, "item_id") or self._text(data, "draft_id")
+            if path == "/api/call/decide":
+                result = calls.decide(item_id, self._text(data, "decision"), progress=progress)
+                if skills is not None:
+                    skills.mark_used("call-handle")
+                return result
+            if path == "/api/call/hear":
+                return calls.hear(item_id, self._text(data, "text"), progress=progress)
+            if path == "/api/call/say":
+                if data.get("read_secret") is True:
+                    # The second step of reading a code aloud, after she refused the first.
+                    return calls.retry_secret(progress=progress)
+                return calls.dictate(item_id, self._text(data, "text"), progress=progress)
+            if path == "/api/call/handover":
+                return calls.handover(item_id, progress=progress)
+            if path == "/api/call/end":
+                return calls.end(
+                    item_id,
+                    self._text(data, "reason"),
+                    goodbye=data.get("goodbye") is not False,
+                    progress=progress,
+                )
+            if path == "/api/call/summary":
+                return calls.prepare_summary_message(
+                    item_id,
+                    self._text(data, "platform") or "whatsapp",
+                    self._text(data, "recipient"),
+                    progress=progress,
+                )
+            raise CallWatchError("Unknown call route.")
+
+        def _run_call_example(self, data: dict[str, object], progress):
+            from .call_demo import list_examples, run_example
+
+            if data.get("list") is True:
+                return {
+                    "simulated": True,
+                    "examples": list_examples(),
+                    "prompt": "These example calls can be run without a phone: "
+                    + ", ".join(item["id"] for item in list_examples())
+                    + ".",
+                }
+            speaker = None
+            if data.get("speak") is True:
+                from .call_audio import build_speaker
+
+                candidate = build_speaker()
+                speaker = candidate if candidate.describe().get("available") else None
+                if speaker is None:
+                    progress("No voice engine is installed, so the example is shown instead of spoken.")
+            return run_example(
+                self._text(data, "scenario"),
+                decision=self._text(data, "decision"),
+                owner=self._text(data, "owner") or calls.settings().get("owner", "Commander"),
+                responder=calls.responder,
+                speak=speaker is not None,
+                speaker=speaker,
+                progress=progress,
+            )
+
+        def _call_route(self, data: dict[str, object]) -> dict[str, object]:
+            """Understand a call request typed or spoken in the orb, without the cloud brain."""
+            text = self._text(data, "text")
+            intent = parse_call_request(text)
+            if calls is None or intent.action == "unhandled":
+                return {"handled": False}
+            action = intent.action
+            if action == "enable":
+                settings: dict[str, object] = {"enabled": True}
+                if intent.channel is not None:
+                    settings["channels"] = [intent.channel.value]
+                if intent.route is not None:
+                    settings["route"] = intent.route.value
+                configured = calls.configure(settings)
+                return {
+                    "handled": True,
+                    "kind": "call-setup",
+                    "settings": configured,
+                    "capabilities": calls.capabilities(),
+                    "prompt": _enable_prompt(calls, configured),
+                }
+            if action == "disable":
+                configured = calls.configure({"enabled": False})
+                return {
+                    "handled": True,
+                    "kind": "call-setup",
+                    "settings": configured,
+                    "prompt": (
+                        "Call handling is off. Weronika will not watch for calls, answer one, or ask "
+                        "you about one until you say “handle my calls” again."
+                    ),
+                }
+            if action == "scan":
+                scan = calls.scan()
+                if skills is not None:
+                    skills.mark_used("call-watch-ask")
+                return {"handled": True, "kind": "call-scan", **scan}
+            if action == "status":
+                state = calls.list_state()
+                return {"handled": True, "kind": "call-status", **state, "prompt": _call_status_prompt(calls, state)}
+            if action == "links":
+                if skills is not None:
+                    skills.mark_used("call-setup")
+                report = scan_links()
+                report["capabilities"] = calls.capabilities()
+                return {"handled": True, "kind": "call-links", **report, "prompt": _links_prompt(report)}
+            if action == "simulate":
+                report = self._run_call_example(
+                    {"scenario": _scenario_for(text, intent.channel)}, None
+                )
+                if skills is not None:
+                    skills.mark_used("call-example")
+                return {"handled": True, "kind": "call-example", **report, "prompt": _example_prompt(report)}
+            if action == "summary_send":
+                current = calls.current()
+                if current is None:
+                    return {
+                        "handled": True,
+                        "prompt": "There is no call summary to send yet. Weronika writes one when she has handled a call.",
+                    }
+                if not intent.recipient:
+                    return {
+                        "handled": True,
+                        "prompt": "Who should get the call summary? For example: “send the summary on WhatsApp to Boss”.",
+                    }
+                draft = calls.prepare_summary_message(
+                    current.id, intent.platform or "whatsapp", intent.recipient
+                )
+                return {
+                    "handled": True,
+                    "kind": "call-summary",
+                    **draft,
+                    "prompt": (
+                        f"The call summary is prepared for {intent.recipient}. "
+                        "Nothing is sent until you say “confirm send”."
+                    ),
+                }
+
+            # Everything below is about the call that is ringing or live right now.
+            current = calls.current()
+            if current is None:
+                return {
+                    "handled": True,
+                    "prompt": (
+                        "No call is ringing or live right now, so there is nothing to decide. "
+                        "Say “scan calls” and Weronika will look again."
+                    ),
+                }
+            if action == "decide":
+                result = calls.decide(current.id, intent.decision)
+                if skills is not None and intent.decision == "weronika":
+                    skills.mark_used("call-handle")
+                return {"handled": True, "kind": "call", **result.to_dict()}
+            if action == "read_secret":
+                result = calls.retry_secret()
+                return {"handled": True, "kind": "call", **result.to_dict()}
+            if action == "handover":
+                result = calls.handover(current.id)
+                return {"handled": True, "kind": "call", **result.to_dict()}
+            if action == "end":
+                result = calls.end(current.id, "You asked Weronika to end the call.")
+                return {"handled": True, "kind": "call", **result.to_dict()}
+            if action == "hear":
+                result = calls.hear(current.id, intent.text)
+                return {"handled": True, "kind": "call", **result.to_dict()}
+            if action == "dictate":
+                result = calls.dictate(current.id, intent.text)
+                return {"handled": True, "kind": "call", **result.to_dict()}
+            return {"handled": False}
+
         @staticmethod
         def _text(data: dict[str, object], key: str) -> str:
             value = data.get(key, "")
@@ -748,6 +1009,13 @@ def make_handler(
             text = self._text(data, "text")
             if not text:
                 raise ValueError("Enter a message request first.")
+            # A short answer like "you handle it" or "kaat do" only means something while
+            # a call is ringing or live, so it is routed locally then and left to the cloud
+            # brain at every other moment.
+            if has_call_intent(text) or (calls is not None and calls.current() is not None):
+                handled_call = self._call_route(data)
+                if handled_call.get("handled"):
+                    return handled_call
             if has_watch_intent(text):
                 watched = self._watch_route(data)
                 if watched.get("handled"):
@@ -764,6 +1032,160 @@ def make_handler(
             return service.prepare(parsed.platform, parsed.recipient, parsed.message).to_dict()
 
     return Handler
+
+
+def _configure_prompt(settings: dict[str, object]) -> str:
+    channels = ", ".join(str(item) for item in settings.get("channels") or []) or "phone (SIM), WhatsApp"
+    state = "on" if settings.get("enabled") else "off"
+    return (
+        f"Call handling is {state} for: {channels}. "
+        "Weronika asks you about each call before she answers, and she tells the caller she is an AI."
+    )
+
+
+def _enable_prompt(service, settings: dict[str, object]) -> str:
+    """What the orb says when you ask her to handle your calls."""
+    report = service.capabilities()
+    ready = [
+        entry
+        for entry in report.get("channels") or []
+        if isinstance(entry, dict) and entry.get("available")
+    ]
+    audio = report.get("audio") or {}
+    lines = [
+        "Weronika will watch for incoming calls and ask you about each one: "
+        "“Are you able to handle the call, or should I take it?” "
+        "She never answers without asking, and she always tells the caller she is an AI."
+    ]
+    if ready:
+        lines.append(
+            "Ready now: "
+            + ", ".join(str(entry.get("channel_display") or entry.get("channel")) for entry in ready)
+            + "."
+        )
+    else:
+        reasons = [
+            str(entry.get("reason"))
+            for entry in report.get("channels") or []
+            if isinstance(entry, dict) and entry.get("reason")
+        ]
+        lines.append(
+            "No channel is ready yet" + (f": {reasons[0]}" if reasons else "") + "."
+        )
+    if not audio.get("available"):
+        lines.append(f"Call audio: {audio.get('reason') or 'no route available'}.")
+    elif not audio.get("automatic"):
+        speech = (audio.get("speech") or {}).get("reason", "")
+        lines.append(
+            f"Audio route: {audio.get('route')}. {speech or 'Typed mode: you tell her what the caller said.'}"
+        )
+    else:
+        lines.append(f"Audio route: {audio.get('route')} — she can listen and speak by herself.")
+    lines.append(telegram_note())
+    lines.append('Say “show me an example call” to watch the whole flow without a phone ringing.')
+    return "\n".join(lines)
+
+
+def _call_status_prompt(service, state: dict[str, object]) -> str:
+    settings = state.get("settings") or {}
+    if not settings.get("enabled", True):
+        return "Call handling is off. Say “handle my calls” to switch it on."
+    awaiting = state.get("awaiting") or []
+    live = state.get("live") or []
+    if awaiting:
+        first = awaiting[0]
+        return service.review_hint(str(first["item_id"]))
+    if live:
+        first = live[0]
+        turns = first.get("transcript") or []
+        tail = " / ".join(
+            f"{'Caller' if turn['speaker'] == 'caller' else 'Weronika'}: {turn['text']}"
+            for turn in list(turns)[-2:]
+            if isinstance(turn, dict)
+        )
+        return f"A call with {first.get('caller')} is live. {tail}"
+    items = state.get("items") or []
+    handled = [item for item in items if item.get("decision") == "weronika"]
+    if not items:
+        return (
+            "No calls have come in since Weronika started watching. "
+            "She asks about each one; she never answers on her own."
+        )
+    return (
+        f"{len(items)} call(s) recorded, {len(handled)} handled by Weronika. "
+        "Nothing is ringing right now."
+    )
+
+
+def _links_prompt(report: dict[str, object]) -> str:
+    lines = [str(report.get("summary") or "")]
+    for link in report.get("links") or []:
+        if not isinstance(link, dict):
+            continue
+        name = link.get("name") or link.get("kind")
+        state = "linked" if link.get("connected") else "not linked"
+        lines.append(f"— {name} ({state}): {link.get('reason') or 'ready'}")
+    audio = (report.get("capabilities") or {}).get("audio") or {}
+    if audio:
+        lines.append(
+            f"Audio route: {audio.get('route', 'none')} — "
+            f"{audio.get('reason') or ('she can listen and speak by herself' if audio.get('automatic') else 'typed mode')}"
+        )
+    lines.append(telegram_note())
+    return "\n".join(line for line in lines if line)
+
+
+def _scenario_for(text: str, channel) -> str:
+    """Which example a chat request should run.
+
+    A named example wins ("show me an example call, the otp-scam one"); otherwise the
+    channel decides, and a request with neither gets the default example.
+    """
+    from .call_demo import EXAMPLES, example_for_channel
+
+    lowered = " ".join(str(text or "").split()).casefold()
+    for scenario_id in EXAMPLES:
+        if scenario_id in lowered or scenario_id.replace("-", " ") in lowered:
+            return scenario_id
+    return example_for_channel(channel)
+
+
+def _example_prompt(report: dict[str, object]) -> str:
+    if report.get("error"):
+        return str(report["error"])
+    examples = report.get("examples")
+    if examples:
+        # A listing, not a run: name each example and what it demonstrates.
+        lines = ["These example calls run without a phone, a browser session, or a microphone:"]
+        for entry in list(examples)[:8]:
+            if not isinstance(entry, dict):
+                continue
+            lines.append(f"· {entry.get('id')} — {entry.get('title')} ({entry.get('channel')})")
+            if entry.get("shows"):
+                lines.append(f"    shows {entry['shows']}")
+        lines.append(
+            "Say “show me an example call”, or name the channel: “show me an example of a WhatsApp call”."
+        )
+        return "\n".join(lines)
+    scenario = report.get("scenario") or {}
+    lines = [
+        f"Example call · {scenario.get('title', '')}. {report.get('note', '')}",
+        f"She asked you: “{report.get('question', '')}”",
+    ]
+    transcript = report.get("transcript") or []
+    for turn in list(transcript)[:8]:
+        if not isinstance(turn, dict):
+            continue
+        who = "Caller" if turn.get("speaker") == "caller" else ("You" if turn.get("speaker") == "you" else "Weronika")
+        lines.append(f"{who}: {turn.get('text')}")
+    if len(transcript) > 8:
+        lines.append(f"…and {len(transcript) - 8} more line(s).")
+    for flag in list(report.get("flags") or [])[:4]:
+        lines.append(f"Flagged: {flag}")
+    if report.get("summary"):
+        lines.append("")
+        lines.append(str(report["summary"]))
+    return "\n".join(lines)
 
 
 def _scan_prompt(scan: dict[str, object]) -> str:
@@ -816,6 +1238,28 @@ def main() -> None:
             "Use 'off' to keep every suggestion on this device."
         ),
     )
+    parser.add_argument(
+        "--no-calls",
+        dest="calls",
+        action="store_false",
+        help="Do not watch for incoming calls at all.",
+    )
+    parser.add_argument(
+        "--call-audio-route",
+        default="",
+        help="Audio route for calls: speaker_mic, bluetooth, aux, or auto (default).",
+    )
+    parser.add_argument(
+        "--speech-engine",
+        default="auto",
+        help="Call transcription: whisper, vosk, typed, or auto (default).",
+    )
+    parser.add_argument(
+        "--owner-name",
+        default="Commander",
+        help="How Weronika refers to you when she speaks to a caller.",
+    )
+    parser.set_defaults(calls=True)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
@@ -823,15 +1267,41 @@ def main() -> None:
     service, adapters, watch, skills, tasks = create_messaging_service(
         args.profile_dir, brain_endpoint=args.brain_endpoint
     )
+    calls = None
+    if args.calls:
+        try:
+            calls = create_call_service(
+                brain_endpoint=args.brain_endpoint,
+                owner=args.owner_name,
+                audio_route=args.call_audio_route,
+                speech_engine=args.speech_engine,
+                messaging=service,
+                browser=getattr(adapters, "browser", None),
+            )
+        except Exception as exc:  # pragma: no cover - depends on local audio/adb install
+            calls = None
+            print(f"Call handling could not start ({exc}); everything else still works.")
     server = LocalServer(
         ("127.0.0.1", args.port),
-        make_handler(service, adapters, watch=watch, skills=skills, tasks=tasks),
+        make_handler(service, adapters, watch=watch, skills=skills, tasks=tasks, calls=calls),
     )
     url = f"http://127.0.0.1:{args.port}/"
     print(f"Weronika local messaging is running at {url}")
     print("It is loopback-only; browser sessions and message drafts stay on this device.")
     print("Reply watch reads only the chats you name, and every send still needs your confirmation.")
     print("Weronika's conversation memory is kept in ~/.weronika/memory on this device.")
+    if calls is not None:
+        audio = calls.capabilities()["audio"]
+        print("Call handling is watching: she asks you about each call, and tells the caller she is an AI.")
+        if audio.get("automatic"):
+            print(f"Call audio: {audio.get('route')} — she can listen and speak by herself.")
+        else:
+            print(
+                "Call audio: typed mode"
+                + (f" ({audio.get('reason')})" if audio.get("reason") else "")
+                + " — run setup-calls.bat to let her listen and speak."
+            )
+        print("Call audio is never written to disk; only the words are kept, in memory.")
     if args.open_browser:
         threading.Timer(0.8, webbrowser.open, args=(url,)).start()
     try:

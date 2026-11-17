@@ -76,7 +76,117 @@ accounts should be automated through the official Bot API, so this worker reads 
 you already signed in to and keeps that session on this device. Nothing is sent
 unless you confirm the exact text or choose “Weronika replies” for that one message.
 A reply she writes is a short general answer: she knows what the other person wrote,
-not your plans, so check what she sent. Calls are not handled at all.
+not your plans, so check what she sent. Calls are handled by a separate flow, described
+next; reply watch itself never answers one.
+
+## Handling calls
+
+The orb's **☎ CALL WATCH** panel answers the other everyday problem: the phone rings
+while you are busy, and the caller either gets nobody or gets you at the worst moment.
+Weronika watches for an incoming call, tells you who it is, and asks — for **every**
+call — **“Are you able to handle the call, or should I take it?”** Hand it over and she
+answers, says who she is, listens, takes the message and hangs up. Say you will take it
+and she leaves the phone completely alone.
+
+1. **Choose the channels.** _Phone (SIM) and WhatsApp_ is the default. A SIM call needs
+   the phone on a cable with USB debugging allowed and `adb` reachable (install Android
+   platform-tools, or set `WERONIKA_ADB` to the executable). A WhatsApp call needs the
+   Weronika browser window signed in to WhatsApp Web. Scanning never opens a browser:
+   if the window is closed, she says so instead of launching one.
+2. **She looks every few seconds.** `POST /api/call/scan`. On the phone she reads the
+   telephony state over `adb`; on WhatsApp Web she reads the visible call screen in the
+   signed-in page. If that screen changes shape and she cannot certainly identify the
+   answer control, she reports _unknown_ and does nothing rather than pressing a button
+   that might be _Decline_.
+3. **She asks you first, and only once per call.** The question is spoken aloud, shown
+   in the panel and sent as a desktop notification. There is no “always answer” setting
+   anywhere: `POST /api/call/configure` with `auto_answer`, `always_answer` or
+   `answer_all` is refused, and a preference you gave for an earlier call is never
+   reused for a later one. If you do not answer within the decision window she reminds
+   you once, then leaves the call to you.
+4. **The caller is told the truth.** Answering with _Weronika takes it_ makes her say,
+   in her first line, that she is your AI assistant and not a human, and that you cannot
+   come to the phone. If the caller asks again — “are you a robot?” — she confirms it
+   again. `capabilities()` reports `asks_every_call` and `discloses_every_call` as
+   fixed facts, not settings.
+5. **She listens, answers and takes the message.** Her wording comes from the cloud
+   brain's `call-reply` task when it is reachable and confirms it wrote the line; a line
+   she had to word herself is flagged in the transcript, so you can see which is which.
+   She takes messages, and never agrees, promises, pays, confirms an order or accepts a
+   decision on your behalf — that is yours.
+6. **Secrets stay out of it.** A one-time code, card or account number, password, PIN or
+   UPI handle in what the caller said is replaced with `[withheld]` before it is stored,
+   and she refuses to read one out. Reading one aloud takes two deliberate steps: she
+   refuses first, and only `POST /api/call/say` with `read_secret: true` after that
+   explicit insistence repeats it.
+7. **Typed mode when no speech engine is installed.** Hearing and speaking need the
+   optional `setup-calls.bat` packages. Without them nothing breaks silently: the panel
+   says _typed mode_, you type what the caller said, and she answers it in her own words
+   — the same disclosure, the same message-taking, the same hang-up.
+8. **The summary.** When the call ends she writes who called, what they wanted, what she
+   said and how it ended, plus every flag. `POST /api/call/summary` prepares it for a
+   chat you name; sending still goes through the usual `confirm send`.
+
+| Route                                                        | What it does                                                                                                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/call/status`                                       | Every call item with its phase, transcript, flags and summary, plus settings and the audio situation. Each undecided call carries its question.     |
+| `GET /api/call/capabilities`                                 | Per-channel availability with reasons, the live sound route, the fixed ask-and-disclose promises, the Telegram explanation, and the cable scan.      |
+| `GET /api/call/links`                                        | Which phones are on the cable and what each one really allows (`weronika_agent/phone_link.py`).                                                     |
+| `POST /api/call/scan`                                        | One look for a ringing call on every watched channel; reports what it could not check.                                                             |
+| `POST /api/call/decide` `{item_id, decision}`                | Your answer for that one call: `weronika`, `user` or `ignore`. An unparsable answer is refused with the three choices, never guessed.               |
+| `POST /api/call/hear` `{item_id, text}`                      | Adds what the caller said and produces her reply. Used by typed mode and by automatic listening alike.                                              |
+| `POST /api/call/say` `{item_id, text}`                       | Speaks your exact words into the call. With `{read_secret: true}` instead, it is the second step of reading a withheld code out.                     |
+| `POST /api/call/handover` `{item_id}`                        | Gives the phone back to you without hanging up.                                                                                                    |
+| `POST /api/call/end` `{item_id, reason}`                     | Hangs up (with a goodbye by default) and writes the summary.                                                                                       |
+| `POST /api/call/summary` `{item_id, platform, recipient}`    | Prepares the summary in the existing messaging flow. Nothing is sent until you confirm.                                                            |
+| `POST /api/call/configure` `{enabled, channels, owner, …}`   | Channels, sound route, what she calls you, the longest call she stays on, unknown-numbers-only. Refuses any auto-answer switch and Telegram.         |
+| `POST /api/call/simulate` `{scenario}` or `{list: true}`     | Runs one scripted example end to end, or lists them. No phone, browser session or microphone is used, and the report says so.                        |
+
+**How the sound travels.** A call's audio cannot cross a USB cable — Android does not
+expose call audio over `adb`, and `capabilities()` reports `audio_over_cable: false`
+rather than implying otherwise. So `weronika_agent/call_audio.py` owns three honest
+routes and reports which one is live:
+
+- `speaker_mic` — the phone stands on speaker beside the laptop; this microphone hears
+  the caller and these speakers play her voice into the phone's microphone. Nothing to
+  buy, works at once, and depends on a quiet room. This is the default.
+- `bluetooth` — the phone is paired to this computer as a hands-free headset, so call
+  audio arrives digitally and goes back the same way. Best quality; needs one pairing.
+- `aux` — a 3.5 mm cable from the phone's headphone socket into this computer's line-in.
+
+A WhatsApp Web call has a fourth route, `browser`: the signed-in page taps its own remote
+audio stream and posts the samples to the worker (`whatsapp_calls.py`), so nothing is
+recorded from a microphone in that case. When the tap cannot attach, it falls back to the
+microphone route and says so — an unreachable phone or page is never reported as “the
+caller said nothing”.
+
+**Speech engines, tiered.** `setup-calls.bat` (or `python setup_calls.py`) installs
+`sounddevice`, `faster-whisper`, `vosk` and `pyttsx3`, plus a small offline Vosk model.
+Whisper is used when present, Vosk when it is not, and typed mode when neither is —
+`GET /api/hardware` reports which under `call_setup`, and `python setup_calls.py
+--report` prints the same without installing anything. Model files live in
+`~/.weronika/models`.
+
+**Call audio is never written to disk.** One utterance lives in memory just long enough
+to become words; the words go into the in-memory transcript and the samples are dropped.
+The in-page WhatsApp tap keeps at most thirty seconds in a browser-side ring buffer and
+drains it as base64. There is no recording, not even for debugging.
+
+**See it without a phone.** `python -m weronika_agent.call_demo --scenario otp-scam`
+(or _RUN_ in the panel) plays one scripted call all the way through and prints the
+question she asked, the transcript, the flags and the summary. Scenarios: `site-papers`
+(the default), `otp-scam`, `whatsapp-client`, `hinglish-family`, `you-take-it`. Nothing
+is dialled.
+
+**Honest limits.** Telegram calling is not possible on any surface this worker can
+reach: Telegram Web has no calling feature and the Bot API cannot make or receive calls,
+so a Telegram call is neither detected nor answered — `configure` refuses to enable that
+channel and every capability report explains why. Weronika does not dial out: placing a
+call in your name is a commitment she should not make. An iPhone is reported as connected
+but unable to have its SIM calls handled, because iOS exposes nothing equivalent to `adb`
+for telephony; an iPhone owner gets the WhatsApp route, and the setup panel says so
+instead of showing a button that silently does nothing. Instagram calls are not handled
+at all.
 
 ## Opening apps, music, headlines
 
@@ -152,7 +262,9 @@ the worker window is scripted.
 - Reply-watch state (which chats you watch, the last message that triggered an item, the draft) stays in worker memory. Message bodies are not written to local files or request logs.
 - Reply watch pauses automatically while an older draft is still open in the orb, so it cannot overwrite or send your prepared text. Alerts never click or send anything. A reply goes out without a typed confirmation only after you chose “Weronika replies” for that one message, and only with wording you saw or wording the cloud brain confirmed as a reply draft.
 - Message drafts are held in memory for up to ten minutes. Message bodies are not written to local files or request logs.
-- Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely. Direct text messaging is supported across WhatsApp, Telegram, Instagram, Messenger, and X; incoming call detection, answering, live call audio, and call summaries are not implemented. Never infer permission to answer a call from a prior preference; any future call flow must ask about each call and tell the other participant they are speaking with an AI.
+- Messaging is visible-UI automation, not an official platform integration. Website selectors may change; when the worker cannot verify the right UI, it stops safely. Direct text messaging is supported across WhatsApp, Telegram, Instagram, Messenger, and X.
+- Call handling follows the same rule, and it is not a preference: permission to answer is never inferred from an earlier call, so every call is asked about separately, and the other participant is told they are speaking with an AI. `configure` refuses `auto_answer`, `always_answer` and `answer_all`. She takes messages; she never agrees, promises, pays, confirms or decides for you, and a one-time code, card number, password or UPI handle is withheld from the transcript rather than repeated.
+- Call audio is processed on this device and is never written to disk: one utterance lives in memory only long enough to become words. A SIM call needs the phone on a cable with `adb`; its audio still travels by speaker, Bluetooth pairing or line-in, because Android does not expose call audio over a cable. Telegram calling is impossible on every surface this worker can reach, and Weronika does not dial out.
 
 ## Windows quick start
 
@@ -165,6 +277,26 @@ If setup is interrupted or dependencies need reinstalling, delete `.venv` and ru
 The default photo action is a browser-based relief preview. To generate an actual mesh locally, first run `start.bat` once, then run `setup-blueprint.bat` and type `YES` at its confirmation prompt. This installs CPU-only PyTorch and the MIT-licensed TripoSR source in the Weronika Python environment; the model weights download from Hugging Face on first generation. Photos are sent only to the loopback worker and are removed with the temporary job directory.
 
 CPU inference may take several minutes per image and can use substantial system memory. A C++ build toolchain may be required for `torchmcubes` on Windows; if compilation fails, install Visual Studio Build Tools with the C++ workload and retry. TripoSR produces a real single-view mesh/GLB, but unseen sides are inferred and its output is not guaranteed to match Meshy AI's quality. The browser provides **GENERATE 3D MODEL** only when the local worker detects a completed setup; **RELIEF PREVIEW** remains available separately.
+
+## Optional call audio
+
+Call watching, asking and answering work without any extra install: Weronika detects the
+call, asks you, and runs the conversation in typed mode. To let her **hear** the caller
+and **speak** her own lines, run `start.bat` once, then run `setup-calls.bat` and type
+`YES` at its confirmation prompt. That installs `sounddevice`, `faster-whisper`, `vosk`
+and `pyttsx3` in the Weronika Python environment, plus a small offline Vosk model in
+`~/.weronika/models`. Whisper's own weights download on first use.
+
+`python setup_calls.py --report` prints what is installed and which engine would be used,
+without installing anything; `--engines vosk` is a lighter install, and `--no-models`
+skips the Vosk model download. Audio is processed by this local worker only: it is never
+uploaded and never written to disk.
+
+For a SIM call you also need the phone itself reachable: USB debugging allowed, the phone
+on a cable, and Android platform-tools installed (or `WERONIKA_ADB` pointing at `adb`).
+Then choose how the sound travels — phone on speaker next to this computer, a Bluetooth
+hands-free pairing, or a 3.5 mm cable into line-in. **☎ CALL WATCH → RE-SCAN PHONE AND
+SOUND** reports which route is actually live, and says plainly when none is.
 
 ## Manual start (macOS/Linux or Windows)
 
@@ -185,6 +317,13 @@ keep every suggestion on this device, where a small built-in phrase set is used
 instead. With the brain off, “Weronika replies” can only send a suggestion you were
 shown. The chat text that is sent for a suggestion is the watched message only (up to
 the last three waiting messages).
+
+Call handling starts with the worker and can be shaped from the command line:
+`--no-calls` leaves it out entirely, `--call-audio-route` prefers a sound route
+(`speaker_mic`, `bluetooth`, `aux`; it is honoured only when such a device exists),
+`--speech-engine` picks `whisper`, `vosk` or `typed`, and `--owner-name` sets what she
+calls you on a call (default `Commander`). Every one of them is reported back through
+`GET /api/call/capabilities` rather than applied silently.
 
 The existing hosted orb URL remains available for ordinary cloud chat. To use local automation, open the orb served locally by this worker; the hosted page cannot access your computer's loopback service. The hosted cloud-brain deployment must include the `automation-plan` task added in this change; until that version is deployed, the local worker will reject incomplete or non-JSON plans rather than guess.
 
