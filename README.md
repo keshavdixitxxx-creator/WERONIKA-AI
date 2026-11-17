@@ -10,6 +10,7 @@ Weronika is a voice-and-text assistant. Her conversation UI is served by the web
 - **No media generation:** Weronika does not generate images, videos, or songs. The app has no such route, and the brain is told to say so instead of pretending.
 - **Things she does herself, at once:** “open Notepad”, “find India Gate on the map”, “set an alarm for 6:30 am”, “tell me the news”, “add a meeting tomorrow at 4 pm to my calendar”. These are understood on the device and are not sent to the brain. See [Instant commands](#instant-commands).
 - **Away replies:** when someone messages you on WhatsApp or Telegram and you have not answered, she asks “Should I reply, or will you?”. Only if you choose her does she write the answer, open the chat and send it. See [Reply watch](#reply-watch-whatsapp--telegram).
+- **Incoming calls:** when your phone rings on a cable, or a WhatsApp call arrives in her signed-in window, she asks “Are you able to handle the call, or should I take it?” — for every call. Hand it over and she answers, tells the caller she is your AI assistant, takes the message and hangs up. See [Calls](#calls-phone-over-cable--whatsapp).
 - **Screen and mini orb:** share your screen and ask “what is this error?”; a small always-on-top orb window keeps her in front of your other windows. See [Screen and mini orb](#screen-and-mini-orb).
 - **A voice and a tone of her own:** after **LAUNCH** she greets you aloud. Her tone with you is set under SETTINGS → Address: romantic (the default), friendly, or professional. It is never used in mails or in replies written for other people.
 - **Local worker for device automation:** opening programs, messaging and reply watch run through `weronika-py` on your own computer because they use your own programs and your signed-in browser session. Without it, the orb stays a cloud-brain chat that can still open links, keep alarms and draft mails, and nothing is read, typed, or sent in your accounts.
@@ -170,6 +171,45 @@ web session you already signed in to. Instagram's web app has no dependable mess
 list, so reading DMs is refused there rather than guessed. See
 [weronika-py/README.md](weronika-py/README.md) for the full flow and limits.
 
+## Calls (phone over cable / WhatsApp)
+
+The orb has a **☎ CALL WATCH** panel (SETTINGS → Tools) and a matching chat vocabulary:
+“handle my calls”, “scan calls”, “which phone is connected?”, “show me an example call”.
+Weronika watches for an incoming call on the phone linked over a cable and on WhatsApp
+Web, and asks you about **every** call:
+
+**“Are you able to handle the call, or should I take it?”**
+
+- **WERONIKA TAKES IT** (or “you handle it”, “tum utha lo”): she answers, tells the
+  caller she is your AI assistant and that you cannot come to the phone, listens, takes
+  the message in her own words, and hangs up. If the caller asks whether she is a robot,
+  she says yes. She takes messages only: she never agrees, promises, pays, confirms an
+  order or decides anything for you, and a one-time code, card number, password or UPI
+  handle is withheld from the transcript instead of being repeated.
+- **I'LL TAKE IT** (or “I'll take it”, “main aa gaya”): she leaves the phone completely
+  alone and does not speak.
+- **IGNORE IT**: she declines that one call.
+
+When the call ends she writes a summary — who called, what they wanted, what she said,
+how it ended, and every flag — which you can have prepared for a chat you name. Sending
+still needs your `confirm send`.
+
+Hearing and speaking need the optional `setup-calls.bat` install (a speech engine and an
+audio library). Until then nothing breaks silently: the panel says **typed mode**, you
+type what the caller said, and she answers it in her own words with the same disclosure
+and the same summary. A call's sound cannot travel through a USB cable, so it moves by
+air or wire: the phone on speaker beside this computer (the default), a Bluetooth
+hands-free pairing, or a 3.5 mm cable into line-in. The panel reports which route is
+actually live. Call audio is processed on your computer and is **never written to disk**.
+
+There is no “always answer” setting anywhere — permission for one call is never carried
+over to the next — and she does not dial out. **Telegram calls cannot be handled at all:**
+Telegram Web has no calling feature and the Bot API cannot make or receive calls, so the
+panel says that instead of pretending. An iPhone is reported as connected but unable to
+have its SIM calls handled, because iOS exposes nothing like `adb` for telephony; the
+WhatsApp route still works. See [weronika-py/README.md](weronika-py/README.md) for the
+routes, the endpoints and the full list of limits.
+
 ## Browser tasks (search, open, play, post)
 
 The orb can also plan and run browser steps: search the web, open a specific result,
@@ -184,8 +224,9 @@ for the step list and limits.
 
 | Account                                    | How it is connected                                                                                  | What Weronika can do                                                                                                                              |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| WhatsApp                                   | On your computer: start the worker, say “open WhatsApp”, scan the QR code once in Weronika's window. | Send a message you confirm, watch named chats, reply when you choose her.                                                                         |
-| Telegram                                   | Same, with “open Telegram” and your phone number.                                                    | Same as WhatsApp.                                                                                                                                 |
+| WhatsApp                                   | On your computer: start the worker, say “open WhatsApp”, scan the QR code once in Weronika's window. | Send a message you confirm, watch named chats, reply when you choose her, and handle a WhatsApp call when you hand it over.                       |
+| Telegram                                   | Same, with “open Telegram” and your phone number.                                                    | Same as WhatsApp, except calls: Telegram has no calling on any surface she can reach.                                                             |
+| Phone (SIM)                                | The phone on a USB cable with debugging allowed, and `adb` installed on the computer.                 | See a ringing call, ask you about it, answer and end it when you choose her. Its audio travels by speaker, Bluetooth or line-in, never by cable.   |
 | Gmail                                      | Google OAuth on the web app (next section).                                                          | List the inbox, read and summarize the messages you select, draft a reply, send after your review. Without OAuth: compose windows with her draft. |
 | Hotmail / Outlook.com                      | Nothing to connect.                                                                                  | A compose window with her draft filled in. She cannot read this inbox.                                                                            |
 | Instagram                                  | Signing in to Weronika's window lets her prepare a direct message you confirm.                       | She does not read Instagram messages or watch them: its web app has no dependable message list.                                                   |
@@ -193,12 +234,18 @@ for the step list and limits.
 
 Not supported, and not faked:
 
-- **Calls.** Weronika does not place, answer, or speak in phone, WhatsApp, Telegram or
-  Instagram calls. She works through the chat pages in a browser window, where she
-  reads and types text; she has no way to speak or listen inside a call, and nothing
-  here detects an incoming call. “Call mom” is answered with exactly that, on the
-  device, and she offers to write a message instead. Asked to call an ambulance or
-  the police, she says at once that you must dial yourself (112 in India).
+- **Placing a call.** Weronika answers incoming calls after asking you about each one;
+  she does not dial out. Placing a call in your name is a commitment she should not make
+  on her own, so there is no dialler. “Call mom” is answered with exactly that, on the
+  device, and she offers to write a message instead. Asked to call an ambulance or the
+  police, she says at once that you must dial yourself (112 in India).
+- **Telegram and Instagram calls.** Telegram Web has no calling feature and the Bot API
+  cannot make or receive calls, so a Telegram call is neither detected nor answered.
+  Instagram calls are not handled at all. Phone (SIM) and WhatsApp calls are; see
+  [Calls](#calls-phone-over-cable--whatsapp).
+- **SIM calls on an iPhone.** iOS exposes nothing equivalent to `adb` for telephony, so a
+  laptop cannot see a ringing cellular call on an iPhone, answer it, or hear it through
+  the cable. Weronika says so in the CALL WATCH panel and offers the WhatsApp route.
 - **Home devices** (AC, lights, fan, TV) are not controlled: the app has no smart-home
   connection yet. “Turn on the AC” is answered with that, on the device, instead of
   being passed to a language model that might pretend. An AC or TV that listens only

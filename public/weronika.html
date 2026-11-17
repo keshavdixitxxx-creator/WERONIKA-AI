@@ -903,6 +903,115 @@
     </div>
   </div>
 
+  <div class="watch-panel call-panel" id="callPanel" aria-hidden="true">
+    <div class="watch-panel-header">
+      <span>WERONIKA · CALL WATCH</span>
+      <button type="button" class="settings-close-btn" id="callCloseBtn" aria-label="Close call watch">×</button>
+    </div>
+    <div class="watch-panel-body">
+      <div class="settings-status">
+        Weronika watches for an incoming call and asks you about <strong>every</strong> one: “Are you able to
+        handle the call, or should I take it?” Answer <strong>WERONIKA TAKES IT</strong> and she picks up, tells
+        the caller she is your AI assistant and that you cannot come to the phone, listens, takes the message in
+        her own words, and hangs up. Answer <strong>I'LL TAKE IT</strong> and she leaves the phone completely
+        alone. A remembered preference is never used: each call is asked separately. She does not dial out, does
+        not agree, promise, pay or confirm anything for you, and never repeats a one-time code, password, card
+        number or UPI handle. Call audio stays on this computer and is never written to disk.
+      </div>
+      <div class="settings-status" id="callStatusLine" role="status" aria-live="polite">Checking the local worker…</div>
+      <div class="settings-status" id="callTelegramLine"></div>
+
+      <div class="watch-form">
+        <label class="settings-label" for="callChannels">Watch for calls on</label>
+        <select id="callChannels" class="settings-input">
+          <option value="sim,whatsapp" selected>Phone (SIM) and WhatsApp</option>
+          <option value="sim">Phone (SIM) only</option>
+          <option value="whatsapp">WhatsApp only</option>
+        </select>
+
+        <label class="settings-label" for="callRoute">How the sound reaches this computer</label>
+        <select id="callRoute" class="settings-input">
+          <option value="" selected>Detect and recommend</option>
+          <option value="speaker_mic">Phone on speaker + this microphone</option>
+          <option value="bluetooth">Bluetooth hands-free pairing</option>
+          <option value="aux">3.5 mm cable into line-in</option>
+        </select>
+
+        <label class="settings-label" for="callOwner">What she calls you on the call</label>
+        <input id="callOwner" class="settings-input" maxlength="60" autocomplete="off" placeholder="Commander · Keshav">
+
+        <label class="settings-label" for="callLength">Longest call she will stay on</label>
+        <select id="callLength" class="settings-input">
+          <option value="120">2 minutes</option>
+          <option value="360" selected>6 minutes</option>
+          <option value="900">15 minutes</option>
+        </select>
+
+        <label class="watch-check"><input type="checkbox" id="callUnknownOnly"> Only unknown numbers (skip people in your contacts)</label>
+
+        <button type="button" class="hud-btn settings-mini-btn" id="callSaveBtn">SAVE CALL SETTINGS</button>
+        <button type="button" class="hud-btn settings-mini-btn" id="callScanBtn">SCAN FOR CALLS NOW</button>
+        <button type="button" class="hud-btn settings-mini-btn" id="callOffBtn">STOP HANDLING CALLS</button>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Phone and sound on this computer</div>
+        <div class="settings-status" id="callLinksLine">Checking which phone is on the cable…</div>
+        <div class="watch-list" id="callLinks"></div>
+        <div class="settings-status" id="callAudioLine"></div>
+        <div class="watch-actions" id="callSetupActions"></div>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Ringing now · she asks you first</div>
+        <div class="watch-items" id="callAwaiting"><div class="settings-status">No call is ringing.</div></div>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Live call</div>
+        <div class="watch-items" id="callLive"><div class="settings-status">No live call.</div></div>
+        <div class="settings-status" id="callTypedHint"></div>
+        <div class="watch-form">
+          <label class="settings-label" for="callTypedLine">What the caller just said</label>
+          <input id="callTypedLine" class="settings-input" maxlength="600" autocomplete="off"
+                 placeholder="he said the papers are ready">
+          <button type="button" class="hud-btn settings-mini-btn" id="callHeardBtn">SHE HEARS THIS</button>
+          <label class="settings-label" for="callSpokenLine">Say this in your own words</label>
+          <input id="callSpokenLine" class="settings-input" maxlength="600" autocomplete="off"
+                 placeholder="I will call you back in ten minutes">
+          <button type="button" class="hud-btn settings-mini-btn" id="callSayBtn">WERONIKA SAYS THIS</button>
+        </div>
+        <div class="watch-list" id="callTranscript"></div>
+        <div class="watch-actions" id="callLiveActions"></div>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">Recent calls and their summaries</div>
+        <div class="watch-form">
+          <label class="settings-label" for="callSummaryTo">Send the summary to</label>
+          <input id="callSummaryTo" class="settings-input" maxlength="80" autocomplete="off" placeholder="Boss · Rahul">
+          <select id="callSummaryPlatform" class="settings-input">
+            <option value="whatsapp" selected>WhatsApp</option>
+            <option value="telegram">Telegram</option>
+          </select>
+          <div class="settings-status">A summary is only prepared here. It is sent from the chat, after you reply <strong>confirm send</strong>.</div>
+        </div>
+        <div class="watch-list" id="callHistory"><div class="settings-status">No call handled yet.</div></div>
+      </div>
+
+      <div class="watch-block">
+        <div class="settings-section-title">See it without a phone ringing</div>
+        <div class="settings-status">
+          Runs one scripted example all the way through — the question she asks you, the disclosure the caller
+          hears, a message taken, a one-time code refused, the hang-up and the summary. Nothing is dialled, no
+          browser session is used, and no microphone is opened.
+        </div>
+        <div class="watch-actions" id="callExampleActions"></div>
+        <div class="settings-status" id="callExampleLine"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-panel" id="settingsPanel">
     <div class="settings-panel-header">
       <span>WERONIKA · SETTINGS</span>
@@ -912,7 +1021,7 @@
 
       <div class="settings-section">
         <div class="settings-section-title">AI Brain</div>
-        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X, and can prepare up to 10 public websites to open from this browser. Site opening needs only your click on OPEN ALL; messaging still needs start.bat and your sign-in in the local browser. Weronika shows the resolved contact and exact message for your confirmation. REPLY WATCH lets her read the chats you name and ask, or suggest a reply, when someone is left waiting — still with your confirmation before anything is typed. Incoming-call detection, answering, live call audio, and call summaries are not supported yet.</div>
+        <div class="settings-status">The hosted brain can plan direct text messages for WhatsApp, Telegram, Instagram, Messenger, and X, and can prepare up to 10 public websites to open from this browser. Site opening needs only your click on OPEN ALL; messaging still needs start.bat and your sign-in in the local browser. Weronika shows the resolved contact and exact message for your confirmation. REPLY WATCH lets her read the chats you name and ask, or suggest a reply, when someone is left waiting — still with your confirmation before anything is typed. CALL WATCH asks you about each incoming call on the phone linked over a cable or on WhatsApp Web; hand one over and she answers, tells the caller she is your AI assistant, takes the message and hangs up. Hearing and speaking need the optional setup-calls.bat — until then she runs the same call in typed mode and says so. She never dials out, and Telegram has no calling on any surface she can reach.</div>
         <div class="settings-status" id="automationConnectionStatus">Checking for the local Python worker…</div>
       </div>
 
@@ -920,9 +1029,10 @@
         <div class="settings-section-title">Tools</div>
         <div class="settings-controls">
           <button type="button" class="hud-btn settings-mini-btn" id="watchOpenBtn" aria-pressed="false">◎ REPLY WATCH</button>
+          <button type="button" class="hud-btn settings-mini-btn" id="callOpenBtn" aria-pressed="false">☎ CALL WATCH</button>
           <button type="button" class="hud-btn settings-mini-btn" id="skillsOpenBtn" aria-pressed="false">✧ SKILLS</button>
         </div>
-        <div class="settings-status">Reply watch reads only the chats you name and asks before anything is sent. Skills lists what runs on this computer, what each one needs, and the honest gaps.</div>
+        <div class="settings-status">Reply watch reads only the chats you name and asks before anything is sent. Call watch asks you about each incoming phone or WhatsApp call, and takes one only when you hand it over. Skills lists what runs on this computer, what each one needs, and the honest gaps.</div>
       </div>
 
       <div class="settings-section">
@@ -1676,7 +1786,11 @@
       ALARM_LIMIT,
       MAIL_BODY_LIMIT,
       asksAboutScreen,
+      callWorkerOfflineReply,
       clientTimeLabel,
+      hasCallAnswer,
+      hasCallIntent,
+      parseCallRequest,
       parseWatchRequest,
       watchWaitSeconds,
       dayPlanPrompt,
@@ -3320,6 +3434,15 @@
           if (status.memory === true && !memoryMirrorReady) void syncMemoryMirror();
           void loadWatchState();
           startReplyWatchPolling();
+          // A call rings for twenty seconds or so, so call watching starts with the worker
+          // and keeps scanning whether or not the panel is open.
+          callState.available = status.call_watch === true;
+          if (status.call_watch !== true) {
+            callState.reason = "Call handling is not running in this worker. Restart it with start.bat, or check that it was not started with --no-calls.";
+          }
+          startCallWatchPolling();
+          void refreshCallPanel();
+          void refreshCallCapabilities();
           void readWorkerJson("/api/browse/capabilities", null).then((caps) => {
             if (browseCapsLine) browseCapsLine.textContent = browseCapabilityLabel(caps);
           });
@@ -4451,7 +4574,7 @@
       return data;
     }
 
-    async function watchAction(path, payload) {
+    async function streamWorkerAction(path, payload, offlineHint, rejectedMessage) {
       let response;
       try {
         response = await fetch(path, {
@@ -4461,17 +4584,18 @@
           cache: "no-store",
         });
       } catch {
-        throw new Error(watchWorkerHint());
+        throw new Error(offlineHint);
       }
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "The local worker rejected that reply-watch request. Nothing was sent.");
+        throw new Error(data.error || rejectedMessage);
       }
       if (!response.body) throw new Error("The local worker returned no progress stream.");
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let result = null;
+      const notes = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -4484,11 +4608,22 @@
           let event;
           try { event = JSON.parse(raw); } catch { continue; }
           if (event.type === "error") throw new Error(event.message || "The local worker stopped safely.");
+          if (event.type === "progress" && event.message) notes.push(String(event.message));
           if (event.type === "result") result = event.workflow;
         }
       }
       if (!result) throw new Error("The local worker stopped before returning a result.");
+      result.progressNotes = notes;
       return result;
+    }
+
+    async function watchAction(path, payload) {
+      return streamWorkerAction(
+        path,
+        payload,
+        watchWorkerHint(),
+        "The local worker rejected that reply-watch request. Nothing was sent.",
+      );
     }
 
     const WATCH_AUTOMATION = /^(?:\d{1,2}|make it|say|reply|use|change it to|send the current|hold on|leave it|skip it|no reply)\b/i;
@@ -5819,6 +5954,7 @@
 
     function isAutomationRequest(text) {
       const value = String(text || "");
+      if (hasCallIntent(value) || callNeedsAnAnswer(value)) return true;
       if (hasWatchIntent(value)) return true;
       const hasPlatform = AUTOMATION_PLATFORM_PATTERN.test(value);
       if (AUTOMATION_OPEN_SITE_PATTERN.test(value) && AUTOMATION_SITE_TARGET_PATTERN.test(value)) return true;
@@ -5866,6 +6002,21 @@
       // An alarm that is ringing hears "stop" and "snooze" first.
       const rung = answerRingingAlarm(text);
       if (rung) return rung;
+      // Calls are read before the instant commands and before the cloud brain: while one
+      // is ringing, "answer the call" or "kaat do" is an answer to Weronika's question, not
+      // a request for the offline "I can't answer calls" reply and not a message to plan.
+      try {
+        const called = await runCallPlan(text);
+        if (called) {
+          keepPrivate();
+          if (responseToken !== assistantTurnToken) return null;
+          return called;
+        }
+      } catch (error) {
+        keepPrivate();
+        return error instanceof Error ? error.message : "Call handling stopped safely. No call was answered.";
+      }
+      if (responseToken !== assistantTurnToken) return null;
       // What Weronika does herself, at once, without the cloud brain: apps, maps, music,
       // Google shortcuts, the clock, alarms, timers, reminders, headlines.
       const instant = parseInstantCommand(text, new Date());
@@ -6881,6 +7032,759 @@
     }
     window.addEventListener("weronika-launch", greetOnLaunch);
     if (window.__weronikaLaunched) greetOnLaunch();
+
+    // ---- Call watch ------------------------------------------------------------------
+    // One incoming call is one question. Nothing here answers a call, and nothing here
+    // remembers an answer for the next one.
+    const callOpenBtn = document.getElementById("callOpenBtn");
+    const callPanel = document.getElementById("callPanel");
+    const callCloseBtn = document.getElementById("callCloseBtn");
+    const callStatusLine = document.getElementById("callStatusLine");
+    const callTelegramLine = document.getElementById("callTelegramLine");
+    const callChannels = document.getElementById("callChannels");
+    const callRoute = document.getElementById("callRoute");
+    const callOwner = document.getElementById("callOwner");
+    const callLength = document.getElementById("callLength");
+    const callUnknownOnly = document.getElementById("callUnknownOnly");
+    const callSaveBtn = document.getElementById("callSaveBtn");
+    const callScanBtn = document.getElementById("callScanBtn");
+    const callOffBtn = document.getElementById("callOffBtn");
+    const callLinksLine = document.getElementById("callLinksLine");
+    const callLinksList = document.getElementById("callLinks");
+    const callAudioLine = document.getElementById("callAudioLine");
+    const callSetupActions = document.getElementById("callSetupActions");
+    const callAwaiting = document.getElementById("callAwaiting");
+    const callLive = document.getElementById("callLive");
+    const callTypedHint = document.getElementById("callTypedHint");
+    const callTypedLine = document.getElementById("callTypedLine");
+    const callHeardBtn = document.getElementById("callHeardBtn");
+    const callSpokenLine = document.getElementById("callSpokenLine");
+    const callSayBtn = document.getElementById("callSayBtn");
+    const callTranscript = document.getElementById("callTranscript");
+    const callLiveActions = document.getElementById("callLiveActions");
+    const callSummaryTo = document.getElementById("callSummaryTo");
+    const callSummaryPlatform = document.getElementById("callSummaryPlatform");
+    const callHistory = document.getElementById("callHistory");
+    const callExampleActions = document.getElementById("callExampleActions");
+    const callExampleLine = document.getElementById("callExampleLine");
+
+    const CALL_SCAN_MS = 3000;
+    const CALL_STATUS_MS = 6000;
+    const CALL_CAPS_MS = 20000;
+    const CALL_ROUTE_LABELS = {
+      speaker_mic: "phone on speaker + this microphone",
+      bluetooth: "Bluetooth hands-free pairing",
+      aux: "3.5 mm cable into line-in",
+      browser: "the WhatsApp page's own call audio",
+      none: "no sound route yet",
+    };
+    const CALL_PHASE_LABELS = {
+      ringing: "ringing",
+      awaiting_user: "waiting for your answer",
+      answering: "answering",
+      live: "live",
+      handover: "handed back to you",
+      ended: "ended",
+      declined: "declined",
+      missed: "missed",
+      failed: "could not be handled",
+    };
+    const callNotified = new Set();
+    const callState = {
+      available: false,
+      enabled: true,
+      items: [],
+      awaiting: [],
+      live: [],
+      settings: {},
+      audio: {},
+      channels: [],
+      links: null,
+      telegram: "",
+      examples: [],
+      reason: "",
+    };
+    let callScanInFlight = false;
+    let callLastScanAt = 0;
+    let callLastStatusAt = 0;
+    let callLastCapsAt = 0;
+    let callTicker = null;
+    let callFocusItemId = "";
+
+    function callWorkerHint() {
+      return "The local worker is offline, so no call can be watched. Open Weronika with start.bat, then open CALL WATCH again. Nothing was answered.";
+    }
+
+    function callPanelOpen() {
+      return Boolean(callPanel && callPanel.classList.contains("open"));
+    }
+
+    function setCallOpen(open) {
+      if (!callPanel) return;
+      const shouldOpen = typeof open === "boolean" ? open : !callPanel.classList.contains("open");
+      callPanel.classList.toggle("open", shouldOpen);
+      callPanel.setAttribute("aria-hidden", String(!shouldOpen));
+      if (callOpenBtn) callOpenBtn.setAttribute("aria-pressed", String(shouldOpen));
+      if (shouldOpen) {
+        callLastCapsAt = 0;
+        void refreshCallPanel();
+        void loadCallExamples();
+      }
+    }
+
+    async function callAction(path, payload) {
+      return streamWorkerAction(
+        path,
+        payload,
+        callWorkerHint(),
+        "The local worker rejected that call request. Nothing was dialled, answered or said.",
+      );
+    }
+
+    async function readCallJson(path) {
+      const response = await fetch(path, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Could not read ${path}.`);
+      return data;
+    }
+
+    function callChannelWanted() {
+      const channels = Array.isArray(callState.channels) ? callState.channels : [];
+      return channels.filter((entry) => entry && entry.available !== false);
+    }
+
+    function applyCallSettings(settings) {
+      if (!settings || typeof settings !== "object") return;
+      callState.settings = settings;
+      const channels = Array.isArray(settings.channels) ? settings.channels.map(String) : [];
+      if (callChannels && channels.length) {
+        const value = channels.slice().sort().join(",");
+        for (const option of Array.from(callChannels.options)) {
+          if (option.value.split(",").slice().sort().join(",") === value) {
+            callChannels.value = option.value;
+            break;
+          }
+        }
+      }
+      if (callRoute && settings.route) callRoute.value = String(settings.route);
+      if (callOwner && settings.owner && document.activeElement !== callOwner) callOwner.value = String(settings.owner);
+      if (callLength && settings.max_call_seconds) callLength.value = String(settings.max_call_seconds);
+      if (callUnknownOnly) callUnknownOnly.checked = settings.unknown_only === true;
+      callState.enabled = settings.enabled !== false;
+    }
+
+    function renderCallLine(node, text) {
+      if (node) node.textContent = text;
+    }
+
+    function buildCallRow(title, detail) {
+      const row = document.createElement("div");
+      row.className = "settings-status";
+      const head = document.createElement("strong");
+      head.textContent = title;
+      row.appendChild(head);
+      if (detail) {
+        row.appendChild(document.createTextNode(` — ${detail}`));
+      }
+      return row;
+    }
+
+    function renderCallLinks() {
+      if (!callLinksList) return;
+      callLinksList.textContent = "";
+      const report = callState.links;
+      if (!report) {
+        callLinksList.appendChild(buildCallRow("Not scanned yet", "choose RE-SCAN PHONE AND SOUND"));
+        return;
+      }
+      renderCallLine(callLinksLine, String(report.summary || ""));
+      const links = Array.isArray(report.links) ? report.links : [];
+      if (!links.length) {
+        callLinksList.appendChild(buildCallRow("No phone on the cable", "WhatsApp calls in the signed-in browser window are the other route"));
+        return;
+      }
+      for (const link of links) {
+        const verdict = link.can_handle_sim_calls
+          ? "SIM calls can be handled"
+          : link.connected
+            ? "connected, but SIM calls cannot be handled"
+            : "not connected";
+        const row = buildCallRow(
+          `${link.name || "Phone"} · ${link.kind === "iphone" ? "iPhone" : "Android"}`,
+          `${verdict}. ${link.reason || ""}`.trim(),
+        );
+        callLinksList.appendChild(row);
+      }
+    }
+
+    function renderCallAudio() {
+      const audio = callState.audio || {};
+      const route = CALL_ROUTE_LABELS[audio.route] || String(audio.route || "none");
+      const engine = audio.automatic === true
+        ? `hearing callers automatically with ${audio.engine || "the installed speech engine"}`
+        : "typed mode — she cannot hear by herself yet";
+      const reason = String(audio.reason || audio.audio_note || "").trim();
+      renderCallLine(
+        callAudioLine,
+        `Sound: ${route} · ${engine}.${reason ? ` ${reason}` : ""}`,
+      );
+      if (callTypedHint) {
+        callTypedHint.textContent = audio.automatic === true
+          ? "She is hearing and speaking by herself. The boxes below still work if you would rather type a line."
+          : "Typed mode: run setup-calls.bat for hearing and speaking, or type what the caller says below and she will answer it in her own words.";
+      }
+    }
+
+    function callFocusItem() {
+      const live = Array.isArray(callState.live) ? callState.live : [];
+      return live.find((item) => item.item_id === callFocusItemId) || live[0] || null;
+    }
+
+    function renderCallTranscript(item) {
+      if (!callTranscript) return;
+      callTranscript.textContent = "";
+      const turns = item && Array.isArray(item.transcript) ? item.transcript : [];
+      if (!turns.length) {
+        callTranscript.appendChild(buildCallRow("Nothing said yet", ""));
+        return;
+      }
+      for (const turn of turns) {
+        const who = turn.speaker === "caller" ? "Caller" : turn.speaker === "you" ? "You" : "Weronika";
+        const row = buildCallRow(who, String(turn.text || ""));
+        if (turn.withheld) {
+          row.appendChild(document.createTextNode(" (a code or number in that line was withheld)"));
+        }
+        callTranscript.appendChild(row);
+      }
+    }
+
+    function renderCallCards() {
+      if (!localAutomationConnected || callState.available === false) {
+        renderCallLine(
+          callStatusLine,
+          callState.reason || (localAutomationConnected
+            ? "Call handling is not running in this worker. Restart it with start.bat."
+            : callWorkerHint()),
+        );
+      } else if (!callState.enabled) {
+        renderCallLine(callStatusLine, "Call handling is off. Weronika will not watch for calls, answer one, or ask you about one until you switch it on again.");
+      } else {
+        const waiting = callState.awaiting.length;
+        const live = callState.live.length;
+        const watched = callChannelWanted().map((entry) => entry.channel_display || entry.channel).join(", ") || "no channel";
+        renderCallLine(
+          callStatusLine,
+          `Watching ${watched}${waiting ? ` · ${waiting} call(s) waiting for your answer` : ""}${live ? ` · ${live} live` : ""}${waiting || live ? "." : " · no call is ringing."}`,
+        );
+      }
+      if (callTelegramLine) {
+        callTelegramLine.textContent = callState.telegram || "";
+      }
+      renderCallLinks();
+      renderCallAudio();
+
+      // Ringing calls: one card each, with the question she asked and your three answers.
+      if (callAwaiting) {
+        callAwaiting.textContent = "";
+        if (!callState.awaiting.length) {
+          callAwaiting.appendChild(buildCallRow("No call is ringing", ""));
+        }
+        for (const item of callState.awaiting) {
+          const card = document.createElement("div");
+          card.className = "watch-card";
+          const title = document.createElement("div");
+          title.className = "watch-card-head";
+          title.textContent = `${item.caller || "Unknown caller"} · ${item.channel_display || item.channel}${item.is_video ? " · video" : ""}${item.number ? ` · ${item.number}` : ""}`;
+          const question = document.createElement("div");
+          question.className = "watch-card-meta";
+          question.textContent = item.question || "Are you able to handle the call, or should I take it?";
+          const actions = document.createElement("div");
+          actions.className = "watch-actions";
+          for (const action of [
+            { label: "WERONIKA TAKES IT", decision: "weronika" },
+            { label: "I'LL TAKE IT", decision: "user" },
+            { label: "IGNORE IT", decision: "ignore" },
+          ]) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "hud-btn settings-mini-btn";
+            button.textContent = action.label;
+            button.addEventListener("click", async () => {
+              if (button.disabled) return;
+              button.disabled = true;
+              try {
+                const result = await decideCall(item.item_id, action.decision);
+                if (result && result.prompt) appendChat("assistant", result.prompt, { banner: false });
+              } catch (error) {
+                appendChat("assistant", error instanceof Error ? error.message : "That did not work.", { banner: false });
+              } finally {
+                button.disabled = false;
+                await refreshCallPanel();
+              }
+            });
+            actions.appendChild(button);
+          }
+          card.append(title, question, actions);
+          callAwaiting.appendChild(card);
+        }
+      }
+
+      // The live call: who she is talking to, what has been said, and how to stop.
+      const focus = callFocusItem();
+      if (callLive) {
+        callLive.textContent = "";
+        if (!focus) {
+          callLive.appendChild(buildCallRow("No live call", ""));
+        } else {
+          const card = document.createElement("div");
+          card.className = "watch-card";
+          const title = document.createElement("div");
+          title.className = "watch-card-head";
+          title.textContent = `${focus.caller || "Unknown caller"} · ${focus.channel_display || focus.channel} · ${CALL_PHASE_LABELS[focus.phase] || focus.phase} · ${Math.max(0, Math.round(focus.seconds || 0))}s`;
+          const detail = document.createElement("div");
+          detail.className = "watch-card-meta";
+          const bits = [];
+          bits.push(focus.disclosed ? "the caller has been told she is an AI" : "the caller has NOT yet been told she is an AI");
+          bits.push(`sound: ${CALL_ROUTE_LABELS[focus.route] || focus.route || "none"}`);
+          if (focus.last_spoken) bits.push(`she last said: “${focus.last_spoken}”`);
+          if (focus.last_error) bits.push(`problem: ${focus.last_error}`);
+          detail.textContent = bits.join(" · ");
+          card.append(title, detail);
+          callLive.appendChild(card);
+          callFocusItemId = focus.item_id;
+        }
+      }
+      renderCallTranscript(focus);
+      for (const button of [callHeardBtn, callSayBtn]) {
+        if (button) button.disabled = !focus;
+      }
+      if (callLiveActions) {
+        callLiveActions.textContent = "";
+        if (focus) {
+          for (const action of [
+            { label: "HAND THE PHONE BACK", run: () => callAction("/api/call/handover", { item_id: focus.item_id }) },
+            { label: "END THE CALL", run: () => callAction("/api/call/end", { item_id: focus.item_id, reason: "You ended the call from the orb." }) },
+          ]) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "hud-btn settings-mini-btn";
+            button.textContent = action.label;
+            button.addEventListener("click", async () => {
+              if (button.disabled) return;
+              button.disabled = true;
+              try {
+                const result = await action.run();
+                if (result && result.prompt) appendChat("assistant", result.prompt, { banner: false });
+                if (result && result.summary) speak(result.summary.split("\n")[0]);
+              } catch (error) {
+                appendChat("assistant", error instanceof Error ? error.message : "That did not work.", { banner: false });
+              } finally {
+                button.disabled = false;
+                await refreshCallPanel();
+              }
+            });
+            callLiveActions.appendChild(button);
+          }
+        }
+      }
+
+      // Finished calls and the summary each one left behind.
+      if (callHistory) {
+        callHistory.textContent = "";
+        const done = callState.items.filter((item) => ["ended", "declined", "missed", "failed", "handover"].includes(item.phase));
+        if (!done.length) {
+          callHistory.appendChild(buildCallRow("No call handled yet", ""));
+        }
+        for (const item of done.slice(0, 6)) {
+          const row = buildCallRow(
+            `${item.caller || "Unknown caller"} · ${item.channel_display || item.channel} · ${CALL_PHASE_LABELS[item.phase] || item.phase}`,
+            item.summary ? String(item.summary).split("\n").slice(0, 3).join(" ") : item.outcome || "",
+          );
+          for (const flag of (item.flags || []).slice(0, 3)) {
+            const note = document.createElement("div");
+            note.className = "settings-hint";
+            note.textContent = `Flagged: ${flag}`;
+            row.appendChild(note);
+          }
+          if (item.summary) {
+            const actions = document.createElement("div");
+            actions.className = "watch-actions";
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "hud-btn settings-mini-btn";
+            button.textContent = "PREPARE SUMMARY";
+            button.addEventListener("click", async () => {
+              const recipient = String((callSummaryTo && callSummaryTo.value) || "").trim();
+              if (!recipient) {
+                appendChat("assistant", "Who should get the call summary? Type a name or chat next to “Send the summary to” first.", { banner: false });
+                return;
+              }
+              button.disabled = true;
+              try {
+                const draft = await callAction("/api/call/summary", {
+                  item_id: item.item_id,
+                  platform: (callSummaryPlatform && callSummaryPlatform.value) || "whatsapp",
+                  recipient,
+                });
+                appendChat(
+                  "assistant",
+                  `The call summary for ${recipient} is prepared and nothing is sent yet. Reply “confirm send” to send it, or “cancel” to drop it.`,
+                  { banner: false },
+                );
+                if (draft && draft.message) appendChat("system", String(draft.message), { banner: false });
+              } catch (error) {
+                appendChat("assistant", error instanceof Error ? error.message : "The summary could not be prepared.", { banner: false });
+              } finally {
+                button.disabled = false;
+              }
+            });
+            actions.appendChild(button);
+            row.appendChild(actions);
+          }
+          callHistory.appendChild(row);
+        }
+      }
+    }
+
+    async function refreshCallPanel() {
+      if (!callStatusLine) return;
+      if (!localAutomationConnected) {
+        callState.available = false;
+        callState.reason = callWorkerHint();
+        renderCallCards();
+        return;
+      }
+      try {
+        const data = await readCallJson("/api/call/status");
+        callState.available = data.available === true;
+        callState.reason = String(data.reason || "");
+        callState.items = Array.isArray(data.items) ? data.items : [];
+        callState.awaiting = Array.isArray(data.awaiting) ? data.awaiting : [];
+        callState.live = Array.isArray(data.live) ? data.live : [];
+        if (data.audio) callState.audio = data.audio;
+        applyCallSettings(data.settings);
+        for (const reminder of Array.isArray(data.reminders) ? data.reminders : []) {
+          const key = `remind:${reminder.item_id}`;
+          if (callNotified.has(key)) continue;
+          callNotified.add(key);
+          const text = String(reminder.text || "A call is still ringing. Are you able to handle it, or should I take it?");
+          appendChat("assistant", text, { banner: false });
+          speak(text);
+        }
+        renderCallCards();
+      } catch (error) {
+        renderCallLine(callStatusLine, error instanceof Error ? error.message : "Could not read the call status.");
+      }
+    }
+
+    async function refreshCallCapabilities() {
+      if (!localAutomationConnected) return;
+      try {
+        const caps = await readCallJson("/api/call/capabilities");
+        callState.channels = Array.isArray(caps.channels) ? caps.channels : [];
+        callState.telegram = String(caps.telegram || "");
+        if (caps.audio) callState.audio = caps.audio;
+        if (caps.links) callState.links = caps.links;
+        applyCallSettings(caps.settings);
+        callState.enabled = caps.enabled !== false;
+        renderCallCards();
+      } catch {
+        // Capabilities are a nicety; the status poll is the source of truth.
+      }
+    }
+
+    async function loadCallExamples() {
+      if (!localAutomationConnected || !callExampleActions) return;
+      try {
+        const listing = await callAction("/api/call/simulate", { list: true });
+        callState.examples = Array.isArray(listing.examples) ? listing.examples : [];
+      } catch {
+        callState.examples = [];
+      }
+      callExampleActions.textContent = "";
+      const examples = callState.examples.length
+        ? callState.examples
+        : [{ id: "site-papers", title: "A contractor calling about papers" }];
+      for (const example of examples) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "hud-btn settings-mini-btn";
+        button.textContent = `RUN · ${String(example.title || example.id).toUpperCase()}`;
+        button.title = String(example.shows || "");
+        button.addEventListener("click", () => void runCallExample(String(example.id), button));
+        callExampleActions.appendChild(button);
+      }
+    }
+
+    async function runCallExample(scenarioId, button) {
+      if (button) button.disabled = true;
+      renderCallLine(callExampleLine, `Running the ${scenarioId} example…`);
+      try {
+        const report = await callAction("/api/call/simulate", { scenario: scenarioId });
+        renderCallLine(callExampleLine, String(report.note || ""));
+        appendChat("assistant", `Example call · ${report.scenario ? report.scenario.title : scenarioId}. ${report.note || ""}`, { banner: false });
+        if (report.question) appendChat("assistant", `She asked you: “${report.question}” You answered: “${report.your_answer}”.`, { banner: false });
+        for (const turn of (report.transcript || []).slice(0, 12)) {
+          const who = turn.speaker === "caller" ? "Caller" : turn.speaker === "you" ? "You" : "Weronika";
+          appendChat("system", `${who}: ${turn.text}`, { banner: false });
+        }
+        for (const flag of report.flags || []) appendChat("system", `Flagged: ${flag}`, { banner: false });
+        if (report.summary) appendChat("assistant", report.summary, { banner: false });
+      } catch (error) {
+        renderCallLine(callExampleLine, error instanceof Error ? error.message : "The example could not run.");
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function scanCallWatch(manual = false) {
+      if (!localAutomationConnected) {
+        if (manual) appendChat("system", "Call watch needs the local worker. Start Weronika with start.bat first.", { banner: false });
+        return;
+      }
+      if (callScanInFlight) return;
+      callScanInFlight = true;
+      callLastScanAt = Date.now();
+      try {
+        const scan = await callAction("/api/call/scan", {});
+        callState.items = Array.isArray(scan.items) ? scan.items : callState.items;
+        callState.awaiting = Array.isArray(scan.awaiting) ? scan.awaiting : callState.awaiting;
+        for (const item of Array.isArray(scan.raised) ? scan.raised : []) {
+          const key = `ring:${item.item_id}`;
+          if (callNotified.has(key)) continue;
+          callNotified.add(key);
+          const question = String(item.question || "Are you able to handle the call, or should I take it?");
+          const who = item.caller || (item.number ? item.number : "an unknown number");
+          const where = item.channel_display || item.channel || "the phone";
+          appendChat("assistant", `${question}`, { banner: false });
+          appendChatActions([
+            { label: "WERONIKA TAKES IT", once: true, run: () => decideCall(item.item_id, "weronika") },
+            { label: "I'LL TAKE IT", once: true, run: () => decideCall(item.item_id, "user") },
+            { label: "IGNORE IT", once: true, run: () => decideCall(item.item_id, "ignore") },
+          ]);
+          speak(question);
+          notifyAway(`Incoming call from ${who} on ${where}. ${question}`);
+        }
+        for (const note of Array.isArray(scan.notes) ? scan.notes : []) {
+          if (manual) appendChat("system", String(note), { banner: false });
+        }
+        if (manual && scan.prompt) appendChat("assistant", String(scan.prompt), { banner: false });
+        renderCallCards();
+      } catch (error) {
+        if (manual) {
+          appendChat("assistant", error instanceof Error ? error.message : "Weronika could not scan for calls.", { banner: false });
+        }
+      } finally {
+        callScanInFlight = false;
+      }
+    }
+
+    async function decideCall(itemId, decision) {
+      const result = await callAction("/api/call/decide", { item_id: itemId, decision });
+      callFocusItemId = itemId;
+      await refreshCallPanel();
+      if (result && result.prompt) {
+        if (decision === "weronika" && result.transcript && result.transcript.length) {
+          speak(result.transcript[0].text);
+        }
+      }
+      return result;
+    }
+
+    async function saveCallSettings() {
+      const settings = {
+        enabled: true,
+        channels: String((callChannels && callChannels.value) || "sim,whatsapp").split(","),
+        owner: String((callOwner && callOwner.value) || "").trim(),
+        max_call_seconds: Number((callLength && callLength.value) || 360),
+        unknown_only: Boolean(callUnknownOnly && callUnknownOnly.checked),
+      };
+      const route = String((callRoute && callRoute.value) || "").trim();
+      if (route) settings.route = route;
+      if (!settings.owner) delete settings.owner;
+      const result = await callAction("/api/call/configure", settings);
+      applyCallSettings(result.settings || {});
+      callLastCapsAt = 0;
+      await refreshCallPanel();
+      return result;
+    }
+
+    async function stopCallHandling() {
+      const result = await callAction("/api/call/configure", { enabled: false });
+      applyCallSettings(result.settings || {});
+      await refreshCallPanel();
+      return result;
+    }
+
+    function startCallWatchPolling() {
+      if (callTicker) return;
+      // One ticker decides what is due: a call rings for twenty seconds or so, so the scan
+      // is much more frequent than the reply-watch scan, and the panel and capability
+      // refreshes are slower because nobody reads them that often.
+      callTicker = setInterval(() => {
+        if (!localAutomationConnected) return;
+        const now = Date.now();
+        if (callState.enabled && now - callLastScanAt >= CALL_SCAN_MS) void scanCallWatch(false);
+        if (now - callLastStatusAt >= CALL_STATUS_MS) {
+          callLastStatusAt = now;
+          void refreshCallPanel();
+        }
+        if (now - callLastCapsAt >= CALL_CAPS_MS) {
+          callLastCapsAt = now;
+          void refreshCallCapabilities();
+        }
+      }, 1000);
+    }
+
+    async function postLocalJson(path, payload) {
+      let response;
+      try {
+        response = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload || {}),
+          cache: "no-store",
+        });
+      } catch {
+        throw new Error(callWorkerHint());
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "The local worker rejected that request. Nothing was dialled, answered or said.");
+      return data;
+    }
+
+    function callNeedsAnAnswer(text) {
+      // Her question is on screen: a short answer belongs to the call, not to the cloud brain.
+      return Boolean(callState.awaiting.length || callState.live.length) && hasCallAnswer(text);
+    }
+
+    // A call request is answered by this computer, or not at all. Returns "" when the
+    // sentence is not hers to handle, so the caller can carry on to the cloud brain.
+    async function runCallPlan(text) {
+      const value = String(text || "").trim();
+      if (!value) return "";
+      if (!localAutomationConnected) {
+        return hasCallIntent(value) || callNeedsAnAnswer(value) ? callWorkerOfflineReply(value) : "";
+      }
+      if (!hasCallIntent(value) && !callNeedsAnAnswer(value)) return "";
+      keepTurnPrivate(); // a call names a caller and may carry what they said
+      askToNotify(); // so "are you able to handle the call?" can reach you in another window
+      let result;
+      try {
+        result = await postLocalJson("/api/message", { text: value });
+      } catch (error) {
+        return error instanceof Error ? error.message : "The local worker stopped safely. No call was answered.";
+      }
+      if (!result || result.handled !== true) return "";
+      await refreshCallPanel();
+      void refreshCallCapabilities();
+      const prompt = String(result.prompt || "");
+      // A call she has just taken starts with the disclosure the caller hears.
+      const transcript = Array.isArray(result.transcript) ? result.transcript : [];
+      if (result.phase === "live" && transcript.length && transcript[0].speaker === "weronika") {
+        speak(transcript[0].text);
+      } else if (prompt) {
+        speak(prompt.split("\n")[0].slice(0, 240));
+      }
+      if (result.kind === "call-scan" && Array.isArray(result.raised) && result.raised.length) {
+        for (const item of result.raised) {
+          appendChatActions([
+            { label: "WERONIKA TAKES IT", once: true, run: () => decideCall(item.item_id, "weronika") },
+            { label: "I'LL TAKE IT", once: true, run: () => decideCall(item.item_id, "user") },
+            { label: "IGNORE IT", once: true, run: () => decideCall(item.item_id, "ignore") },
+          ]);
+        }
+      }
+      return prompt || "Done.";
+    }
+
+    if (callOpenBtn) callOpenBtn.addEventListener("click", () => setCallOpen());
+    if (callCloseBtn) callCloseBtn.addEventListener("click", () => setCallOpen(false));
+    if (callSaveBtn) callSaveBtn.addEventListener("click", async () => {
+      callSaveBtn.disabled = true;
+      try {
+        const result = await saveCallSettings();
+        appendChat("assistant", String((result && result.prompt) || "Call settings saved."), { banner: false });
+      } catch (error) {
+        appendChat("assistant", error instanceof Error ? error.message : "Those call settings could not be saved.", { banner: false });
+      } finally {
+        callSaveBtn.disabled = false;
+      }
+    });
+    if (callScanBtn) callScanBtn.addEventListener("click", () => void scanCallWatch(true));
+    if (callOffBtn) callOffBtn.addEventListener("click", async () => {
+      callOffBtn.disabled = true;
+      try {
+        const result = await stopCallHandling();
+        appendChat("assistant", String((result && result.prompt) || "Call handling is off."), { banner: false });
+      } catch (error) {
+        appendChat("assistant", error instanceof Error ? error.message : "Call handling could not be switched off.", { banner: false });
+      } finally {
+        callOffBtn.disabled = false;
+      }
+    });
+    if (callSetupActions) {
+      const rescan = document.createElement("button");
+      rescan.type = "button";
+      rescan.className = "hud-btn settings-mini-btn";
+      rescan.textContent = "RE-SCAN PHONE AND SOUND";
+      rescan.addEventListener("click", async () => {
+        rescan.disabled = true;
+        renderCallLine(callLinksLine, "Scanning the cable and the audio devices…");
+        try {
+          await refreshCallCapabilities();
+          await refreshCallPanel();
+        } finally {
+          rescan.disabled = false;
+        }
+      });
+      callSetupActions.appendChild(rescan);
+    }
+    if (callHeardBtn) callHeardBtn.addEventListener("click", async () => {
+      const item = callFocusItem();
+      const text = String((callTypedLine && callTypedLine.value) || "").trim();
+      if (!item) {
+        appendChat("assistant", "No call is live right now, so there is nothing for her to hear.", { banner: false });
+        return;
+      }
+      if (!text) {
+        appendChat("assistant", "Type what the caller just said first.", { banner: false });
+        return;
+      }
+      callHeardBtn.disabled = true;
+      try {
+        const result = await callAction("/api/call/hear", { item_id: item.item_id, text });
+        if (callTypedLine) callTypedLine.value = "";
+        if (result && result.last_spoken) speak(result.last_spoken);
+        await refreshCallPanel();
+      } catch (error) {
+        appendChat("assistant", error instanceof Error ? error.message : "She could not take that line.", { banner: false });
+      } finally {
+        callHeardBtn.disabled = false;
+      }
+    });
+    if (callSayBtn) callSayBtn.addEventListener("click", async () => {
+      const item = callFocusItem();
+      const text = String((callSpokenLine && callSpokenLine.value) || "").trim();
+      if (!item) {
+        appendChat("assistant", "No call is live right now, so there is nobody to say it to.", { banner: false });
+        return;
+      }
+      if (!text) {
+        appendChat("assistant", "Type the exact words you want her to say first.", { banner: false });
+        return;
+      }
+      callSayBtn.disabled = true;
+      try {
+        await callAction("/api/call/say", { item_id: item.item_id, text });
+        if (callSpokenLine) callSpokenLine.value = "";
+        await refreshCallPanel();
+      } catch (error) {
+        appendChat("assistant", error instanceof Error ? error.message : "She could not say that.", { banner: false });
+      } finally {
+        callSayBtn.disabled = false;
+      }
+    });
 
     // Alarms, timers and reminders: load them, keep other tabs in step, and tick.
     readAlarms();

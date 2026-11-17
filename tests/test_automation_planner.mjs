@@ -15,8 +15,13 @@ assert.match(
   prompt,
   /Do not open extra sites, search the web, click, sign in, play media, or interact with pages/,
 );
-assert.match(prompt, /Incoming or outgoing voice\/video calling is not supported/);
-assert.match(prompt, /a future call feature must ask about each individual call/);
+// Dialling out is still impossible; handling an incoming call is not, and the planner must
+// not claim otherwise or invent call steps of its own.
+assert.match(prompt, /Outgoing calls are not supported anywhere: never plan a dial/);
+assert.match(prompt, /ask about each individual call and disclose that the speaker is an AI/);
+assert.match(prompt, /SETTINGS \u2192 CALL WATCH/);
+assert.doesNotMatch(prompt, /no call detection, answer control, live audio bridge/);
+assert.match(prompt, /never invent call steps, a caller, or a call transcript/);
 assert.doesNotMatch(prompt, /Use intent "browser"/);
 assert.match(prompt, /Use intent "write_code"/);
 assert.match(prompt, /Use intent "browse"/);
@@ -75,10 +80,16 @@ assert.match(orb, /parsed\.protocol !== "https:"/);
 assert.match(orb, /parsed\.username \|\| parsed\.password/);
 assert.match(orb, /hostname\.endsWith\("\.onion"\)/);
 assert.match(orb, /Send a WhatsApp message to Boss saying I’m on leave tomorrow/);
-assert.match(
+// Settings used to promise nothing at all for calls. Call watch exists now, so the panel
+// says what it does and what it still cannot do — and the old blanket refusal must not
+// creep back, because it would contradict the CALL WATCH button next to it.
+assert.doesNotMatch(
   orb,
   /Incoming-call detection, answering, live call audio, and call summaries are not supported yet/,
 );
+assert.match(orb, /CALL WATCH asks you about each incoming call/);
+assert.match(orb, /tells the caller she is your AI assistant/);
+assert.match(orb, /She never dials out, and Telegram has no calling on any surface she can reach/);
 assert.match(orb, /function createOrbScene/);
 assert.match(orb, /mountDeveloperTools\(\{/);
 assert.match(orb, /onPrompt: async/);

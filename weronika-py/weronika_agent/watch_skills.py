@@ -209,6 +209,95 @@ CATALOG: tuple[Skill, ...] = (
         safety="Only files inside the Weronika workspace are opened; sending still needs confirmation.",
     ),
     Skill(
+        id="call-watch-ask",
+        name="Calls · ask me first",
+        summary=(
+            "Watches for an incoming call every couple of seconds. When one rings she tells you who "
+            "it is and asks “Are you able to handle the call, or should I take it?” — for every call, "
+            "never from a remembered preference."
+        ),
+        platforms=("Phone (SIM over cable)", "WhatsApp"),
+        commands=(
+            "Handle my calls",
+            "Scan calls",
+            "Is anyone calling?",
+        ),
+        needs=(
+            "The local worker running (start.bat)",
+            "For a SIM call: the phone on a cable with USB debugging allowed, and adb installed",
+            "For a WhatsApp call: the Weronika browser window signed in to WhatsApp",
+        ),
+        safety=(
+            "She only watches and asks. Nothing is answered, declined or said until you answer her "
+            "question for that one call."
+        ),
+    ),
+    Skill(
+        id="call-handle",
+        name="Calls · Weronika takes it",
+        summary=(
+            "Answer ‘you handle it’ and Weronika picks up, tells the caller she is your AI assistant "
+            "and that you cannot come to the phone, listens, takes the message in her own words, and "
+            "hangs up. Answer ‘I’ll take it’ and she leaves the phone completely alone."
+        ),
+        platforms=("Phone (SIM over cable)", "WhatsApp"),
+        commands=(
+            "You handle it",
+            "I’ll take it",
+            "Ignore it",
+            "He said the papers are ready",
+            "Kaat do",
+        ),
+        needs=(
+            "Call audio support for hearing and speaking (setup-calls.bat) — without it she runs the "
+            "same call in typed mode and says so",
+            "The cloud brain for her wording; she falls back to local wording and flags the line",
+        ),
+        safety=(
+            "The caller is always told they are speaking with an AI. A one-time code, password, card "
+            "number or UPI handle is never repeated, stored or read out. She takes messages; she never "
+            "agrees, pays, promises or confirms anything on your behalf. Call audio is never written "
+            "to disk."
+        ),
+    ),
+    Skill(
+        id="call-setup",
+        name="Calls · what is connected",
+        summary=(
+            "Scans the cable and the audio devices and reports honestly what this computer can do: "
+            "which phone is linked, whether its SIM calls can be handled, and which sound route is live."
+        ),
+        platforms=("Phone (SIM over cable)", "WhatsApp"),
+        commands=(
+            "Which phone is connected?",
+            "Check my call setup",
+            "What audio route for calls?",
+            "Handle my calls on bluetooth",
+        ),
+        needs=("adb for an Android phone; nothing at all for the WhatsApp route",),
+        safety=(
+            "Read-only. An iPhone is reported as connected but unable to have its SIM calls handled, "
+            "because iOS exposes no telephony over a cable — she says that instead of pretending."
+        ),
+    ),
+    Skill(
+        id="call-example",
+        name="Calls · run an example",
+        summary=(
+            "Runs one scripted example call end to end so you can see the whole behaviour — the "
+            "question, the disclosure, a message taken, a code refused, the hang-up and the summary — "
+            "without a phone, a browser session or a microphone."
+        ),
+        platforms=("Example only",),
+        commands=(
+            "Show me an example call",
+            "Give me an example of a WhatsApp call",
+            "Simulate a call",
+        ),
+        needs=(),
+        safety="Nothing is dialled, answered or recorded. The report says so in its first line.",
+    ),
+    Skill(
         id="codes",
         name="Two-factor codes",
         summary="Watches for a one-time code, shows it to you, and offers to forward it only if you name the chat.",
@@ -238,13 +327,31 @@ UNAVAILABLE: tuple[dict[str, str], ...] = (
         ),
     },
     {
-        "id": "calls",
-        "name": "Calls",
+        "id": "telegram-calls",
+        "name": "Telegram calls",
         "why": (
-            "Weronika does not place, answer or speak in phone, WhatsApp, Telegram or Instagram calls. "
-            "She works through the chat pages in a browser window, where she reads and types text, "
-            "so she has no way to speak or listen inside a call. Incoming-call detection and call "
-            "summaries are not implemented either."
+            "Telegram calling is not possible on any surface Weronika can reach: Telegram Web has no "
+            "calling feature, and the Bot API cannot make or receive calls. Telegram stays text-only, "
+            "so a Telegram call is neither detected nor answered. Phone (SIM) and WhatsApp calls are."
+        ),
+    },
+    {
+        "id": "outgoing-calls",
+        "name": "Placing a call",
+        "why": (
+            "Weronika answers incoming calls after asking you about each one; she does not dial out. "
+            "Placing a call in someone’s name is a commitment she should not make on her own, so the "
+            "worker has no dialler. She can prepare a message asking you to call back instead."
+        ),
+    },
+    {
+        "id": "iphone-sim-calls",
+        "name": "SIM calls on an iPhone",
+        "why": (
+            "iOS exposes no equivalent of adb for telephony, so a laptop cannot see a ringing cellular "
+            "call on an iPhone, answer it, or hear it through the cable. An iPhone owner gets WhatsApp "
+            "call handling in the signed-in browser window, and Weronika says so in the setup panel "
+            "rather than showing a button that silently does nothing."
         ),
     },
     {

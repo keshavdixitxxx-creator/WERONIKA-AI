@@ -356,9 +356,15 @@ for (const sentence of [
   "answer the call from mom",
 ]) {
   const refused = parse(sentence);
-  assert.match(refused?.text || "", /^I can't answer, reject or end calls\./, sentence);
+  assert.match(refused?.text || "", /^I can't answer, reject or end a call from this browser tab by myself\./, sentence);
+  // Not a flat "no": she points at the thing that can do it.
+  assert.match(refused.text, /CALL WATCH/, sentence);
+  assert.match(refused.text, /asks you about each one/, sentence);
   assert.match(refused.text, /Nothing was answered\.$/, sentence);
 }
+// Answering an incoming call is supported through the worker, so the refusal must not
+// claim she has no way to speak or listen in any call at all.
+assert.doesNotMatch(parse("answer the call").text, /no way to speak or listen/i);
 // Someone who asks for help must hear at once that they have to dial themselves.
 for (const sentence of [
   "call an ambulance",
