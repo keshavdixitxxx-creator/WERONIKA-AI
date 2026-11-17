@@ -136,6 +136,24 @@ class FallbackWordingTests(unittest.TestCase):
         self.assertIn("written that down", line)
         self.assertIn("Keshav", line)
 
+    def test_a_caller_explaining_three_things_is_not_answered_three_times_alike(self):
+        # A conversation that repeats one sentence verbatim does not sound like a person.
+        transcript: list[tuple[str, str]] = []
+        spoken: list[str] = []
+        for said in (
+            "the site papers are ready",
+            "the registry office needs them signed before friday",
+            "so can he come tomorrow morning",
+        ):
+            transcript.append(("caller", said))
+            words = fallback_line(transcript, owner="Keshav")
+            transcript.append(("weronika", words))
+            spoken.append(words)
+        self.assertEqual(len(set(spoken)), len(spoken), spoken)
+        for words in spoken:
+            self.assertIn("Keshav", words)
+            self.assertNotIn("{owner_name}", words)
+
     def test_a_caller_wanting_a_person_is_told_the_truth(self):
         line = fallback_line([("caller", "let me speak to Keshav")], owner="Keshav")
         self.assertIn("I am an AI", line)

@@ -92,10 +92,16 @@ ESCALATE_HUMAN = (
     "that it is important. Please tell me your name so the message is not lost."
 )
 
-TAKE_MESSAGE = (
+TAKE_MESSAGE_VARIANTS = (
     "Thank you. I have written that down and I will give {owner_name} your message as soon as "
-    "{owner_name} is back. Is there anything else you want me to pass on?"
+    "{owner_name} is back. Is there anything else you want me to pass on?",
+    "Thank you, that is written down too. {owner_name} will see it as soon as {owner_name} is "
+    "back. Please go on if there is more you want me to take.",
+    "Understood, I have noted that down as well, exactly as you said it. I will pass all of it "
+    "on to {owner_name} together. Anything else?",
 )
+# The first wording is the one callers hear first and the one the tests pin.
+TAKE_MESSAGE = TAKE_MESSAGE_VARIANTS[0]
 
 CALLBACK_PROMPT = (
     "Should I ask {owner_name} to call you back? If yes, please confirm the number you are calling from."
@@ -335,7 +341,11 @@ def fallback_line(transcript: Sequence[tuple[str, str]], *, owner: str, misheard
         return fill(ESCALATE_HUMAN, owner)
     if mentions_decision(last) or mentions_spam(last):
         return fill(UNSUPPORTED_REQUEST, owner)
-    return fill(TAKE_MESSAGE, owner)
+    # Rotate the wording by how many messages she has already taken on this call, so a
+    # caller who explains three things does not hear the same sentence three times.
+    taken = {fill(variant, owner) for variant in TAKE_MESSAGE_VARIANTS}
+    used = sum(1 for speaker, text in transcript if speaker != "caller" and text in taken)
+    return fill(TAKE_MESSAGE_VARIANTS[used % len(TAKE_MESSAGE_VARIANTS)], owner)
 
 
 def build_brain_responder(
