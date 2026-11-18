@@ -777,7 +777,7 @@
   <div class="hud-left-controls" id="leftControls">
     <div class="hud-row" style="flex-direction:column; gap:8px; align-items:flex-start;">
       <button type="button" class="hud-btn settings-toggle-btn" id="settingsToggleBtn" aria-pressed="false" title="Settings">SETTINGS</button>
-      <button type="button" class="hud-btn" id="voiceBtn">VOICE CHAT</button>
+      <button type="button" class="hud-btn" id="voiceBtn" title="Talk continuously: the microphone stays open while she speaks.">LIVE VOICE</button>
       <button type="button" class="hud-btn" id="gesturesBtn" aria-pressed="false">GESTURES OFF</button>
       <button type="button" class="hud-btn screen-live-btn" id="screenHudLine" hidden title="Weronika can see the screen you shared. Press to stop.">● WATCHING SCREEN · STOP</button>
       <div class="hud-row zoom-control-row" aria-label="Orb view controls">
@@ -3470,6 +3470,33 @@
     let voiceSessionMode = "off";
     let wakeWordEnabled = false;
     let selectedVoice = null;
+    // --- live (full-duplex) voice state -------------------------------------------
+    // The microphone stays open for the whole session, including while she speaks, so
+    // her own voice comes back through the recognizer. The Web Speech API exposes no
+    // echo cancellation hook, so the echo is filtered in software instead: everything
+    // she says is remembered for a few seconds, and anything heard while she is talking
+    // that is mostly her own words is dropped instead of being answered.
+    const LIVE_SILENCE_MS = 620;      // how long a pause means "the user finished"
+    const LIVE_ECHO_TAIL_MS = 420;    // recognizer flush time after her voice stops
+    const LIVE_ECHO_WINDOW_MS = 9000; // how long her own words are kept at all
+    const LIVE_ECHO_MATCH_MS = 2600;  // how much of that is compared against what was heard
+    const LIVE_ECHO_RATIO = 0.72;     // overlap that makes a long phrase her own voice
+    const LIVE_BARGE_IN_MS = 180;     // how long you must keep talking to interrupt her
+    let liveBargeInSince = 0;         // when sustained non-echo speech started
+    let liveBargedIn = false;         // she has already been interrupted for this turn
+    let liveEchoUntil = 0;            // she is still "speaking" until this timestamp
+    let liveSpoken = [];              // { text, at } — her recent words, normalized
+    let liveSpeakingNow = "";         // the sentence being spoken this instant
+    let liveLastSpoken = "";          // the sentence before it, still echoing in the room
+    let livePending = "";             // the turn being listened to right now
+    let liveInterim = "";             // words heard but not yet confirmed final
+    let livePendingAt = 0;            // last time the user's voice moved
+    let liveCommitTimer = null;
+    let liveLastCommitted = "";
+    let liveLastCommittedAt = 0;
+    let liveRestartTimer = null;
+    let liveRestartStorm = 0;
+    let liveEchoLoggedAt = 0;
     // Browsers already expose the correct answer here — file:// pages count as
     // secure too, so we don't need to hand-roll (and wrongly reject) this check.
     const isSecureContext = window.isSecureContext;
@@ -3480,7 +3507,7 @@
     function showError(message) {
       setError(message);
       logVoice(message);
-      if (voiceBtn && !voiceEnabled) voiceBtn.textContent = "VOICE CHAT";
+      if (voiceBtn && !voiceEnabled) voiceBtn.textContent = "LIVE VOICE";
     }
 
     function isHindiText(text) {
@@ -3689,10 +3716,75 @@
         .trim();
     }
 
+    // --- her own voice, remembered so she does not answer herself -------------------
+    function normalizeHeard(text) {
+      return String(text || "")
+        .toLowerCase()
+        .replace(/[\u2018\u2019\u201C\u201D]/g, "'")
+        .replace(/[^a-z0-9\u0900-\u097F' ]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function noteSpokenForEcho(text) {
+      const clean = normalizeHeard(text);
+      if (!clean) return;
+      const now = Date.now();
+      liveSpoken.push({ text: clean, at: now });
+      liveSpoken = liveSpoken.filter((entry) => now - entry.at < LIVE_ECHO_WINDOW_MS);
+    }
+
+    // Her voice is still in the air (or in the recognizer's buffer) between the first
+    // queued utterance and a short tail after the last one ends.
+    function sheIsSpeaking() {
+      const synth = speechSynthesisAvailable ? window.speechSynthesis : null;
+      return !!((synth && (synth.speaking || synth.pending)) || Date.now() < liveEchoUntil);
+    }
+
+    // Matching against everything she said in the last nine seconds would swallow short
+    // things you genuinely say ("I will go"), because her long answer contains most common
+    // words. So the comparison is narrow: the sentence she is speaking right now, the one
+    // she just finished, and a short tail of recent speech.
+    function heardOwnVoice(transcript) {
+      if (!sheIsSpeaking()) return false;
+      const heard = normalizeHeard(transcript);
+      if (!heard) return false;
+      const now = Date.now();
+      const mine = [liveSpeakingNow, liveLastSpoken]
+        .concat(
+          liveSpoken
+            .filter((entry) => now - entry.at < LIVE_ECHO_MATCH_MS)
+            .map((entry) => entry.text),
+        )
+        .filter(Boolean)
+        .join(" ");
+      if (!mine) return false;
+      const words = heard.split(" ").filter(Boolean);
+      if (!words.length) return false;
+      // Word boundaries matter: a substring test would let the word "a" match inside
+      // "hand" and quietly swallow things you really said.
+      const mineWords = new Set(mine.split(" ").filter(Boolean));
+      // A whole phrase of her own, heard back verbatim, is echo however it is worded.
+      if (words.length >= 2 && mine.includes(heard)) return true;
+      // A short phrase is only echo when every word of it is one of hers: "yes", "wait"
+      // or "hold on" from you must survive even while she is mid-sentence.
+      if (words.length <= 3) return words.every((word) => mineWords.has(word));
+      const shared = words.filter((word) => mineWords.has(word)).length;
+      return shared / words.length >= LIVE_ECHO_RATIO;
+    }
+
+    function logEchoDropped(transcript) {
+      const now = Date.now();
+      if (now - liveEchoLoggedAt < 4000) return; // do not narrate every dropped fragment
+      liveEchoLoggedAt = now;
+      logVoice(`Ignoring my own voice (“${String(transcript).slice(0, 40)}…”). Still listening to you.`);
+    }
+
     function queueSpeech(text, { append = false } = {}) {
       if (!speechSynthesisAvailable || !text) return;
       const clean = cleanSpeechText(text);
       if (!clean) return;
+      noteSpokenForEcho(clean);
       const lang = detectSpokenLanguage(clean);
       const voice = pickVoiceForLang(lang) || selectedVoice;
       if (voice) selectedVoice = voice;
@@ -3710,6 +3802,20 @@
           utterance.pitch = 1.02 + ((index % 3) - 1) * 0.04;
           utterance.rate = rate * (index === 0 ? 1 : 0.99);
           utterance.volume = 1.0;
+          // Track her own voice so the open microphone can tell her words from yours.
+          const spokenNormalized = normalizeHeard(part);
+          const voiceFinished = () => {
+            liveLastSpoken = liveSpeakingNow || spokenNormalized;
+            liveSpeakingNow = "";
+            liveEchoUntil = Math.max(liveEchoUntil, Date.now() + LIVE_ECHO_TAIL_MS);
+          };
+          utterance.onstart = () => {
+            liveLastSpoken = liveSpeakingNow;
+            liveSpeakingNow = spokenNormalized;
+            liveEchoUntil = Math.max(liveEchoUntil, Date.now() + LIVE_ECHO_TAIL_MS);
+          };
+          utterance.onend = voiceFinished;
+          utterance.onerror = voiceFinished;
           window.speechSynthesis.speak(utterance);
         });
       } catch (error) {
@@ -6562,7 +6668,7 @@
       voiceEnabled = false;
       voiceSessionMode = "off";
       try { recognition?.stop(); } catch (error) { console.warn("voice stop failed", error); }
-      if (voiceBtn) voiceBtn.textContent = "VOICE CHAT";
+      if (voiceBtn) voiceBtn.textContent = "LIVE VOICE";
       logVoice("Voice turn ended. Microphone closed; Weronika is responding.");
     }
 
@@ -6572,8 +6678,13 @@
       voiceEnabled = false;
       voiceSessionMode = "off";
       wakeWordEnabled = false;
+      resetLiveTurn();
+      liveSpoken = [];
+      liveEchoUntil = 0;
+      liveRestartStorm = 0;
+      if (liveRestartTimer) { clearTimeout(liveRestartTimer); liveRestartTimer = null; }
       try { recognition?.stop(); } catch (error) { console.warn("voice stop failed", error); }
-      if (voiceBtn) voiceBtn.textContent = "VOICE CHAT";
+      if (voiceBtn) voiceBtn.textContent = "LIVE VOICE";
       logVoice(reason);
     }
 
@@ -6591,6 +6702,78 @@
         return "Starting wake-word voice control. Allow microphone access if prompted; the mic will stay on until you switch it off.";
       }
       return "Wake-word voice control is on. The microphone remains open until you press WAKE WORD ON to turn it off.";
+    }
+
+    // --- live voice: one continuous conversation, microphone never closes -----------
+    // You speak, she answers while still listening, and you can talk over her. Her own
+    // voice comes back through the open microphone, so every transcript is checked
+    // against what she just said before it is allowed to become a turn.
+    function clearLiveCommitTimer() {
+      if (liveCommitTimer) { clearTimeout(liveCommitTimer); liveCommitTimer = null; }
+    }
+
+    function resetLiveTurn() {
+      livePending = "";
+      liveInterim = "";
+      livePendingAt = 0;
+      liveBargedIn = false;
+      clearLiveCommitTimer();
+    }
+
+    // A pause this long means you finished; she starts at once instead of waiting for
+    // the recognizer's own much slower end-of-speech decision.
+    function scheduleLiveCommit() {
+      clearLiveCommitTimer();
+      liveCommitTimer = setTimeout(() => {
+        liveCommitTimer = null;
+        void commitLiveTurn();
+      }, LIVE_SILENCE_MS);
+    }
+
+    // Interrupting her is also the moment the echo gate can relax: she is no longer
+    // talking, so the rest of your sentence must not be judged against words she was
+    // cut off in the middle of. A short tail covers the audio already in the air.
+    function stopSpeakingForBargeIn() {
+      interruptAssistantSpeech();
+      liveEchoUntil = Date.now() + 150;
+      liveSpeakingNow = "";
+    }
+
+    // A turn committed on a pause is often followed by the recognizer's own final result
+    // for the same words, sometimes with a small correction. Sending that too would answer
+    // you twice for one sentence, so a near-match inside the same breath is dropped.
+    function isRepeatOfLastCommit(heard) {
+      if (Date.now() - liveLastCommittedAt > 1500) return false;
+      const mine = normalizeHeard(liveLastCommitted).split(" ").filter(Boolean);
+      const yours = normalizeHeard(heard).split(" ").filter(Boolean);
+      if (!mine.length || !yours.length) return false;
+      if (mine.join(" ") === yours.join(" ")) return true;
+      if (Math.abs(mine.length - yours.length) > 2) return false;
+      const known = new Set(mine);
+      return yours.filter((word) => known.has(word)).length / yours.length >= 0.8;
+    }
+
+    async function commitLiveTurn() {
+      const heard = (livePending || liveInterim || "").trim();
+      resetLiveTurn();
+      if (!heard) return;
+      if (heardOwnVoice(heard)) { logEchoDropped(heard); return; }
+      if (isRepeatOfLastCommit(heard)) return;
+      liveLastCommitted = heard;
+      liveLastCommittedAt = Date.now();
+      const heardLang = detectSpokenLanguage(heard);
+      const heardTag = speechTagForLanguage(heardLang);
+      if (heardTag && heardTag !== spokenLang) setSpokenLang(heardTag);
+      logVoice(`You said (${speechLanguageName(heardLang)}): ${heard}`);
+      if (chatInput) {
+        chatInput.value = heard;
+        chatInput.dispatchEvent(new Event("input", { bubbles: true }));
+        await sendChatMessage({ language: spokenLang, source: "voice", text: heard });
+        return;
+      }
+      appendChat("user", heard);
+      const reply = await parseVoiceCommand(heard, spokenLang);
+      if (reply) { appendChat("assistant", reply); speak(reply); }
     }
 
     async function startVoiceRecognition(opts = {}) {
@@ -6616,7 +6799,7 @@
         if (requestedMode === "wake") {
           wakeWordEnabled = false;
         }
-        if (voiceBtn) voiceBtn.textContent = "VOICE CHAT";
+        if (voiceBtn) voiceBtn.textContent = "LIVE VOICE";
       };
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -6625,7 +6808,13 @@
           return;
         }
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // Ask the browser for its own echo cancellation and noise suppression. This is
+          // only a probe (the recognizer captures audio itself), so it is a help and not a
+          // guarantee — heardOwnVoice() below is what actually keeps her from answering
+          // herself when her voice comes back through the speakers.
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          });
           stream.getTracks().forEach((track) => track.stop());
           if (startToken !== voiceStartToken) return;
         } catch (mediaErr) {
@@ -6657,13 +6846,19 @@
         sessionRecognition.lang = preferredLang;
         sessionRecognition.interimResults = true;
         sessionRecognition.maxAlternatives = 3;
-        sessionRecognition.continuous = requestedMode === "wake" ? true : continuous;
+        sessionRecognition.continuous = requestedMode === "wake" || requestedMode === "live" ? true : continuous;
 
         sessionRecognition.onstart = () => {
           if (recognition !== sessionRecognition) return;
           voiceEnabled = true;
-          logVoice(requestedMode === "wake" ? 'Wake-word mode is listening. Say “Weronika” to interrupt or give a command.' : 'Listening for your turn… the microphone closes when you finish.');
-          if (voiceBtn) voiceBtn.textContent = requestedMode === "wake" ? 'VOICE ON' : 'VOICE ON';
+          logVoice(
+            requestedMode === "live"
+              ? 'Live voice is on. The microphone stays open while I speak — talk whenever you like, and talk over me if you want me to stop.'
+              : requestedMode === "wake"
+                ? 'Wake-word mode is listening. Say “Weronika” to interrupt or give a command.'
+                : 'Listening for your turn… the microphone closes when you finish.',
+          );
+          if (voiceBtn) voiceBtn.textContent = requestedMode === "live" ? 'LIVE VOICE ON' : 'VOICE ON';
         };
 
         let lastFinalTranscript = "";
@@ -6687,6 +6882,34 @@
             }
             if (!transcript.trim()) {
               if (interim.trim()) {
+                if (voiceSessionMode === "live") {
+                  // Live mode keeps the microphone open, so her own voice arrives here too.
+                  // It is filtered before it can reach the input box or become a turn.
+                  if (heardOwnVoice(interim)) { logEchoDropped(interim); liveBargeInSince = 0; return; }
+                  liveInterim = interim.trim();
+                  livePendingAt = Date.now();
+                  if (chat && chatInput) {
+                    chatInput.value = liveInterim;
+                    chatInput.dispatchEvent(new Event("input", { bubbles: true }));
+                  }
+                  // Speaking over her stops her at once — but only once it is clearly you.
+                  // A single word, or one odd fragment, is too easy to confuse with her own
+                  // voice coming back through the speakers, so the interruption must be
+                  // sustained for a moment before she stops talking.
+                  if (sheIsSpeaking() && !liveBargedIn) {
+                    if (liveInterim.split(/\s+/).length < 2) return;
+                    if (!liveBargeInSince) liveBargeInSince = Date.now();
+                    if (Date.now() - liveBargeInSince < LIVE_BARGE_IN_MS) return;
+                    liveBargedIn = true;
+                    stopSpeakingForBargeIn();
+                    liveBargeInSince = 0;
+                    logVoice("You spoke, so I stopped. Go on.");
+                  } else if (!sheIsSpeaking()) {
+                    liveBargeInSince = 0;
+                  }
+                  scheduleLiveCommit();
+                  return;
+                }
                 if (chat && chatInput) {
                   chatInput.value = interim.trim();
                   chatInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -6701,10 +6924,34 @@
             lastFinalTranscript = transcript;
             lastFinalAt = now;
             if (!transcript) { if (++missCount >= 2) { missCount = 0; rotateListenLang(); } return; }
+            // Her own voice must be dropped before anything else judges it: a low-confidence
+            // echo fragment would otherwise count as a misheard turn and rotate the listening
+            // language away from the one you are actually speaking.
+            if (voiceSessionMode === "live" && heardOwnVoice(transcript)) {
+              logEchoDropped(transcript);
+              liveBargeInSince = 0;
+              return;
+            }
             if (looksMisheard(transcript, confidence)) {
               if (++missCount >= 2) { missCount = 0; rotateListenLang(); return; }
             } else {
               missCount = 0;
+            }
+
+            if (voiceSessionMode === "live") {
+              // Her own voice was already dropped above, before the misheard check ran.
+              // You talking over her stops her mid-sentence, the way a person would. It is
+              // latched: a second fragment of the same sentence must not interrupt again,
+              // and must not throw away the words already heard.
+              if (sheIsSpeaking() && !liveBargedIn) {
+                liveBargedIn = true;
+                stopSpeakingForBargeIn();
+                logVoice("You spoke, so I stopped. Go on.");
+              }
+              livePending = livePending ? `${livePending} ${transcript}` : transcript;
+              livePendingAt = Date.now();
+              scheduleLiveCommit();
+              return;
             }
 
             if (voiceSessionMode === "wake" && wakeWordEnabled) {
@@ -6796,7 +7043,7 @@
               showError(`This browser's speech recognizer does not support ${systemTag}.`);
             }
           }
-          if (voiceBtn && !voiceEnabled) voiceBtn.textContent = 'VOICE CHAT';
+          if (voiceBtn && !voiceEnabled) voiceBtn.textContent = "LIVE VOICE";
         };
 
         sessionRecognition.onend = () => {
@@ -6804,30 +7051,46 @@
           if (voiceSessionMode === "turn" && voiceEnabled) {
             voiceEnabled = false;
             voiceSessionMode = "off";
-            if (voiceBtn) voiceBtn.textContent = 'VOICE CHAT';
+            if (voiceBtn) voiceBtn.textContent = "LIVE VOICE";
             logVoice('Voice turn ended. Microphone closed.');
             return;
           }
           if (!voiceEnabled) {
-            if (voiceBtn) voiceBtn.textContent = 'VOICE CHAT';
+            if (voiceBtn) voiceBtn.textContent = "LIVE VOICE";
             return;
           }
           const keepWakeListening = voiceSessionMode === "wake" && wakeWordEnabled;
           const keepContinuous = continuous && voiceSessionMode === "continuous";
-          if ((keepWakeListening || keepContinuous) && isSecureContext) {
+          // Live mode never waits for her voice to finish: the microphone is meant to be
+          // open while she talks, so you can interrupt her. Chrome also ends a recognizer
+          // on its own after about a minute, so this reopens it seamlessly.
+          const keepLive = voiceSessionMode === "live";
+          if ((keepLive || keepWakeListening || keepContinuous) && isSecureContext) {
             const restart = () => {
+              liveRestartTimer = null;
               if (recognition !== sessionRecognition || !voiceEnabled) return;
-              if (!keepWakeListening && window.speechSynthesis && window.speechSynthesis.speaking) {
-                setTimeout(restart, 80);
+              if (!keepLive && !keepWakeListening && window.speechSynthesis && window.speechSynthesis.speaking) {
+                liveRestartTimer = setTimeout(restart, 80);
                 return;
               }
-              try { sessionRecognition.start(); }
-              catch (error) { console.warn('Restart recognition failed', error); }
+              try {
+                sessionRecognition.start();
+                liveRestartStorm = 0;
+              } catch (error) {
+                // "already started" or a service hiccup: back off, but never give up while
+                // the session is on, or the microphone would silently close on you.
+                liveRestartStorm += 1;
+                if (liveRestartStorm > 40) {
+                  stopVoiceSession("The microphone kept dropping, so live voice stopped. Press LIVE VOICE to start again.");
+                  return;
+                }
+                liveRestartTimer = setTimeout(restart, Math.min(1200, 60 * liveRestartStorm));
+              }
             };
-            setTimeout(restart, 40);
+            liveRestartTimer = setTimeout(restart, keepLive ? 20 : 40);
           } else {
             if (voiceSessionMode !== "wake") voiceSessionMode = "off";
-            if (voiceBtn) voiceBtn.textContent = 'VOICE CHAT';
+            if (voiceBtn) voiceBtn.textContent = "LIVE VOICE";
           }
         };
 
@@ -6859,11 +7122,17 @@
         return;
       }
       if (voiceEnabled || voiceStartPending) {
-        stopVoiceSession("Voice listening stopped. The microphone is closed.");
+        stopVoiceSession("Live voice stopped. The microphone is closed.");
         return;
       }
       wakeWordEnabled = false;
-      void startVoiceRecognition({ chat: true, continuous: false, mode: "turn" });
+      resetLiveTurn();
+      liveSpoken = [];
+      liveEchoUntil = 0;
+      liveRestartStorm = 0;
+      // Full-duplex: the microphone opens once and stays open through her reply, so the
+      // conversation runs like a phone call instead of one press per sentence.
+      void startVoiceRecognition({ chat: true, continuous: true, mode: "live" });
     }
 
     // A statement typed in the Workspace is handled by the orb like anything else said to
