@@ -11,6 +11,7 @@ Weronika is a voice-and-text assistant. Her conversation UI is served by the web
 - **Things she does herself, at once:** “open Notepad”, “find India Gate on the map”, “set an alarm for 6:30 am”, “tell me the news”, “add a meeting tomorrow at 4 pm to my calendar”. These are understood on the device and are not sent to the brain. See [Instant commands](#instant-commands).
 - **Away replies:** when someone messages you on WhatsApp or Telegram and you have not answered, she asks “Should I reply, or will you?”. Only if you choose her does she write the answer, open the chat and send it. See [Reply watch](#reply-watch-whatsapp--telegram).
 - **Incoming calls:** when your phone rings on a cable, or a WhatsApp call arrives in her signed-in window, she asks “Are you able to handle the call, or should I take it?” — for every call. Hand it over and she answers, tells the caller she is your AI assistant, takes the message and hangs up. See [Calls](#calls-phone-over-cable--whatsapp).
+- **Live voice:** press **LIVE VOICE** once and the microphone stays open through her whole answer. You talk, she talks, you can talk over her — and she does not answer her own voice. See [Live voice](#live-voice-the-microphone-stays-open).
 - **Screen and mini orb:** share your screen and ask “what is this error?”; a small always-on-top orb window keeps her in front of your other windows. See [Screen and mini orb](#screen-and-mini-orb).
 - **A voice and a tone of her own:** after **LAUNCH** she greets you aloud. Her tone with you is set under SETTINGS → Address: romantic (the default), friendly, or professional. It is never used in mails or in replies written for other people.
 - **Local worker for device automation:** opening programs, messaging and reply watch run through `weronika-py` on your own computer because they use your own programs and your signed-in browser session. Without it, the orb stays a cloud-brain chat that can still open links, keep alarms and draft mails, and nothing is read, typed, or sent in your accounts.
@@ -115,6 +116,50 @@ Foobar” nothing is opened unless every name is a known program or site, and a 
 unknown name (“open droid”) is searched on the web in her browser window instead of
 being started as a program. What the user says is never handed to a command line; the
 worker starts programs from fixed names and from the system's own app list.
+
+## Live voice (the microphone stays open)
+
+**LIVE VOICE** is a conversation, not one press per sentence. You press it once, allow the
+microphone once, and then just talk:
+
+1. You speak. Her reply starts the moment you stop — a pause of about 0.6 s is read as
+   “finished”, rather than waiting for the browser's own slower end-of-speech decision.
+2. She answers **out loud while the microphone is still open**. It is never closed between
+   turns, so there is nothing to press again.
+3. She speaks her answer **sentence by sentence as it streams**, so the first words come out
+   before the whole reply exists. That is where the lag goes.
+4. **You can talk over her.** Sustained speech that is not her own voice stops her
+   mid-sentence and takes your turn instead, the way a person would.
+
+**She does not answer herself.** An open microphone hears her own voice coming back through
+the speakers, so every transcript is checked before it becomes a turn:
+
+- The page asks the browser for its own echo cancellation, noise suppression and automatic
+  gain. That helps, and it is not a guarantee — the recognizer captures audio itself.
+- So the real filter is in the page: she remembers the sentence she is speaking, the one
+  before it, and a short tail of recent speech. Anything heard **while she is speaking** that
+  is her own words — verbatim, a fragment, or a long phrase with most words in common — is
+  dropped and logged as “Ignoring my own voice”.
+- The comparison is narrow on purpose. Matching against everything she said in the last few
+  seconds would swallow short things you genuinely say, so a phrase of three words or fewer
+  counts as echo **only if every word of it is hers**. “Yes”, “wait”, “hold on”, “stop” and
+  “tum kaun ho” get through even while she is mid-sentence.
+- Word boundaries are matched, not substrings, so the word “a” cannot match inside “hand”.
+- Interruption needs sustained speech (two or more words, about 180 ms), so one garbled
+  fragment of her own voice cannot make her cut herself off.
+
+Hinglish and Hindi are filtered the same way, in either script.
+
+**Honest limits.** Live voice uses the browser's Web Speech API, so it works in Chrome and
+Edge (recognition needs a network connection there); other browsers vary, and where it is
+missing she says so instead of pretending. Chrome ends a recognition session about once a
+minute; the page reopens it at once, which can leave a gap of a few tens of milliseconds.
+With loud external speakers a fragment of her own voice can still slip past the word-overlap
+filter — headphones make it exact. And **the microphone stays open until you press LIVE VOICE
+again**; that is the point of the mode, and the button reads **LIVE VOICE ON** while it is.
+
+The old one-turn behaviour and the wake-word mode (“Weronika, start listening”) are still in
+the page; **LIVE VOICE** is what the button starts.
 
 ## Screen and mini orb
 
